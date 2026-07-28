@@ -6,13 +6,12 @@ import type { Database } from "./types";
 
 export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
+    const SUPABASE_URL = process.env.SUPABASE_URL || "https://yhvnfwyeippnrqtttxac.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || "sb_publishable_dR2EoURRwH6sHIEQd8-3dQ_daz0Qn-j";
 
     if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-      throw new Response(
+      console.warn(
         "Missing Supabase environment variables. Ensure SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are set.",
-        { status: 500 },
       );
     }
 

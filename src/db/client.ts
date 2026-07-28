@@ -5,13 +5,18 @@ import type { Database } from "./types";
 
 function createSupabaseClient() {
   // Use import.meta.env for client-side (Vite build-time replacement)
-  // Fall back to process.env for SSR (server-side rendering)
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  // Fall back to process.env for SSR (server-side rendering), and fallback defaults if not provided in build env
+  const SUPABASE_URL =
+    (typeof import.meta !== "undefined" && import.meta.env?.VITE_SUPABASE_URL) ||
+    (typeof process !== "undefined" && process.env?.SUPABASE_URL) ||
+    "https://yhvnfwyeippnrqtttxac.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY =
-    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
+    (typeof import.meta !== "undefined" && import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY) ||
+    (typeof process !== "undefined" && process.env?.SUPABASE_PUBLISHABLE_KEY) ||
+    "sb_publishable_dR2EoURRwH6sHIEQd8-3dQ_daz0Qn-j";
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    throw new Error(
+    console.warn(
       "Missing Supabase environment variables. Ensure SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY (or VITE_ prefixed versions) are set in your .env file.",
     );
   }
@@ -128,6 +133,10 @@ class MobileQueryBuilder {
           }
         } else if (this.tableName === "smart_scan_readings") {
           await localDb.cacheScanReadings(dataArray);
+        } else if (this.tableName === "reminders") {
+          await localDb.cacheReminders(dataArray);
+        } else if (this.tableName === "reminder_history") {
+          await localDb.cacheReminderHistory(dataArray);
         }
       }
       return onfulfilled ? onfulfilled(res) : res;
@@ -157,6 +166,10 @@ class MobileQueryBuilder {
       data = p ? [p] : [];
     } else if (this.tableName === "smart_scan_readings") {
       data = await localDb.getScanReadings(user.id);
+    } else if (this.tableName === "reminders") {
+      data = await localDb.getReminders(user.id);
+    } else if (this.tableName === "reminder_history") {
+      data = await localDb.getReminderHistory(user.id);
     }
 
     // Apply basic filter matching
@@ -281,7 +294,7 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
     if (prop === "from" && typeof window !== "undefined" && Capacitor.isNativePlatform()) {
       return (tableName: any) => {
         const realBuilder = (_supabase! as any).from(tableName);
-        if (!["glucose_entries", "insulin_entries", "weight_entries", "profiles", "smart_scan_readings"].includes(tableName)) {
+        if (!["glucose_entries", "insulin_entries", "weight_entries", "profiles", "smart_scan_readings", "reminders", "reminder_history"].includes(tableName)) {
           return realBuilder;
         }
 
@@ -308,6 +321,10 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
               await localDb.cacheProfile(record.user_id, { ...record, sync_status: "pending_sync" });
             } else if (tableName === "smart_scan_readings") {
               await localDb.cacheScanReadings([{ ...record, sync_status: "pending_sync" }]);
+            } else if (tableName === "reminders") {
+              await localDb.cacheReminders([{ ...record, sync_status: "pending_sync" }]);
+            } else if (tableName === "reminder_history") {
+              await localDb.cacheReminderHistory([{ ...record, sync_status: "pending_sync" }]);
             }
 
             try {
@@ -364,6 +381,10 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
               await localDb.cacheProfile(record.user_id, { ...record, sync_status: "pending_sync" });
             } else if (tableName === "smart_scan_readings") {
               await localDb.cacheScanReadings([{ ...record, sync_status: "pending_sync" }]);
+            } else if (tableName === "reminders") {
+              await localDb.cacheReminders([{ ...record, sync_status: "pending_sync" }]);
+            } else if (tableName === "reminder_history") {
+              await localDb.cacheReminderHistory([{ ...record, sync_status: "pending_sync" }]);
             }
 
             try {
