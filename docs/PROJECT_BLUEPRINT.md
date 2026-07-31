@@ -102,18 +102,42 @@ health-companion-main/
 │   │       └── types.ts           # Shared frontend types
 │   │
 │   ├── features/
-│   │   └── scanner/              # Feature-level scanner pipeline
+│   │   ├── scanner/              # Feature-level scanner pipeline
+│   │   │   ├── hooks/
+│   │   │   │   └── useGlucoseScanner.ts  # React hook: wraps OCR/parser pipeline
+│   │   │   ├── meterProfiles/
+│   │   │   │   └── onCallPlus.ts         # Device profile: crop + confidence settings
+│   │   │   ├── ocr/
+│   │   │   │   └── glucoseOCR.ts         # Low-level OCR execution wrapper
+│   │   │   ├── parser/
+│   │   │   │   └── glucoseParser.ts      # Extract glucose value from OCR text
+│   │   │   ├── preprocessing/            # (reserved) Image preprocessing module
+│   │   │   ├── scoring/                  # (reserved) OCR confidence scoring
+│   │   │   └── validation/               # (reserved) Reading range validation
+│   │   │
+│   │   └── insulin-recommendation/ # Deterministic case-based recommendation engine
+│   │       ├── models/
+│   │       │   └── types.ts          # Core type declarations
+│   │       ├── repositories/
+│   │       │   └── treatmentCycleRepository.ts # Database wrapper (caching)
+│   │       ├── engines/
+│   │       │   ├── treatment-cycle-engine/
+│   │       │   │   └── builder.ts    # Auto-detects completed cycles
+│   │       │   ├── outcome-engine/
+│   │       │   │   ├── index.ts      # Outcomes & score calculation
+│   │       │   │   └── config.ts     # Configurable target ranges
+│   │       │   ├── learning-engine/
+│   │       │   │   └── index.ts      # Stats analysis & local caching
+│   │       │   ├── recommendation-engine/
+│   │       │   │   ├── index.ts      # Recommendation pipeline orchestrator
+│   │       │   │   ├── rules.ts      # Clinical rules
+│   │       │   │   └── similarity.ts # Exponential decays search
+│   │       │   └── safety-engine/
+│   │       │       └── index.ts      # Clamping, boundary checks, safety locks
 │   │       ├── hooks/
-│   │       │   └── useGlucoseScanner.ts  # React hook: wraps OCR/parser pipeline
-│   │       ├── meterProfiles/
-│   │       │   └── onCallPlus.ts         # Device profile: crop + confidence settings
-│   │       ├── ocr/
-│   │       │   └── glucoseOCR.ts         # Low-level OCR execution wrapper
-│   │       ├── parser/
-│   │       │   └── glucoseParser.ts      # Extract glucose value from OCR text
-│   │       ├── preprocessing/            # (reserved) Image preprocessing module
-│   │       ├── scoring/                  # (reserved) OCR confidence scoring
-│   │       └── validation/               # (reserved) Reading range validation
+│   │       │   └── useInsulinRecommendation.ts # Data binding & doses detector
+│   │       └── ui/
+│   │           └── recommendation-screen.tsx # Premium user screen
 │   │
 │   ├── providers/
 │   │   └── NotificationProvider.tsx  # Context: notification permission state management
@@ -267,6 +291,7 @@ App (entry-client.tsx)
 [Protected by _authenticated.tsx]
 /dashboard                → Main dashboard, health metrics
 /history                  → Glucose history log
+/ai                       → Insulin Recommendation screen
 /reports                  → Analytics and trends
 /export                   → PDF/Excel data export
 /scanner                  → Smart Health Scanner (OCR)

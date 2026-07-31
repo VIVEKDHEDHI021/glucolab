@@ -3,6 +3,25 @@
 > **Format:** Date | Feature | Files Changed | Result  
 > Newest entries at the top. Never remove historical entries.
 
+## [2026-07-16] Insulin Recommendation Engine (IRE)
+
+**Feature:** Deterministic, Case-Based Insulin Recommendation Engine (IRE)  
+**Files Added/Changed:**
+- `supabase/migrations/20260716152000_create_insulin_treatment_cycles.sql` — Treatment Cycles DB table schema & RLS.
+- `src/db/types.ts` — Added `insulin_treatment_cycles` types for Supabase.
+- `src/db/client.ts` — Added database proxy interceptor for treatment cycles table.
+- `src/services/localDbService.ts` — Offline SQLite tables and operations for treatment cycles.
+- `src/services/syncService.ts` — Offline synchronization for cached treatment cycles.
+- `src/features/insulin-recommendation/` — Complete feature module (Outcome engine, Safety engine, Recommendation engine, Learning engine, Treatment cycle builder, React hooks, UI).
+- `src/routes/_authenticated/ai.tsx` — Mounted the premium Insulin Recommendation screen.
+- `src/frontend/components/app-shell.tsx` — Updated navigation labels and icons.
+- `src/frontend/components/glucose-dialog.tsx` / `insulin-dialog.tsx` — Registered background treatment cycle builders.
+- `src/features/ai-intelligence/` — Deleted legacy AI chat and dashboard files.
+
+**Result:** Completed the Insulin Recommendation Engine. Dosing suggestion calculations are 100% deterministic using historical similarity case-matching and sequential clinical rules. Added automated sequence binding, offline caching and sync, configurable target ranges, a safety boundaries clamped engine, and custom clinical commentary.
+
+---
+
 ## [2026-06-26] Capacitor WebView Invariant Failed / White Screen Fix
 
 **Feature:** Dynamic Hash Routing on Native Mobile  

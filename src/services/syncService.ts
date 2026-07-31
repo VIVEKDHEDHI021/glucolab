@@ -40,7 +40,7 @@ export const syncService = {
 
     try {
       console.log("[SYNC] Querying pending records from SQLite...");
-      const { glucose, insulin, weight, profile, scans } = await localDbService.getPendingSyncRows();
+      const { glucose, insulin, weight, profile, scans, reminders, history } = await localDbService.getPendingSyncRows();
 
       let syncedCount = 0;
 
@@ -171,6 +171,74 @@ export const syncService = {
           }
         }
       }
+
+      // 6. Sync Reminders
+      if (reminders && reminders.length > 0) {
+        console.log(`[SYNC] Syncing ${reminders.length} reminders...`);
+        for (const r of reminders) {
+          const { error } = await supabase.from("reminders").upsert({
+            id: r.id,
+            user_id: r.user_id,
+            category: r.category,
+            title: r.title,
+            description: r.description,
+            is_enabled: r.is_enabled,
+            schedule_type: r.schedule_type,
+            schedule_data: r.schedule_data,
+            reminder_data: r.reminder_data,
+            sound: r.sound,
+            vibrate: r.vibrate,
+            sync_status: "synced",
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+          });
+
+          if (!error) {
+            await localDbService.runQuery(
+              `UPDATE reminders SET sync_status = 'synced' WHERE id = ?`,
+              [r.id]
+            );
+            syncedCount++;
+          } else {
+            console.error(`[SYNC] Failed to sync reminder ID ${r.id}:`, error);
+          }
+        }
+      }
+
+      // 7. Sync Reminder History
+      if (history && history.length > 0) {
+        console.log(`[SYNC] Syncing ${history.length} reminder logs...`);
+        for (const h of history) {
+          const { error } = await supabase.from("reminder_history").insert({
+            id: h.id,
+            user_id: h.user_id,
+            reminder_id: h.reminder_id,
+            category: h.category,
+            title: h.title,
+            description: h.description,
+            scheduled_time: h.scheduled_time,
+            status: h.status,
+            action_taken: h.action_taken,
+            action_time: h.action_time,
+            notes: h.notes,
+            sync_status: "synced",
+            created_at: h.created_at,
+            updated_at: h.updated_at,
+          });
+
+          if (!error) {
+            await localDbService.runQuery(
+              `UPDATE reminder_history SET sync_status = 'synced' WHERE id = ?`,
+              [h.id]
+            );
+            syncedCount++;
+          } else {
+            console.error(`[SYNC] Failed to sync reminder history ID ${h.id}:`, error);
+          }
+        }
+      }
+
+
 
       // Silent sync complete - no toast message shown to user
     } catch (err) {

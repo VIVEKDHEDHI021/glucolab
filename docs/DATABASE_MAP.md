@@ -213,6 +213,30 @@ CREATE TYPE public.reading_type AS ENUM (
 
 ---
 
+### `insulin_treatment_cycles`
+**Migration:** `20260716152000_create_insulin_treatment_cycles.sql`  
+**Purpose:** Closed-loop treatment cycles automatically built from pre-meal glucose, insulin dose, and post-meal glucose entries.
+
+| Column | Type | Nullable | Default | Notes |
+|--------|------|----------|---------|-------|
+| `id` | UUID | NO | — | PK (matches the pre-meal glucose entry ID) |
+| `user_id` | UUID | NO | — | FK → `auth.users.id` (CASCADE DELETE) |
+| `reading_type` | TEXT | NO | — | Fasting, BB, BL, BD, BT |
+| `current_reading` | NUMERIC(6,2) | NO | — | Pre-meal/starting blood glucose |
+| `insulin_units` | NUMERIC(5,2) | NO | — | Units of insulin administered |
+| `meal_id` | TEXT | YES | — | Food description string |
+| `activity_id` | TEXT | YES | — | Exercise/stress notes string |
+| `next_reading` | NUMERIC(6,2) | YES | — | Post-meal/ending blood glucose |
+| `outcome_score` | INTEGER | YES | — | Target scoring result (0-100) |
+| `target_achieved` | BOOLEAN | YES | — | True if ending glucose is in target range |
+| `created_at` | TIMESTAMPTZ | NO | `now()` | |
+| `updated_at` | TIMESTAMPTZ | NO | `now()` | |
+
+**RLS Policies:** SELECT, INSERT, UPDATE, DELETE — own rows only  
+**Indexes:** `idx_insulin_treatment_cycles_lookup` on `(user_id, reading_type)`
+
+---
+
 ## Database Relationships
 
 ```
@@ -225,7 +249,8 @@ auth.users (Supabase managed)
   ├──── push_tokens (1:many)
   ├──── smart_scan_readings (1:many)
   ├──── smart_scan_training_samples (1:many, nullable)
-  └──── smart_scan_feedback (1:many, nullable)
+  ├──── smart_scan_feedback (1:many, nullable)
+  └──── insulin_treatment_cycles (1:many)
 ```
 
 ---
@@ -240,6 +265,7 @@ Mirrors the same tables as Supabase with an additional `sync_status` column:
 - `weight_entries` + `sync_status TEXT DEFAULT 'pending'`
 - `profiles` + `sync_status TEXT DEFAULT 'pending'`
 - `smart_scan_readings` + `sync_status TEXT DEFAULT 'pending'`
+- `insulin_treatment_cycles` + `sync_status TEXT DEFAULT 'pending'`
 
 **Sync Logic:** `syncService.ts` polls `sync_status = 'pending'` rows on network reconnect and upserts to Supabase, then marks as `'synced'`.
 
@@ -255,3 +281,4 @@ Mirrors the same tables as Supabase with an additional `sync_status` column:
 | `trg_insulin_updated` | `insulin_entries` | `update_updated_at_column()` | Auto-update `updated_at` |
 | `trg_weight_updated` | `weight_entries` | `update_updated_at_column()` | Auto-update `updated_at` |
 | `trg_smart_scan_updated` | `smart_scan_readings` | `update_updated_at_column()` | Auto-update `updated_at` |
+| `trg_insulin_treatment_cycles_updated` | `insulin_treatment_cycles` | `update_updated_at_column()` | Auto-update `updated_at` |

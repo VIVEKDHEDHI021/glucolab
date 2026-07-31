@@ -47,6 +47,110 @@ export type Database = {
         };
         Relationships: [];
       };
+
+      reminders: {
+        Row: {
+          id: string;
+          user_id: string;
+          category: string;
+          title: string;
+          description: string | null;
+          is_enabled: boolean;
+          schedule_type: string;
+          schedule_data: any;
+          reminder_data: any;
+          sound: string;
+          vibrate: boolean;
+          sync_status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          category: string;
+          title: string;
+          description?: string | null;
+          is_enabled?: boolean;
+          schedule_type: string;
+          schedule_data: any;
+          reminder_data: any;
+          sound?: string;
+          vibrate?: boolean;
+          sync_status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          category?: string;
+          title?: string;
+          description?: string | null;
+          is_enabled?: boolean;
+          schedule_type?: string;
+          schedule_data?: any;
+          reminder_data?: any;
+          sound?: string;
+          vibrate?: boolean;
+          sync_status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      reminder_history: {
+        Row: {
+          id: string;
+          user_id: string;
+          reminder_id: string | null;
+          category: string;
+          title: string;
+          description: string | null;
+          scheduled_time: string;
+          status: string;
+          action_taken: string | null;
+          action_time: string | null;
+          notes: string | null;
+          sync_status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          reminder_id?: string | null;
+          category: string;
+          title: string;
+          description?: string | null;
+          scheduled_time: string;
+          status: string;
+          action_taken?: string | null;
+          action_time?: string | null;
+          notes?: string | null;
+          sync_status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          reminder_id?: string | null;
+          category?: string;
+          title?: string;
+          description?: string | null;
+          scheduled_time?: string;
+          status?: string;
+          action_taken?: string | null;
+          action_time?: string | null;
+          notes?: string | null;
+          sync_status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+
       insulin_entries: {
         Row: {
           created_at: string;
@@ -56,6 +160,7 @@ export type Database = {
           lunch: number | null;
           morning: number | null;
           night: number | null;
+          afternoon: number | null;
           notes: string | null;
           updated_at: string;
           user_id: string;
@@ -68,6 +173,7 @@ export type Database = {
           lunch?: number | null;
           morning?: number | null;
           night?: number | null;
+          afternoon?: number | null;
           notes?: string | null;
           updated_at?: string;
           user_id: string;
@@ -80,6 +186,7 @@ export type Database = {
           lunch?: number | null;
           morning?: number | null;
           night?: number | null;
+          afternoon?: number | null;
           notes?: string | null;
           updated_at?: string;
           user_id?: string;

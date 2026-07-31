@@ -79,6 +79,17 @@ GlucoLab is a **hybrid web + mobile health tracking application**. It is built a
 - `glucoseOCR.ts`, `glucoseParser.ts`: Pure functional OCR + parse logic
 - **Status:** Active (partially implemented; scoring/validation/preprocessing dirs reserved)
 
+### `src/features/insulin-recommendation/` — Insulin Recommendation Engine (IRE)
+- Fully deterministic history-based recommendation engine (no LLM logic)
+- `engines/treatment-cycle-engine/`: background automatic sequence binder
+- `engines/outcome-engine/`: customizable target range config and outcome score formula (0-100)
+- `engines/learning-engine/`: patient stats accumulator and cache builder
+- `engines/recommendation-engine/`: similarity search matching context (glucose, meal, activity, pre-dose) and sequential clinical rules
+- `engines/safety-engine/`: safety clamping (max +/-3u or 20%) and low/high glucose safety locks
+- `hooks/useInsulinRecommendation.ts`: data binding and dose baseline extraction
+- `ui/recommendation-screen.tsx`: premium, clinical and transparent UI component
+- **Status:** Active
+
 ---
 
 ## Platform Architecture
@@ -97,6 +108,7 @@ GlucoLab is a **hybrid web + mobile health tracking application**. It is built a
 - API routes cannot be called directly from mobile (no local server)
   - OCR calls the remote server endpoint (`/api/analyze-image`) over HTTPS
   - All data persists in SQLite offline, syncs to Supabase when connected
+  - Treatment cycles are synchronized automatically on native mobile via local SQLite proxy cache
 
 ---
 
@@ -131,6 +143,10 @@ GlucoLab is a **hybrid web + mobile health tracking application**. It is built a
 - shadcn components are owned code (not a library dependency)
 - Located in `src/frontend/components/ui/`
 - Never override primitives — compose new components on top
+
+### Decision 6: Deterministic Case-Based Rule Engine
+- **Status:** Active
+- **Reason:** Healthcare safety, auditability, and legal compliance require 100% deterministic dose calculations. LLMs are never used to compute insulin units; instead, we use a similarity-based case matching algorithm and a clinical safety engine with hard limits. AI is isolated to text explanations/commentary.
 
 ---
 

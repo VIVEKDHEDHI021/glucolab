@@ -1,6 +1,6 @@
 # 🧠 MEMORY.md — GlucoLab Project Memory
 
-> **Last Updated:** 2026-06-26  
+> **Last Updated:** 2026-07-16  
 > **Status:** Active Development  
 > **Platform:** Web + Android + iOS (Capacitor)
 
@@ -11,9 +11,9 @@
 | Field            | Value                                |
 |------------------|--------------------------------------|
 | **App Name**     | GlucoLab                             |
-| **Version**      | 1.0.0 (Pre-Release)                  |
+| **Version**      | 2.5.0 (Pre-Release)                  |
 | **App ID**       | com.glucolab.app                     |
-| **Current Branch** | `fix-typescript-errors`            |
+| **Current Branch** | `feature/insulin-recommendation`    |
 | **Build Status** | ✅ Web ✅ Android APK ✅ Android AAB ✅ iOS Sync |
 | **TypeScript**   | ✅ Clean (0 errors)                  |
 
@@ -47,6 +47,9 @@
 - [x] Haptic feedback on navigation
 - [x] Dark/light theme with `ThemeProvider`
 - [x] AI Documentation System (`/docs` folder)
+- [x] Case-based, deterministic Insulin Recommendation Engine (IRE)
+- [x] Offline SQLite & Supabase sync setup for `insulin_treatment_cycles` table
+- [x] Removal of all legacy AI-intelligence files (AIChat, AIDashboard, report generation)
 
 ---
 
@@ -93,6 +96,8 @@ See `KNOWN_ISSUES.md` for full detail.
 2. **Manual type sync**: `src/db/types.ts` is manually maintained (not CLI-generated).
 3. **Supabase proxy**: Uses `any` cast in `client.ts` for dynamic table routing.
 4. **Scanner AI fallback chain**: Google Cloud Vision → Gemini Vision → Tesseract local OCR.
+5. **Insulin Recommendation Engine (IRE)**: Built as a fully deterministic case-based system using weighted similarity scoring of historical treatment cycles (Fasting, BB, BL, BD, BT) and safety bounds, completely independent of LLMs for dose calculations.
+6. **Removed Legacy AI**: Deleted the legacy `src/features/ai-intelligence` module to clear out old unneeded views and clean up the application architecture.
 
 ---
 

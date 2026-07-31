@@ -10,7 +10,6 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle2,
-  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/frontend/components/ui/button";
@@ -45,41 +44,10 @@ export default function SmartScannerView() {
   const [ocrLog, setOcrLog] = useState<string>("Initializing camera feed...");
   const [detectedReading, setDetectedReading] = useState<ParsedReading | null>(null);
   const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
-  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
-  const [geminiApiKey, setGeminiApiKey] = useState<string>(() =>
-    typeof window !== "undefined" ? localStorage.getItem("user_gemini_api_key") || "" : "",
-  );
-  const [visionApiKey, setVisionApiKey] = useState<string>(() =>
-    typeof window !== "undefined" ? localStorage.getItem("user_vision_api_key") || "" : "",
-  );
   const [scannerMode, setScannerMode] = useState<"general" | "on_call_plus">("general");
 
   const { isReady: isGlucoseReady, scanFrame: scanGlucoseFrame } =
     useGlucoseScanner(onCallPlusProfile);
-
-  const handleSaveSettings = () => {
-    let savedAny = false;
-    if (geminiApiKey.trim()) {
-      localStorage.setItem("user_gemini_api_key", geminiApiKey.trim());
-      savedAny = true;
-    } else {
-      localStorage.removeItem("user_gemini_api_key");
-    }
-
-    if (visionApiKey.trim()) {
-      localStorage.setItem("user_vision_api_key", visionApiKey.trim());
-      savedAny = true;
-    } else {
-      localStorage.removeItem("user_vision_api_key");
-    }
-
-    if (savedAny) {
-      toast.success("API key(s) saved locally!");
-    } else {
-      toast.info("API key(s) cleared.");
-    }
-    setSettingsOpen(false);
-  };
 
   // High confidence automatic capture states
   const [consecutiveMatches, setConsecutiveMatches] = useState<number>(0);
@@ -190,11 +158,6 @@ export default function SmartScannerView() {
           }
         } else {
           const ocrResult = await performOcr(tempCanvas);
-          if (ocrResult.geminiResult && ocrResult.geminiResult.error) {
-            setOcrLog(`❌ ${ocrResult.geminiResult.error}`);
-            toast.error(ocrResult.geminiResult.error);
-            return;
-          }
           const matchedReading = detectDeviceAndReadings(ocrResult);
           if (matchedReading) {
             setDetectedReading({
@@ -329,11 +292,6 @@ export default function SmartScannerView() {
           // Invoke OCR with raw color canvas
           const ocrResult = await performOcr(processCanvas);
 
-          if (ocrResult.geminiResult && ocrResult.geminiResult.error) {
-            setOcrLog(`❌ ${ocrResult.geminiResult.error}`);
-            return;
-          }
-
           if (ocrResult.text.trim()) {
             // Parse values
             const matchedReading = detectDeviceAndReadings(ocrResult);
@@ -430,13 +388,6 @@ export default function SmartScannerView() {
       } else {
         const ocrResult = await performOcr(processCanvas);
 
-        if (ocrResult.geminiResult && ocrResult.geminiResult.error) {
-          setOcrLog(`❌ ${ocrResult.geminiResult.error}`);
-          toast.error(ocrResult.geminiResult.error);
-          startCamera();
-          return;
-        }
-
         const matchedReading = detectDeviceAndReadings(ocrResult);
 
         if (matchedReading) {
@@ -512,13 +463,6 @@ export default function SmartScannerView() {
         } else {
           const ocrResult = await performOcr(tempCanvas);
 
-          if (ocrResult.geminiResult && ocrResult.geminiResult.error) {
-            setOcrLog(`❌ ${ocrResult.geminiResult.error}`);
-            toast.error(ocrResult.geminiResult.error);
-            startCamera();
-            return;
-          }
-
           const matchedReading = detectDeviceAndReadings(ocrResult);
 
           if (matchedReading) {
@@ -591,13 +535,6 @@ export default function SmartScannerView() {
           <Sparkles className="h-5 w-5 text-primary fill-primary/20" /> Smart Health Scanner
         </span>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 transition-colors"
-            title="Settings"
-          >
-            <Settings className="h-5 w-5 text-zinc-300" />
-          </button>
           <label className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 transition-colors cursor-pointer">
             <Upload className="h-5 w-5 text-zinc-300" />
             <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
@@ -821,81 +758,6 @@ export default function SmartScannerView() {
         reading={detectedReading}
         onSave={handleSaveConfirmed}
       />
-
-      {/* Scanner Settings Dialog */}
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="sm:max-w-md border-zinc-800 bg-zinc-900 text-white shadow-lg rounded-2xl">
-          <DialogHeader className="space-y-1">
-            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-zinc-100">
-              <Settings className="h-6 w-6 text-primary animate-[spin_10s_linear_infinite]" />{" "}
-              Configure Vision AI
-            </DialogTitle>
-            <DialogDescription className="text-sm text-zinc-400">
-              Provide an API Key to enable 100% accurate device scanning on your mobile phone or
-              browser.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-3">
-            <div className="space-y-2">
-              <Label htmlFor="visionApiKeyInput" className="text-sm font-semibold text-zinc-300">
-                Google Cloud Vision API Key
-              </Label>
-              <Input
-                id="visionApiKeyInput"
-                type="password"
-                placeholder="Paste Cloud Vision API Key (starts with AIzaSy...)"
-                value={visionApiKey}
-                onChange={(e) => setVisionApiKey(e.target.value)}
-                className="bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-primary focus:ring-0"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="apiKeyInput" className="text-sm font-semibold text-zinc-300">
-                Gemini API Key
-              </Label>
-              <Input
-                id="apiKeyInput"
-                type="password"
-                placeholder="Paste Gemini API Key (starts with AIzaSy...)"
-                value={geminiApiKey}
-                onChange={(e) => setGeminiApiKey(e.target.value)}
-                className="bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-primary focus:ring-0"
-              />
-              <p className="text-[10px] text-zinc-500 leading-normal">
-                Your keys are stored securely on your own device and are only used to directly query
-                Google's Vision/Gemini models for text extraction.
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-2 border-t border-zinc-800">
-            <Button
-              onClick={() => {
-                setGeminiApiKey("");
-                setVisionApiKey("");
-                localStorage.removeItem("user_gemini_api_key");
-                localStorage.removeItem("user_vision_api_key");
-                toast.info("API keys cleared.");
-                setSettingsOpen(false);
-              }}
-              variant="ghost"
-              className="text-zinc-400 hover:text-white"
-            >
-              Clear Keys
-            </Button>
-            <div className="flex gap-2">
-              <Button onClick={() => setSettingsOpen(false)} variant="secondary">
-                Cancel
-              </Button>
-              <Button onClick={handleSaveSettings} className="gradient-primary">
-                Save Keys
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

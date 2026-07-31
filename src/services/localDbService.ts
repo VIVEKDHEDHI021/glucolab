@@ -84,6 +84,38 @@ export const localDbService = {
           data TEXT,
           sync_status TEXT DEFAULT 'synced'
         );
+        CREATE TABLE IF NOT EXISTS reminders (
+          id TEXT PRIMARY KEY,
+          user_id TEXT,
+          category TEXT,
+          title TEXT,
+          description TEXT,
+          is_enabled INTEGER DEFAULT 1,
+          schedule_type TEXT,
+          schedule_data TEXT,
+          reminder_data TEXT,
+          sound TEXT,
+          vibrate INTEGER DEFAULT 1,
+          sync_status TEXT DEFAULT 'synced',
+          created_at TEXT,
+          updated_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS reminder_history (
+          id TEXT PRIMARY KEY,
+          user_id TEXT,
+          reminder_id TEXT,
+          category TEXT,
+          title TEXT,
+          description TEXT,
+          scheduled_time TEXT,
+          status TEXT,
+          action_taken TEXT,
+          action_time TEXT,
+          notes TEXT,
+          sync_status TEXT DEFAULT 'synced',
+          created_at TEXT,
+          updated_at TEXT
+        );
       `;
       
       await database.execute(tablesSchema);
@@ -255,6 +287,97 @@ export const localDbService = {
     }));
   },
 
+  // Cache reminders
+  async cacheReminders(entries: any[]) {
+    if (!isMobile || !database) return;
+    try {
+      for (const entry of entries) {
+        await database.run(
+          `INSERT OR REPLACE INTO reminders (id, user_id, category, title, description, is_enabled, schedule_type, schedule_data, reminder_data, sound, vibrate, sync_status, created_at, updated_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            entry.id,
+            entry.user_id,
+            entry.category,
+            entry.title,
+            entry.description || null,
+            entry.is_enabled ? 1 : 0,
+            entry.schedule_type,
+            typeof entry.schedule_data === "string" ? entry.schedule_data : JSON.stringify(entry.schedule_data),
+            typeof entry.reminder_data === "string" ? entry.reminder_data : JSON.stringify(entry.reminder_data),
+            entry.sound || "default",
+            entry.vibrate ? 1 : 0,
+            entry.sync_status || "synced",
+            entry.created_at,
+            entry.updated_at
+          ]
+        );
+      }
+    } catch (err) {
+      console.error("[SQLITE] Error caching reminders:", err);
+    }
+  },
+
+  // Get reminders
+  async getReminders(userId: string) {
+    const rows = await this.selectQuery(
+      `SELECT * FROM reminders WHERE user_id = ? ORDER BY created_at DESC`,
+      [userId]
+    );
+    return rows.map((r: any) => ({
+      ...r,
+      is_enabled: r.is_enabled === 1,
+      vibrate: r.vibrate === 1,
+      schedule_data: typeof r.schedule_data === "string" ? JSON.parse(r.schedule_data) : r.schedule_data,
+      reminder_data: typeof r.reminder_data === "string" ? JSON.parse(r.reminder_data) : r.reminder_data,
+    }));
+  },
+
+  // Cache reminder history
+  async cacheReminderHistory(entries: any[]) {
+    if (!isMobile || !database) return;
+    try {
+      for (const entry of entries) {
+        await database.run(
+          `INSERT OR REPLACE INTO reminder_history (id, user_id, reminder_id, category, title, description, scheduled_time, status, action_taken, action_time, notes, sync_status, created_at, updated_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            entry.id,
+            entry.user_id,
+            entry.reminder_id || null,
+            entry.category,
+            entry.title,
+            entry.description || null,
+            entry.scheduled_time,
+            entry.status,
+            entry.action_taken || null,
+            entry.action_time || null,
+            entry.notes || null,
+            entry.sync_status || "synced",
+            entry.created_at,
+            entry.updated_at
+          ]
+        );
+      }
+    } catch (err) {
+      console.error("[SQLITE] Error caching reminder history:", err);
+    }
+  },
+
+  // Get reminder history
+  async getReminderHistory(userId: string) {
+    const rows = await this.selectQuery(
+      `SELECT * FROM reminder_history WHERE user_id = ? ORDER BY scheduled_time DESC`,
+      [userId]
+    );
+    return rows.map((r: any) => ({
+      ...r,
+      action_taken: r.action_taken || null,
+      action_time: r.action_time || null,
+      notes: r.notes || null,
+    }));
+  },
+
   // Fetch all pending sync rows across all tables
   async getPendingSyncRows() {
     const pendingGlucose = await this.selectQuery(`SELECT * FROM glucose_entries WHERE sync_status = 'pending_sync'`);
@@ -262,6 +385,8 @@ export const localDbService = {
     const pendingWeight = await this.selectQuery(`SELECT * FROM weight_entries WHERE sync_status = 'pending_sync'`);
     const pendingProfile = await this.selectQuery(`SELECT * FROM profiles WHERE sync_status = 'pending_sync'`);
     const pendingScans = await this.selectQuery(`SELECT * FROM smart_scan_readings WHERE sync_status = 'pending_sync'`);
+    const pendingReminders = await this.selectQuery(`SELECT * FROM reminders WHERE sync_status = 'pending_sync'`);
+    const pendingHistory = await this.selectQuery(`SELECT * FROM reminder_history WHERE sync_status = 'pending_sync'`);
 
     return {
       glucose: pendingGlucose,
@@ -272,6 +397,14 @@ export const localDbService = {
         ...r,
         data: typeof r.data === "string" ? JSON.parse(r.data) : r.data,
       })),
+      reminders: pendingReminders.map((r: any) => ({
+        ...r,
+        is_enabled: r.is_enabled === 1,
+        vibrate: r.vibrate === 1,
+        schedule_data: typeof r.schedule_data === "string" ? JSON.parse(r.schedule_data) : r.schedule_data,
+        reminder_data: typeof r.reminder_data === "string" ? JSON.parse(r.reminder_data) : r.reminder_data,
+      })),
+      history: pendingHistory,
     };
   },
 
@@ -285,6 +418,8 @@ export const localDbService = {
         DELETE FROM weight_entries;
         DELETE FROM profiles;
         DELETE FROM smart_scan_readings;
+        DELETE FROM reminders;
+        DELETE FROM reminder_history;
       `);
       console.log("[SQLITE] Local caches cleared.");
     } catch (err) {

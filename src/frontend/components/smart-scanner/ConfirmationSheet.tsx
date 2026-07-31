@@ -22,7 +22,6 @@ import {
 } from "@/frontend/components/ui/select";
 import { READING_TYPES, READING_LABELS } from "@/frontend/lib/types";
 import { ParsedReading, validatePhysiologicalRange } from "./deviceHeuristics";
-import { trainingService } from "@/backend/services/trainingService";
 
 interface Props {
   open: boolean;
@@ -194,64 +193,6 @@ export function ConfirmationSheet({ open, onOpenChange, reading, onSave }: Props
       // Inject captured date and time overrides
       (finalPayload as any).reading_date = readingDate;
       (finalPayload as any).reading_time = readingTime;
-
-      // Check for OCR corrections and log feedback
-      try {
-        const d = reading.data;
-        let corrected = false;
-        let predictionStr = "";
-        let correctedStr = "";
-
-        if (deviceType === "Blood Glucose Meter" && d.glucose !== undefined) {
-          if (Number(glucose) !== Number(d.glucose)) {
-            corrected = true;
-            predictionStr = `glucose: ${d.glucose}`;
-            correctedStr = `glucose: ${glucose}`;
-          }
-        } else if (deviceType === "Blood Pressure Monitor") {
-          const sysCorr = d.systolic !== undefined && Number(systolic) !== Number(d.systolic);
-          const diaCorr = d.diastolic !== undefined && Number(diastolic) !== Number(d.diastolic);
-          const pulseCorr = d.pulse !== undefined && bpPulse && Number(bpPulse) !== Number(d.pulse);
-          if (sysCorr || diaCorr || pulseCorr) {
-            corrected = true;
-            predictionStr = `SYS:${d.systolic || ""}, DIA:${d.diastolic || ""}, Pulse:${d.pulse || ""}`;
-            correctedStr = `SYS:${systolic}, DIA:${diastolic}, Pulse:${bpPulse || ""}`;
-          }
-        } else if (deviceType === "Pulse Oximeter") {
-          const spo2Corr = d.spo2 !== undefined && Number(spo2) !== Number(d.spo2);
-          const pulseCorr = d.pulse !== undefined && oxPulse && Number(oxPulse) !== Number(d.pulse);
-          if (spo2Corr || pulseCorr) {
-            corrected = true;
-            predictionStr = `SpO2:${d.spo2 || ""}, Pulse:${d.pulse || ""}`;
-            correctedStr = `SpO2:${spo2}, Pulse:${oxPulse || ""}`;
-          }
-        } else if (deviceType === "Thermometer" && d.temperature !== undefined) {
-          if (Number(temperature) !== Number(d.temperature)) {
-            corrected = true;
-            predictionStr = `temp: ${d.temperature}`;
-            correctedStr = `temp: ${temperature}`;
-          }
-        } else if (deviceType === "Weight Scale" && d.weight !== undefined) {
-          if (Number(weight) !== Number(d.weight)) {
-            corrected = true;
-            predictionStr = `weight: ${d.weight}`;
-            correctedStr = `weight: ${weight}`;
-          }
-        }
-
-        if (corrected) {
-          trainingService.saveFeedback({
-            device_type: deviceType,
-            ocr_prediction: predictionStr,
-            corrected_value: correctedStr,
-          });
-          console.log(
-            `[Feedback Logged] Corrected ${deviceType} from ${predictionStr} to ${correctedStr}`,
-          );
-        }
-      } catch (err) {
-        console.error("Error logging correction feedback:", err);
-      }
 
       await onSave(finalPayload);
       onOpenChange(false);

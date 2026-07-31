@@ -4,6 +4,7 @@ import { AuthProvider } from "@/frontend/lib/auth-context";
 import { ThemeProvider } from "@/frontend/lib/theme";
 import { NotificationProvider } from "@/providers/NotificationProvider";
 import { HealthDataProvider } from "@/frontend/providers/data-context";
+import { ReminderProvider } from "@/features/notifications/providers/ReminderProvider";
 import appCss from "../styles.css?url";
 import { useEffect, useState, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
@@ -52,6 +53,7 @@ export const Route = createRootRoute({
       { name: "twitter:card", content: "summary" },
     ],
     links: [
+      { rel: "icon", type: "image/png", href: "/icon/icon.png" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.json" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -241,8 +243,10 @@ function RootComponent() {
         <AuthProvider>
           <HealthDataProvider>
             <NotificationProvider>
-              <Outlet />
-              <Toaster richColors position="top-center" />
+              <ReminderProvider>
+                <Outlet />
+                <Toaster richColors position="top-center" />
+              </ReminderProvider>
             </NotificationProvider>
           </HealthDataProvider>
         </AuthProvider>

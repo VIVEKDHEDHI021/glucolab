@@ -13,6 +13,7 @@ import {
   User,
   HelpCircle,
   Info,
+  Clock,
 } from "lucide-react";
 import { useState, type ReactNode, useEffect } from "react";
 import { useAuth } from "@/frontend/lib/auth-context";
@@ -41,6 +42,7 @@ import {
 const NAV = [
   { to: "/dashboard" as const, icon: Home, label: "Dashboard" },
   { to: "/history" as const, icon: History, label: "History" },
+  { to: "/reminders" as const, icon: Clock, label: "Reminders" },
   { to: "/reports" as const, icon: BarChart3, label: "Reports" },
   { to: "/export" as const, icon: FileDown, label: "Export" },
 ];
@@ -381,7 +383,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         !showBottomNav && "translate-y-full",
         isMobile && "pb-safe"
       )}>
-        <div className="grid grid-cols-4">
+        <div className="grid grid-cols-5">
           {mobileNavItems.map((n) => {
             const active = path === n.to;
             const Icon = n.icon;

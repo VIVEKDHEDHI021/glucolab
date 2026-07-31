@@ -314,3 +314,27 @@ User visits /login
 
 **Future Files:**
 - `src/routes/_authenticated/settings.tsx`
+
+---
+
+## Feature 16: Insulin Recommendation Engine (IRE)
+
+| Field | Value |
+|-------|-------|
+| **Status** | ✅ Complete |
+| **Purpose** | Deterministic case-based recommendation engine for suggested insulin doses |
+
+**Files:**
+- `src/routes/_authenticated/ai.tsx` — Mounted view route
+- `src/features/insulin-recommendation/models/types.ts` — Type contracts
+- `src/features/insulin-recommendation/repositories/treatmentCycleRepository.ts` — Data operations wrapper
+- `src/features/insulin-recommendation/engines/treatment-cycle-engine/builder.ts` — Completed cycle aggregator
+- `src/features/insulin-recommendation/engines/outcome-engine/` — Customizable targets config and outcome scoring
+- `src/features/insulin-recommendation/engines/learning-engine/` — Statistics compiler and local caching
+- `src/features/insulin-recommendation/engines/recommendation-engine/` — Dosing calculator matching similar history via decays and sequential rules
+- `src/features/insulin-recommendation/engines/safety-engine/` — Critical boundaries clamping and safety locks
+- `src/features/insulin-recommendation/hooks/useInsulinRecommendation.ts` — State hook binding UI and business logic
+- `src/features/insulin-recommendation/ui/recommendation-screen.tsx` — Premium UI layout
+
+**Dependencies:** Supabase `insulin_treatment_cycles` table, SQLite table caching (mobile-ready)
+**Future Improvements:** Clinician portal synchronization to sync recommended presets directly to patients' phones

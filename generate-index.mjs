@@ -47,6 +47,7 @@ const html = `<!DOCTYPE html>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#2563eb" />
+    <link rel="icon" type="image/png" href="/icon/icon.png" />
     <title>GlucoLab</title>
     ${cssFile ? `<link rel="stylesheet" href="/${cssFile}" />` : ""}
     <script src="capacitor.js"></script>

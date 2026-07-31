@@ -284,7 +284,7 @@ function DashboardPage() {
               <LineChart
                 data={chartData}
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                onClick={(state) => {
+                onClick={(state: any) => {
                   if (state && state.activePayload && state.activePayload.length) {
                     const clickedData = state.activePayload[0].payload;
                     if (clickedData && typeof clickedData.glucose === "number") {
@@ -323,7 +323,7 @@ function DashboardPage() {
                   dot={
                     <CustomDot
                       selectedPoint={selectedPoint}
-                      onClick={(payload) => {
+                      onClick={(payload: any) => {
                         setSelectedPoint(payload);
                         setIsFullscreen(true);
                       }}
@@ -491,7 +491,7 @@ function DashboardPage() {
                 <LineChart
                   data={chartData}
                   margin={{ top: 10, right: 15, left: -20, bottom: 5 }}
-                  onClick={(state) => {
+                  onClick={(state: any) => {
                     if (state && state.activePayload && state.activePayload.length) {
                       const clickedData = state.activePayload[0].payload;
                       if (clickedData && typeof clickedData.glucose === "number") {
@@ -529,7 +529,7 @@ function DashboardPage() {
                     dot={
                       <CustomDot
                         selectedPoint={selectedPoint}
-                        onClick={(payload) => {
+                        onClick={(payload: any) => {
                           setSelectedPoint(payload);
                         }}
                       />

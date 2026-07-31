@@ -98,18 +98,7 @@ export const scannerService = {
     }
   },
 
-  // Stubs to prevent compilation breaks in legacy imports
-  saveToLocalStorage(payload: ScanReadingPayload) {
-    // Disabled
-  },
 
-  getPendingScans(): (ScanReadingPayload & { id: string; sync_status: string })[] {
-    return [];
-  },
-
-  async syncPendingScans() {
-    return { success: true, count: 0 };
-  },
 
   // Fetch user's scan history
   async getScanHistory() {
