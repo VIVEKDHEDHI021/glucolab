@@ -103,6 +103,16 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
       return;
     }
     refreshData(false);
+
+    const handleUpdate = () => {
+      console.log("[HEALTH_DATA_CONTEXT] Realtime health data update event received, refreshing...");
+      refreshData(true);
+    };
+
+    window.addEventListener("health-data-updated", handleUpdate);
+    return () => {
+      window.removeEventListener("health-data-updated", handleUpdate);
+    };
   }, [user]);
 
   const isMobile = Capacitor.isNativePlatform();

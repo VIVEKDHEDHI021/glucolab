@@ -8,7 +8,7 @@ import { supabase } from "@/db/client";
 import { healthService } from "@/backend/services/healthService";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { messagingService } from "@/frontend/lib/messaging";
-import { showLocalNotification, triggerPushNotification } from "../../services/notificationService";
+import { notifyGlucoseAdded } from "../../services/notificationService";
 import {
   READING_TYPES,
   READING_LABELS,
@@ -117,18 +117,9 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
           console.error("[GLUCOSE_DIALOG] Error fetching profile for alert:", err);
         }
 
-        // Show real browser desktop notification
-        showLocalNotification(
-          "New Glucose Reading",
-          `Logged glucose: ${data.glucose} mg/dL (${data.reading_type})`,
-        );
-
-        // Trigger background push notification to all user's registered devices
-        triggerPushNotification(
-          user.id,
-          "New Glucose Reading",
-          `Glucose: ${data.glucose} mg/dL (${data.reading_type}) was logged.`,
-        );
+        // Dispatch action notification to all devices logged into the account
+        const typeLabel = READING_LABELS[data.reading_type] || data.reading_type;
+        notifyGlucoseAdded(user.id, data.glucose, typeLabel);
       }
 
       toast.success(entry ? "Reading updated" : "Reading saved");

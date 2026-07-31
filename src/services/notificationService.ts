@@ -133,3 +133,54 @@ export async function triggerPushNotification(userId: string, title: string, bod
     console.error("Error triggering background push notification:", err);
   }
 }
+
+/**
+ * Dispatch action-specific notification to both local browser and all user devices via FCM push
+ */
+export async function notifyReadingAction(userId: string, title: string, body: string) {
+  showLocalNotification(title, body);
+  await triggerPushNotification(userId, title, body);
+}
+
+export async function notifyGlucoseAdded(userId: string, glucose: number, typeLabel: string) {
+  const title = "🩸 New Blood Glucose Reading Added";
+  const body = `Glucose level of ${glucose} mg/dL (${typeLabel}) was recorded.`;
+  await notifyReadingAction(userId, title, body);
+}
+
+export async function notifyInsulinAdded(userId: string, scheduleStr: string, totalUnits: number, entryDate: string) {
+  const title = "💉 New Insulin Dosage Logged";
+  const body = `Insulin schedule (${scheduleStr} - total ${totalUnits} units) recorded for ${entryDate}.`;
+  await notifyReadingAction(userId, title, body);
+}
+
+export async function notifyWeightAdded(userId: string, weightKg: number, entryDate: string) {
+  const title = "⚖️ New Weight Reading Logged";
+  const body = `Weight entry of ${weightKg} kg was recorded for ${entryDate}.`;
+  await notifyReadingAction(userId, title, body);
+}
+
+export async function notifyScanReadingAdded(userId: string, deviceType: string, data: any) {
+  let title = `📷 New ${deviceType} Scan Saved`;
+  let body = `A new ${deviceType} reading was scanned and saved.`;
+
+  if (deviceType === "Blood Glucose Meter" && data.glucose !== undefined) {
+    title = "🩸 Scanned Glucose Reading Saved";
+    body = `Smart Scan Glucose: ${data.glucose} ${data.unit || "mg/dL"} (${data.glucose_reading_type || "Fasting"}).`;
+  } else if (deviceType === "Blood Pressure Monitor" && data.systolic !== undefined) {
+    title = "🫀 Scanned Blood Pressure Reading Saved";
+    body = `Smart Scan BP: ${data.systolic}/${data.diastolic} mmHg${data.pulse ? ` (Pulse: ${data.pulse} bpm)` : ""}.`;
+  } else if (deviceType === "Pulse Oximeter" && data.spo2 !== undefined) {
+    title = "🫁 Scanned SpO₂ Reading Saved";
+    body = `Smart Scan SpO₂: ${data.spo2}%${data.pulse ? ` (Pulse: ${data.pulse} bpm)` : ""}.`;
+  } else if (deviceType === "Thermometer" && data.temperature !== undefined) {
+    title = "🌡️ Scanned Temperature Reading Saved";
+    body = `Smart Scan Temperature: ${data.temperature} ${data.unit || "°C"}.`;
+  } else if (deviceType === "Weight Scale" && data.weight !== undefined) {
+    title = "⚖️ Scanned Weight Reading Saved";
+    body = `Smart Scan Weight: ${data.weight} ${data.unit || "kg"}.`;
+  }
+
+  await notifyReadingAction(userId, title, body);
+}
+

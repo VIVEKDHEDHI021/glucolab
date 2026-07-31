@@ -1,4 +1,5 @@
 import { supabase } from "@/db/client";
+import { notifyScanReadingAdded } from "@/services/notificationService";
 
 export interface ScanReadingData {
   glucose?: number;
@@ -90,6 +91,11 @@ export const scannerService = {
           console.error("Failed to mirror scan to weight_entries:", weightInsert.error);
         }
       }
+
+      // 4. Dispatch action notification to all user devices
+      notifyScanReadingAdded(user.id, payload.device_type, payload.data).catch((e) =>
+        console.error("Failed to send scan notification:", e),
+      );
 
       return { data: scanInsert.data, error: null };
     } catch (err: any) {

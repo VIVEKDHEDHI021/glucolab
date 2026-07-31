@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/db/client";
 import { useAuth } from "@/frontend/lib/auth-context";
-import { showLocalNotification, triggerPushNotification } from "../../services/notificationService";
+import { notifyInsulinAdded } from "../../services/notificationService";
 import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
 import { Label } from "@/frontend/components/ui/label";
@@ -122,18 +122,8 @@ export function InsulinDialog({
         ? `${data.morning}-${data.lunch}-${data.afternoon || 0}-${data.evening}-${data.night}`
         : `${data.morning}-${data.lunch}-${data.evening}-${data.night}`;
 
-      // Show real browser desktop notification
-      showLocalNotification(
-        "Insulin Schedule Logged",
-        `Logged insulin: ${displayFormat} units for ${data.entry_date}.`,
-      );
-
-      // Trigger background push notification to all user's registered devices
-      triggerPushNotification(
-        user.id,
-        "Insulin Schedule Logged",
-        `Insulin schedule of ${displayFormat} units was logged for ${data.entry_date}.`,
-      );
+      // Dispatch action notification to all devices logged into the account
+      notifyInsulinAdded(user.id, displayFormat, total, data.entry_date);
 
       onOpenChange(false);
       onSaved?.();
