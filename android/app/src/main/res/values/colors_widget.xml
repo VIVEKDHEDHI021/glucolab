@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget Color Palette (Light Theme) -->
+    <color name="widget_bg">#FFFFFF</color>
+    <color name="widget_bg_stroke">#E2E8F0</color>
+    <color name="widget_text_primary">#0F172A</color>
+    <color name="widget_text_secondary">#64748B</color>
+    <color name="widget_accent">#0284C7</color>
+    <color name="widget_card_bg">#F8FAFC</color>
+    <color name="widget_button_bg">#0284C7</color>
+    <color name="widget_button_text">#FFFFFF</color>
+    <color name="widget_divider">#E2E8F0</color>
+
+    <!-- Glucose Status Colors -->
+    <color name="glucose_low">#0284C7</color>
+    <color name="glucose_normal">#16A34A</color>
+    <color name="glucose_high">#EA580C</color>
+    <color name="glucose_very_high">#DC2626</color>
+</resources>
