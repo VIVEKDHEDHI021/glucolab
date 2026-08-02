@@ -72,12 +72,35 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         (payload) => {
           const rec = payload.new as any;
           const typeLabel = READING_LABELS[rec.reading_type as ReadingType] || rec.reading_type;
-          const title = "🩸 New Blood Glucose Reading";
-          const body = `Glucose level of ${rec.glucose} mg/dL (${typeLabel}) was logged on your account.`;
+          const glucose = Number(rec.glucose) || 0;
 
-          toast.info(title, { description: body });
+          let lowTarget = 70;
+          let highTarget = 180;
+          try {
+            const savedTargets = localStorage.getItem(`glucolab_targets_${user.id}`);
+            if (savedTargets) {
+              const parsed = JSON.parse(savedTargets);
+              if (parsed.lowTarget) lowTarget = Number(parsed.lowTarget) || 70;
+              if (parsed.highTarget) highTarget = Number(parsed.highTarget) || 180;
+            }
+          } catch (e) {}
+
+          let title = `🩸 New Glucose Reading: ${glucose} mg/dL`;
+          let body = `Glucose level of ${glucose} mg/dL (${typeLabel}) was logged on your account.`;
+
+          if (glucose > 0 && glucose < lowTarget) {
+            title = `🚨 CRITICAL LOW SUGAR WARNING: ${glucose} mg/dL`;
+            body = `URGENT: Blood sugar reading of ${glucose} mg/dL (${typeLabel}) is LOW (< ${lowTarget} mg/dL). Please consume 15g of fast-acting sugar immediately!`;
+            toast.error(title, { description: body, duration: 15000 });
+          } else if (glucose > highTarget) {
+            title = `⚠️ HIGH SUGAR ALERT: ${glucose} mg/dL`;
+            body = `WARNING: Blood sugar reading of ${glucose} mg/dL (${typeLabel}) exceeds target (${highTarget} mg/dL). Consider checking your insulin or drinking water.`;
+            toast.warning(title, { description: body, duration: 15000 });
+          } else {
+            toast.info(title, { description: body });
+          }
+
           showLocalNotification(title, body);
-
           window.dispatchEvent(new Event("health-data-updated"));
         },
       )

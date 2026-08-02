@@ -120,9 +120,22 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
         // Dispatch action notification to all devices logged into the account
         const typeLabel = READING_LABELS[data.reading_type] || data.reading_type;
         notifyGlucoseAdded(user.id, data.glucose, typeLabel);
+        if (data.glucose < 70) {
+          toast.error(`🚨 LOW SUGAR WARNING: ${data.glucose} mg/dL`, {
+            description: "Reading is LOW! Please consume 15g of fast-acting sugar immediately.",
+            duration: 15000,
+          });
+        } else if (data.glucose > 180) {
+          toast.warning(`⚠️ HIGH SUGAR ALERT: ${data.glucose} mg/dL`, {
+            description: "Reading exceeds target range (180 mg/dL). Consider checking insulin or drinking water.",
+            duration: 15000,
+          });
+        } else {
+          toast.success(entry ? "Reading updated" : "Reading saved");
+        }
+      } else {
+        toast.success("Reading updated");
       }
-
-      toast.success(entry ? "Reading updated" : "Reading saved");
       onOpenChange(false);
       onSaved?.();
     } catch (e) {

@@ -240,8 +240,33 @@ export async function notifyReadingAction(userId: string, title: string, body: s
 }
 
 export async function notifyGlucoseAdded(userId: string, glucose: number, typeLabel: string) {
-  const title = "🩸 New Blood Glucose Reading Added";
-  const body = `Glucose level of ${glucose} mg/dL (${typeLabel}) was recorded.`;
+  let lowTarget = 70;
+  let highTarget = 180;
+
+  if (typeof window !== "undefined") {
+    try {
+      const savedTargets = localStorage.getItem(`glucolab_targets_${userId}`);
+      if (savedTargets) {
+        const parsed = JSON.parse(savedTargets);
+        if (parsed.lowTarget) lowTarget = Number(parsed.lowTarget) || 70;
+        if (parsed.highTarget) highTarget = Number(parsed.highTarget) || 180;
+      }
+    } catch (e) {
+      console.warn("Could not parse saved target levels:", e);
+    }
+  }
+
+  let title = `🩸 Glucose Reading: ${glucose} mg/dL`;
+  let body = `Blood sugar level of ${glucose} mg/dL (${typeLabel}) was recorded.`;
+
+  if (glucose < lowTarget) {
+    title = `🚨 CRITICAL LOW SUGAR WARNING: ${glucose} mg/dL`;
+    body = `URGENT: Blood sugar level of ${glucose} mg/dL (${typeLabel}) is dangerously LOW (< ${lowTarget} mg/dL). Please consume 15g of fast-acting sugar immediately!`;
+  } else if (glucose > highTarget) {
+    title = `⚠️ HIGH SUGAR ALERT: ${glucose} mg/dL`;
+    body = `WARNING: Blood sugar level of ${glucose} mg/dL (${typeLabel}) exceeds high target (${highTarget} mg/dL). Consider checking your insulin dose or drinking water.`;
+  }
+
   await notifyReadingAction(userId, title, body);
 }
 

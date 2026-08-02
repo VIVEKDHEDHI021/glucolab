@@ -32,10 +32,29 @@ export function useNotifications() {
         async (payload) => {
           const newEntry = payload.new;
           console.log("[NOTIFICATIONS] New entry detected:", newEntry);
+          const glucose = Number(newEntry.glucose) || 0;
 
-          // Prepare notification content
-          const title = "New Glucose Reading";
-          const body = `${newEntry.glucose} mg/dL logged just now.`;
+          let lowTarget = 70;
+          let highTarget = 180;
+          try {
+            const savedTargets = localStorage.getItem(`glucolab_targets_${user.id}`);
+            if (savedTargets) {
+              const parsed = JSON.parse(savedTargets);
+              if (parsed.lowTarget) lowTarget = Number(parsed.lowTarget) || 70;
+              if (parsed.highTarget) highTarget = Number(parsed.highTarget) || 180;
+            }
+          } catch (e) {}
+
+          let title = `🩸 New Glucose Reading: ${glucose} mg/dL`;
+          let body = `${glucose} mg/dL logged just now.`;
+
+          if (glucose > 0 && glucose < lowTarget) {
+            title = `🚨 CRITICAL LOW SUGAR WARNING: ${glucose} mg/dL`;
+            body = `URGENT: Glucose reading of ${glucose} mg/dL is LOW (< ${lowTarget} mg/dL). Consume 15g fast-acting sugar immediately!`;
+          } else if (glucose > highTarget) {
+            title = `⚠️ HIGH SUGAR ALERT: ${glucose} mg/dL`;
+            body = `WARNING: Glucose reading of ${glucose} mg/dL exceeds high target (${highTarget} mg/dL). Check your insulin or hydrate.`;
+          }
 
           // 3. Show notification
           if (Capacitor.isNativePlatform()) {

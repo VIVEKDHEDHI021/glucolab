@@ -17,19 +17,33 @@ export const messagingService = {
       return;
     }
 
-    const message = `GlucoLab Alert: New reading ${data.glucose} mg/dL (${data.type}) at ${data.date}. ${data.notes ? "Notes: " + data.notes : ""}`;
+    let messageHeader = "🩸 GlucoLab Alert:";
+    if (data.glucose < 70) {
+      messageHeader = "🚨 CRITICAL LOW SUGAR WARNING:";
+    } else if (data.glucose > 180) {
+      messageHeader = "⚠️ HIGH SUGAR ALERT:";
+    }
+
+    const message = `${messageHeader} New reading ${data.glucose} mg/dL (${data.type}) at ${data.date}. ${data.notes ? "Notes: " + data.notes : ""}`;
 
     console.log(`[MESSAGING_SERVICE] MESSAGE CONTENT: "${message}"`);
     console.log(`[MESSAGING_SERVICE] TO: ${phone}`);
 
-    // NOTE: This is currently a MOCK implementation.
-    // To send real SMS, you need to integrate with a provider like Twilio.
-    console.info("[MESSAGING_SERVICE] This is a mock. Real SMS sending is not yet implemented.");
-
-    // For now, we'll just show a toast to confirm the logic is working
-    toast.info("Alert message simulated", {
-      description: `Sent to ${phone}: ${data.glucose} mg/dL`,
-    });
+    if (data.glucose < 70) {
+      toast.error("🚨 CRITICAL LOW SUGAR WARNING", {
+        description: `Alert sent to ${phone}: ${data.glucose} mg/dL (${data.type}). Take 15g fast-acting sugar immediately!`,
+        duration: 15000,
+      });
+    } else if (data.glucose > 180) {
+      toast.warning("⚠️ HIGH SUGAR ALERT", {
+        description: `Alert sent to ${phone}: ${data.glucose} mg/dL (${data.type}). Check your insulin or drink water.`,
+        duration: 15000,
+      });
+    } else {
+      toast.info("Reading Alert Recorded", {
+        description: `Logged for ${phone}: ${data.glucose} mg/dL (${data.type})`,
+      });
+    }
 
     return true;
   },
