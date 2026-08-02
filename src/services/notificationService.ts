@@ -1,15 +1,91 @@
 import { getToken } from "firebase/messaging";
 import { messaging, vapidKey } from "../lib/firebase";
+import { Capacitor } from "@capacitor/core";
+import { PushNotifications } from "@capacitor/push-notifications";
+import { LocalNotifications } from "@capacitor/local-notifications";
 
 export async function requestNotificationPermission(): Promise<string | null> {
   console.log("Notification service started");
 
-  // 1. Verify Browser Support
   if (typeof window === "undefined") {
     console.warn("[Notification Service] Running on server-side, skipping registration");
     return null;
   }
 
+  // 1. Native Capacitor Platform Handling (Android / iOS)
+  if (Capacitor.isNativePlatform()) {
+    try {
+      console.log("[Notification Service] Initializing Native Mobile Notifications...");
+
+      if (Capacitor.getPlatform() === "android") {
+        await LocalNotifications.createChannel({
+          id: "default",
+          name: "Default Notifications",
+          description: "Health alerts and reminders",
+          importance: 4,
+          visibility: 1,
+          vibration: true,
+        }).catch((e) => console.warn("[Native Channel] Failed to create default channel:", e));
+      }
+
+      await LocalNotifications.requestPermissions();
+      const pushPerm = await PushNotifications.requestPermissions();
+
+      if (pushPerm.receive !== "granted") {
+        console.warn("[Notification Service] Push notification permission denied on native device.");
+        return null;
+      }
+
+      return new Promise<string | null>((resolve) => {
+        let resolved = false;
+
+        PushNotifications.addListener("registration", (token) => {
+          console.log("[Native Push] Token registered successfully:", token.value);
+          if (!resolved) {
+            resolved = true;
+            resolve(token.value);
+          }
+        });
+
+        PushNotifications.addListener("registrationError", (err) => {
+          console.error("[Native Push] Registration error:", err);
+          if (!resolved) {
+            resolved = true;
+            resolve(null);
+          }
+        });
+
+        PushNotifications.addListener("pushNotificationReceived", (notification) => {
+          console.log("[Native Push Received]:", notification);
+          showLocalNotification(
+            notification.title || "Health Alert",
+            notification.body || "",
+          );
+        });
+
+        PushNotifications.register().catch((e) => {
+          console.error("[Native Push] PushNotifications.register failed:", e);
+          if (!resolved) {
+            resolved = true;
+            resolve(null);
+          }
+        });
+
+        setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            console.warn("[Native Push] Token registration timed out.");
+            resolve(null);
+          }
+        }, 10000);
+      });
+    } catch (err) {
+      console.error("[Notification Service] Native setup error:", err);
+      return null;
+    }
+  }
+
+  // 2. Web Browser Handling
   if (!("Notification" in window)) {
     console.error("[Notification Service] This browser does not support desktop notifications.");
     return null;
@@ -37,8 +113,7 @@ export async function requestNotificationPermission(): Promise<string | null> {
   }
 
   try {
-    // 2. Request Permission
-    console.log("[Notification Service] Requesting notification permission...");
+    console.log("[Notification Service] Requesting web notification permission...");
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
       console.warn(`[Notification Service] Notification permission denied/ignored: ${permission}`);
@@ -46,14 +121,12 @@ export async function requestNotificationPermission(): Promise<string | null> {
     }
     console.log("Permission granted");
 
-    // 3. Register Service Worker
     console.log("[Notification Service] Registering Service Worker...");
     const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
       scope: "/",
     });
     console.log("[Notification Service] Service Worker registered successfully:", registration);
 
-    // 4. Retrieve FCM Token
     if (!messaging) {
       console.error("[Notification Service] Firebase messaging client is not initialized.");
       return null;
@@ -78,8 +151,32 @@ export async function requestNotificationPermission(): Promise<string | null> {
   }
 }
 
-export function showLocalNotification(title: string, body: string) {
-  if (typeof window === "undefined" || !("Notification" in window)) return;
+export async function showLocalNotification(title: string, body: string) {
+  if (typeof window === "undefined") return;
+
+  // 1. Native Capacitor Platform
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            title,
+            body,
+            id: Math.floor(Math.random() * 100000) + 1,
+            schedule: { at: new Date(Date.now() + 100) },
+            channelId: "default",
+          },
+        ],
+      });
+      console.log("[LocalNotifications] Scheduled native notification:", title);
+    } catch (e) {
+      console.error("[LocalNotifications] Failed to schedule native notification:", e);
+    }
+    return;
+  }
+
+  // 2. Web Browser Fallback
+  if (!("Notification" in window)) return;
 
   if (Notification.permission === "granted") {
     if ("serviceWorker" in navigator) {

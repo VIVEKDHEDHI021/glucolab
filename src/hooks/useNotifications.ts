@@ -1,10 +1,17 @@
 import { useState, useCallback } from "react";
 import { requestNotificationPermission } from "@/services/notificationService";
+import { Capacitor } from "@capacitor/core";
 
 export function useNotifications() {
   const [token, setToken] = useState<string | null>(null);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
+    if (typeof window === "undefined") {
+      return "unsupported";
+    }
+    if (Capacitor.isNativePlatform()) {
+      return "granted";
+    }
+    if (!("Notification" in window)) {
       return "unsupported";
     }
     return Notification.permission;
@@ -13,7 +20,7 @@ export function useNotifications() {
 
   const initNotifications = useCallback(async () => {
     if (typeof window === "undefined") return null;
-    if (!("Notification" in window)) {
+    if (!Capacitor.isNativePlatform() && !("Notification" in window)) {
       setPermission("unsupported");
       return null;
     }
@@ -22,7 +29,11 @@ export function useNotifications() {
     try {
       const fcmToken = await requestNotificationPermission();
       setToken(fcmToken);
-      setPermission(Notification.permission);
+      if (!Capacitor.isNativePlatform() && "Notification" in window) {
+        setPermission(Notification.permission);
+      } else {
+        setPermission("granted");
+      }
       return fcmToken;
     } catch (error) {
       console.error("[useNotifications] Error initializing notifications:", error);

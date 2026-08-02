@@ -115,6 +115,50 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
+  // Sync Android Native Home Screen Widgets whenever health entries update or on load
+  useEffect(() => {
+    if (!user || !initialized) return;
+
+    // 1. Refresh Native Widgets with latest data
+    import("@/services/widgetService").then(({ widgetService }) => {
+      widgetService.updateWidgets(glucose, insulin);
+
+      // 2. Process any pending Quick Insulin logs recorded from home screen widget
+      widgetService.checkAndSyncPendingQuickInsulin(async (units, entryDate) => {
+        try {
+          const isMobile = Capacitor.isNativePlatform();
+          if (isMobile) {
+            const localDb = await getLocalDbService();
+            await localDb.cacheInsulin([{
+              id: "quick_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
+              user_id: user.id,
+              morning: units,
+              lunch: 0,
+              afternoon: 0,
+              evening: 0,
+              night: 0,
+              entry_date: entryDate,
+              sync_status: "pending_sync",
+            }]);
+          }
+
+          const { error } = await supabase.from("insulin_entries").insert({
+            user_id: user.id,
+            morning: units,
+            entry_date: entryDate,
+          });
+
+          if (!error) {
+            console.log(`[HEALTH_DATA_CONTEXT] Successfully synced widget quick insulin entry: ${units} U`);
+            window.dispatchEvent(new Event("health-data-updated"));
+          }
+        } catch (err) {
+          console.error("[HEALTH_DATA_CONTEXT] Error syncing quick insulin entry:", err);
+        }
+      });
+    });
+  }, [glucose, insulin, user, initialized]);
+
   const isMobile = Capacitor.isNativePlatform();
 
   if (isMobile && !initialized && loading) {

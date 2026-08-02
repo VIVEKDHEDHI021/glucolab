@@ -83,6 +83,18 @@ export const Route = createFileRoute("/api/send-push")({
               title,
               body,
             },
+            android: {
+              priority: "high" as const,
+              notification: {
+                title,
+                body,
+                channelId: "default",
+                sound: "default",
+                priority: "high" as const,
+                defaultSound: true,
+                defaultVibrateTimings: true,
+              },
+            },
             webpush: {
               headers: {
                 Urgency: "high",

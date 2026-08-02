@@ -18,7 +18,54 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.glucolab.app" />
+            </intent-filter>
         </activity>
+
+        <!-- Widget 1: Glucose Dashboard -->
+        <receiver
+            android:name=".widgets.GlucoseDashboardWidget"
+            android:exported="true"
+            android:label="GlucoLab Glucose Dashboard">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_glucose_dashboard_info" />
+        </receiver>
+
+        <!-- Widget 2: Quick Insulin -->
+        <receiver
+            android:name=".widgets.QuickInsulinWidget"
+            android:exported="true"
+            android:label="GlucoLab Quick Insulin">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_insulin_info" />
+        </receiver>
+
+        <!-- Quick Insulin Receiver -->
+        <receiver
+            android:name=".widgets.QuickInsulinReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.glucolab.app.ACTION_LOG_INSULIN" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Quick Insulin Safety Confirmation Dialog Activity -->
+        <activity
+            android:name=".widgets.QuickInsulinConfirmActivity"
+            android:theme="@android:style/Theme.DeviceDefault.Dialog.NoActionBar"
+            android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -32,4 +79,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>

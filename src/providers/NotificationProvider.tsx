@@ -5,6 +5,7 @@ import { supabase } from "@/db/client";
 import { showLocalNotification } from "@/services/notificationService";
 import { toast } from "sonner";
 import { READING_LABELS, type ReadingType } from "@/frontend/lib/types";
+import { Capacitor } from "@capacitor/core";
 
 interface NotificationContextType {
   token: string | null;
@@ -26,22 +27,25 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       initializedRef.current = true;
       notifications.initNotifications().then(async (token) => {
         if (token) {
-          console.log("[NotificationProvider] Saving FCM web token to database...");
+          const activePlatform = Capacitor.isNativePlatform()
+            ? Capacitor.getPlatform()
+            : "web";
+          console.log(`[NotificationProvider] Saving FCM ${activePlatform} token to database...`);
           const { error } = await supabase.from("push_tokens").upsert(
             {
               user_id: user.id,
               token: token,
-              platform: "web",
+              platform: activePlatform,
               device_name: navigator.userAgent.substring(0, 100),
               updated_at: new Date().toISOString(),
             },
             { onConflict: "user_id,token" },
           );
           if (error) {
-            console.error("[NotificationProvider] Error saving web FCM token:", error);
+            console.error("[NotificationProvider] Error saving FCM token:", error);
           } else {
             console.log(
-              "[NotificationProvider] Web FCM token successfully registered in database.",
+              `[NotificationProvider] ${activePlatform.toUpperCase()} FCM token successfully registered in database.`,
             );
           }
         }

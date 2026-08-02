@@ -196,8 +196,21 @@ function RemindersPage() {
 
   return (
     <div className="space-y-6 pb-20 md:pb-6">
+      {/* Temporarily Disabled Notice */}
+      <div className="rounded-2xl border border-warning/30 bg-warning/10 p-5 text-warning-foreground">
+        <div className="flex items-center gap-3">
+          <Clock className="h-6 w-6 text-warning shrink-0" />
+          <div>
+            <h3 className="font-semibold text-base">Reminders Feature Temporarily Disabled</h3>
+            <p className="text-sm opacity-90">
+              The reminders and notification system is currently turned off while we optimize background alerts. It will be enabled soon.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between opacity-50 pointer-events-none">
         <div>
           <h1 className="font-display text-3xl font-bold flex items-center gap-2">
             Diabetes Companion Alerts <Sparkles className="h-6 w-6 text-primary animate-pulse" />
@@ -206,7 +219,7 @@ function RemindersPage() {
             Configure alarms, log daily checklists, and view health routine adherence. Works fully offline.
           </p>
         </div>
-        <Button onClick={handleCreateNew} className="gradient-primary text-white h-11 rounded-xl shadow-soft">
+        <Button disabled onClick={handleCreateNew} className="gradient-primary text-white h-11 rounded-xl shadow-soft">
           <Plus className="h-4 w-4 mr-2" /> Configure Reminder
         </Button>
       </div>

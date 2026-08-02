@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Bell,
   Globe,
@@ -9,10 +9,12 @@ import {
   ChevronRight,
   ShieldCheck,
   Languages,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/frontend/components/ui/button";
 import { Switch } from "@/frontend/components/ui/switch";
 import { toast } from "sonner";
+import { widgetService } from "@/services/widgetService";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -62,12 +64,12 @@ function SettingsPage() {
         </h3>
         
         <div className="space-y-3.5 pt-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between opacity-60">
             <div>
               <h4 className="text-sm font-semibold">Medication Reminders</h4>
-              <p className="text-xs text-muted-foreground">Alerts for checking glucose and recording insulin.</p>
+              <p className="text-xs text-muted-foreground">Alerts for checking glucose (Disabled temporarily).</p>
             </div>
-            <Switch checked={reminders} onCheckedChange={setReminders} />
+            <Switch disabled checked={false} onCheckedChange={() => {}} />
           </div>
 
           <div className="border-t border-border/60" />
@@ -129,6 +131,9 @@ function SettingsPage() {
         </div>
       </div>
 
+      {/* Quick Insulin Widget Presets Module */}
+      <QuickInsulinPresetsCard />
+
       {/* Cloud Backups */}
       <div className="bg-card border border-border/80 rounded-3xl p-5 shadow-soft space-y-4">
         <h3 className="font-display text-base font-bold text-foreground flex items-center gap-2">
@@ -155,6 +160,95 @@ function SettingsPage() {
           <ShieldCheck className="h-4 w-4 text-success" /> GlucoLab Pro Safe Engine
         </div>
         <p className="text-[10px] text-muted-foreground font-semibold">Version 2.4.0 (Build 90)</p>
+      </div>
+    </div>
+  );
+}
+
+function QuickInsulinPresetsCard() {
+  const [presets, setPresets] = useState({
+    preset1: 4,
+    preset2: 6,
+    preset3: 8,
+    preset4: 10,
+    safetyLimit: 20,
+  });
+
+  useEffect(() => {
+    widgetService.getPresets().then(setPresets);
+  }, []);
+
+  const handleChange = (field: string, val: number) => {
+    const updated = { ...presets, [field]: val };
+    setPresets(updated);
+    widgetService.savePresets(updated);
+    toast.success("Quick Insulin widget presets updated!");
+  };
+
+  return (
+    <div className="bg-card border border-border/80 rounded-3xl p-5 shadow-soft space-y-4">
+      <h3 className="font-display text-base font-bold text-foreground flex items-center gap-2">
+        <Zap className="h-5 w-5 text-primary" /> Quick Insulin Presets (Android Widget)
+      </h3>
+      <p className="text-xs text-muted-foreground">
+        Customize the 4 preset dose buttons on your Android Home Screen Quick Insulin widget.
+      </p>
+
+      <div className="grid grid-cols-2 gap-3 pt-2">
+        <div>
+          <label className="text-xs font-semibold text-muted-foreground">Preset 1 (Units)</label>
+          <input
+            type="number"
+            value={presets.preset1}
+            onChange={(e) => handleChange("preset1", Number(e.target.value) || 0)}
+            className="mt-1 w-full bg-muted/45 text-sm font-semibold px-3 py-2 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold text-muted-foreground">Preset 2 (Units)</label>
+          <input
+            type="number"
+            value={presets.preset2}
+            onChange={(e) => handleChange("preset2", Number(e.target.value) || 0)}
+            className="mt-1 w-full bg-muted/45 text-sm font-semibold px-3 py-2 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold text-muted-foreground">Preset 3 (Units)</label>
+          <input
+            type="number"
+            value={presets.preset3}
+            onChange={(e) => handleChange("preset3", Number(e.target.value) || 0)}
+            className="mt-1 w-full bg-muted/45 text-sm font-semibold px-3 py-2 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold text-muted-foreground">Preset 4 (Units)</label>
+          <input
+            type="number"
+            value={presets.preset4}
+            onChange={(e) => handleChange("preset4", Number(e.target.value) || 0)}
+            className="mt-1 w-full bg-muted/45 text-sm font-semibold px-3 py-2 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border/60 pt-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="text-sm font-semibold">High Dose Safety Limit</h4>
+            <p className="text-xs text-muted-foreground">Doses above this limit require confirmation.</p>
+          </div>
+          <input
+            type="number"
+            value={presets.safetyLimit}
+            onChange={(e) => handleChange("safetyLimit", Number(e.target.value) || 20)}
+            className="w-20 bg-muted/45 text-sm font-semibold px-3 py-2 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/20 text-center font-bold"
+          />
+        </div>
       </div>
     </div>
   );

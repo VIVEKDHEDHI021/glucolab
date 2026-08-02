@@ -20,6 +20,8 @@ interface ReminderContextValue {
 
 const ReminderContext = createContext<ReminderContextValue | undefined>(undefined);
 
+const ENABLE_REMINDERS = false; // Set to true when feature is completely ready
+
 export function ReminderProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -29,7 +31,7 @@ export function ReminderProvider({ children }: { children: React.ReactNode }) {
   const [lastTriggeredMinutes, setLastTriggeredMinutes] = useState<Record<string, string>>({}); // Maps reminderId -> YYYY-MM-DD HH:MM
 
   const refreshReminders = async () => {
-    if (!user) return;
+    if (!user || !ENABLE_REMINDERS) return;
     setLoading(true);
     try {
       const [rData, hData] = await Promise.all([
@@ -49,7 +51,7 @@ export function ReminderProvider({ children }: { children: React.ReactNode }) {
   };
 
   const triggerScheduler = async () => {
-    if (!user) return;
+    if (!user || !ENABLE_REMINDERS) return;
     await reminderScheduler.scheduleAllReminders(user.id);
   };
 
@@ -217,7 +219,7 @@ export function ReminderProvider({ children }: { children: React.ReactNode }) {
 
   // Web background ticker for active sessions
   useEffect(() => {
-    if (!user || Capacitor.isNativePlatform()) return;
+    if (!user || !ENABLE_REMINDERS || Capacitor.isNativePlatform()) return;
 
     // Check every 30 seconds
     const interval = setInterval(() => {

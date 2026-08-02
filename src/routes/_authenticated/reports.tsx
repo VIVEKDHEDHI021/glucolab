@@ -191,7 +191,7 @@ function ReportsPage() {
 
       <ChartCard title="Average by time slot">
         {slotAvg.length > 0 ? (
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={240} minWidth={100} minHeight={200}>
             <BarChart data={slotAvg} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
               <XAxis dataKey="type" tick={{ fontSize: 11 }} />
@@ -214,7 +214,7 @@ function ReportsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard title="Insulin total per day">
           {insulinTrend.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={220} minWidth={100} minHeight={200}>
               <BarChart data={insulinTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} />
@@ -236,7 +236,7 @@ function ReportsPage() {
 
         <ChartCard title="Weight trend">
           {weightTrend.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={220} minWidth={100} minHeight={200}>
               <LineChart data={weightTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} />

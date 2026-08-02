@@ -42,7 +42,7 @@ import {
 const NAV = [
   { to: "/dashboard" as const, icon: Home, label: "Dashboard" },
   { to: "/history" as const, icon: History, label: "History" },
-  { to: "/reminders" as const, icon: Clock, label: "Reminders" },
+  // { to: "/reminders" as const, icon: Clock, label: "Reminders" }, // Disabled temporarily
   { to: "/reports" as const, icon: BarChart3, label: "Reports" },
   { to: "/export" as const, icon: FileDown, label: "Export" },
 ];
