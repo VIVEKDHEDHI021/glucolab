@@ -23,13 +23,13 @@ import { Route as AuthenticatedScannerRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedRemindersRouteImport } from './routes/_authenticated/reminders'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedPrescriptionRouteImport } from './routes/_authenticated/prescription'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDoctorsRouteImport } from './routes/_authenticated/doctors'
-import { Route as AuthenticatedPrescriptionRouteImport } from './routes/_authenticated/prescription'
-import { Route as AuthenticatedDoctorPatientIdRouteImport } from './routes/_authenticated/doctor/patient.$id'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as ApiAdminResetPasswordRouteImport } from './routes/api/admin/reset-password'
+import { Route as AuthenticatedDoctorPatientIdRouteImport } from './routes/_authenticated/doctor/patient.$id'
 
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
@@ -100,6 +100,12 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedPrescriptionRoute =
+  AuthenticatedPrescriptionRouteImport.update({
+    id: '/prescription',
+    path: '/prescription',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
   id: '/history',
   path: '/history',
@@ -110,24 +116,14 @@ const AuthenticatedExportRoute = AuthenticatedExportRouteImport.update({
   path: '/export',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedDoctorsRoute = AuthenticatedDoctorsRouteImport.update({
   id: '/doctors',
   path: '/doctors',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedPrescriptionRoute = AuthenticatedPrescriptionRouteImport.update({
-  id: '/prescription',
-  path: '/prescription',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedDoctorPatientIdRoute = AuthenticatedDoctorPatientIdRouteImport.update({
-  id: '/doctor/patient/$id',
-  path: '/doctor/patient/$id',
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const ApiAdminResetPasswordRoute = ApiAdminResetPasswordRouteImport.update({
@@ -135,6 +131,12 @@ const ApiAdminResetPasswordRoute = ApiAdminResetPasswordRouteImport.update({
   path: '/api/admin/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedDoctorPatientIdRoute =
+  AuthenticatedDoctorPatientIdRouteImport.update({
+    id: '/doctor/patient/$id',
+    path: '/doctor/patient/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -145,8 +147,10 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/welcome': typeof WelcomeRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/doctors': typeof AuthenticatedDoctorsRoute
   '/export': typeof AuthenticatedExportRoute
   '/history': typeof AuthenticatedHistoryRoute
+  '/prescription': typeof AuthenticatedPrescriptionRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/reminders': typeof AuthenticatedRemindersRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -154,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/send-push': typeof ApiSendPushRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
+  '/doctor/patient/$id': typeof AuthenticatedDoctorPatientIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -164,8 +169,10 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/welcome': typeof WelcomeRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/doctors': typeof AuthenticatedDoctorsRoute
   '/export': typeof AuthenticatedExportRoute
   '/history': typeof AuthenticatedHistoryRoute
+  '/prescription': typeof AuthenticatedPrescriptionRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/reminders': typeof AuthenticatedRemindersRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -173,6 +180,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/send-push': typeof ApiSendPushRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
+  '/doctor/patient/$id': typeof AuthenticatedDoctorPatientIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -185,8 +193,10 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/welcome': typeof WelcomeRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/doctors': typeof AuthenticatedDoctorsRoute
   '/_authenticated/export': typeof AuthenticatedExportRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
+  '/_authenticated/prescription': typeof AuthenticatedPrescriptionRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/reminders': typeof AuthenticatedRemindersRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
@@ -194,6 +204,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/api/send-push': typeof ApiSendPushRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
+  '/_authenticated/doctor/patient/$id': typeof AuthenticatedDoctorPatientIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -206,8 +217,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/welcome'
     | '/dashboard'
+    | '/doctors'
     | '/export'
     | '/history'
+    | '/prescription'
     | '/profile'
     | '/reminders'
     | '/reports'
@@ -215,6 +228,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/send-push'
     | '/api/admin/reset-password'
+    | '/doctor/patient/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -225,8 +239,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/welcome'
     | '/dashboard'
+    | '/doctors'
     | '/export'
     | '/history'
+    | '/prescription'
     | '/profile'
     | '/reminders'
     | '/reports'
@@ -234,6 +250,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/send-push'
     | '/api/admin/reset-password'
+    | '/doctor/patient/$id'
   id:
     | '__root__'
     | '/'
@@ -245,8 +262,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/welcome'
     | '/_authenticated/dashboard'
+    | '/_authenticated/doctors'
     | '/_authenticated/export'
     | '/_authenticated/history'
+    | '/_authenticated/prescription'
     | '/_authenticated/profile'
     | '/_authenticated/reminders'
     | '/_authenticated/reports'
@@ -254,6 +273,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/api/send-push'
     | '/api/admin/reset-password'
+    | '/_authenticated/doctor/patient/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -369,6 +389,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/prescription': {
+      id: '/_authenticated/prescription'
+      path: '/prescription'
+      fullPath: '/prescription'
+      preLoaderRoute: typeof AuthenticatedPrescriptionRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/history': {
       id: '/_authenticated/history'
       path: '/history'
@@ -381,6 +408,13 @@ declare module '@tanstack/react-router' {
       path: '/export'
       fullPath: '/export'
       preLoaderRoute: typeof AuthenticatedExportRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/doctors': {
+      id: '/_authenticated/doctors'
+      path: '/doctors'
+      fullPath: '/doctors'
+      preLoaderRoute: typeof AuthenticatedDoctorsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
@@ -397,35 +431,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/doctor/patient/$id': {
+      id: '/_authenticated/doctor/patient/$id'
+      path: '/doctor/patient/$id'
+      fullPath: '/doctor/patient/$id'
+      preLoaderRoute: typeof AuthenticatedDoctorPatientIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDoctorsRoute: typeof AuthenticatedDoctorsRoute
-  AuthenticatedPrescriptionRoute: typeof AuthenticatedPrescriptionRoute
-  AuthenticatedDoctorPatientIdRoute: typeof AuthenticatedDoctorPatientIdRoute
   AuthenticatedExportRoute: typeof AuthenticatedExportRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
+  AuthenticatedPrescriptionRoute: typeof AuthenticatedPrescriptionRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRemindersRoute: typeof AuthenticatedRemindersRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedScannerRoute: typeof AuthenticatedScannerRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedDoctorPatientIdRoute: typeof AuthenticatedDoctorPatientIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDoctorsRoute: AuthenticatedDoctorsRoute,
-  AuthenticatedPrescriptionRoute: AuthenticatedPrescriptionRoute,
-  AuthenticatedDoctorPatientIdRoute: AuthenticatedDoctorPatientIdRoute,
   AuthenticatedExportRoute: AuthenticatedExportRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
+  AuthenticatedPrescriptionRoute: AuthenticatedPrescriptionRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRemindersRoute: AuthenticatedRemindersRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedScannerRoute: AuthenticatedScannerRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedDoctorPatientIdRoute: AuthenticatedDoctorPatientIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

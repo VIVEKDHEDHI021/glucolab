@@ -89,13 +89,17 @@ export const prescriptionService = {
     }
 
     // 5. Send notification to Patient
-    await supabase.from("doctor_patient_notifications").insert({
-      recipient_id: params.patientId,
-      sender_id: params.doctorId,
-      type: "prescription_updated",
-      title: "New Digital Prescription",
-      message: `Your doctor has updated your insulin prescription (Version ${newVersion}).`,
-    });
+    try {
+      await supabase.from("doctor_patient_notifications").insert({
+        recipient_id: params.patientId,
+        sender_id: params.doctorId,
+        type: "prescription_updated",
+        title: "New Digital Prescription",
+        message: `Your doctor has updated your insulin prescription (Version ${newVersion}).`,
+      });
+    } catch (e) {
+      console.warn("Notification error ignored:", e);
+    }
 
     return {
       ...newPrescription,
@@ -121,13 +125,17 @@ export const prescriptionService = {
     if (error) throw error;
 
     if (pres) {
-      await supabase.from("doctor_patient_notifications").insert({
-        recipient_id: pres.patient_id,
-        sender_id: doctorId,
-        type: "prescription_updated",
-        title: "Prescription Deactivated",
-        message: "Your doctor deactivated your current insulin prescription.",
-      });
+      try {
+        await supabase.from("doctor_patient_notifications").insert({
+          recipient_id: pres.patient_id,
+          sender_id: doctorId,
+          type: "prescription_updated",
+          title: "Prescription Deactivated",
+          message: "Your doctor deactivated your current insulin prescription.",
+        });
+      } catch (e) {
+        console.warn("Notification error ignored:", e);
+      }
     }
 
     return data;
@@ -135,68 +143,74 @@ export const prescriptionService = {
 
   // Fetch current active prescription for a patient
   async getActivePrescription(patientId: string): Promise<FullPrescription | null> {
-    const { data: pres, error } = await supabase
-      .from("prescriptions")
-      .select("*, doctor_profiles(full_name, specialization, hospital_clinic_name)")
-      .eq("patient_id", patientId)
-      .eq("status", "active")
-      .order("version", { ascending: false })
-      .maybeSingle();
+    try {
+      const { data: pres, error } = await supabase
+        .from("prescriptions")
+        .select("*, doctor_profiles(full_name, specialization, hospital_clinic_name)")
+        .eq("patient_id", patientId)
+        .eq("status", "active")
+        .order("version", { ascending: false })
+        .maybeSingle();
 
-    if (error && error.code !== "PGRST116") throw error;
-    if (!pres) return null;
+      if (error || !pres) return null;
 
-    const { data: items } = await supabase
-      .from("prescription_items")
-      .select("*")
-      .eq("prescription_id", pres.id);
+      const { data: items } = await supabase
+        .from("prescription_items")
+        .select("*")
+        .eq("prescription_id", pres.id);
 
-    const docProfile = (pres as any).doctor_profiles;
-
-    return {
-      ...pres,
-      doctor_name: docProfile?.full_name || "Doctor",
-      specialization: docProfile?.specialization || "",
-      hospital_clinic_name: docProfile?.hospital_clinic_name || "",
-      items: items || [],
-    };
-  },
-
-  // Fetch all historical prescription revisions for a patient
-  async getPrescriptionHistory(patientId: string): Promise<FullPrescription[]> {
-    const { data: presList, error } = await supabase
-      .from("prescriptions")
-      .select("*, doctor_profiles(full_name, specialization, hospital_clinic_name)")
-      .eq("patient_id", patientId)
-      .order("version", { ascending: false });
-
-    if (error) throw error;
-    if (!presList || presList.length === 0) return [];
-
-    const presIds = presList.map((p) => p.id);
-    const { data: allItems } = await supabase
-      .from("prescription_items")
-      .select("*")
-      .in("prescription_id", presIds);
-
-    const itemsMap = new Map<string, PrescriptionItem[]>();
-    (allItems || []).forEach((item) => {
-      if (!itemsMap.has(item.prescription_id)) {
-        itemsMap.set(item.prescription_id, []);
-      }
-      itemsMap.get(item.prescription_id)!.push(item);
-    });
-
-    return presList.map((pres) => {
       const docProfile = (pres as any).doctor_profiles;
+
       return {
         ...pres,
         doctor_name: docProfile?.full_name || "Doctor",
         specialization: docProfile?.specialization || "",
         hospital_clinic_name: docProfile?.hospital_clinic_name || "",
-        items: itemsMap.get(pres.id) || [],
+        items: items || [],
       };
-    });
+    } catch {
+      return null;
+    }
+  },
+
+  // Fetch all historical prescription revisions for a patient
+  async getPrescriptionHistory(patientId: string): Promise<FullPrescription[]> {
+    try {
+      const { data: presList, error } = await supabase
+        .from("prescriptions")
+        .select("*, doctor_profiles(full_name, specialization, hospital_clinic_name)")
+        .eq("patient_id", patientId)
+        .order("version", { ascending: false });
+
+      if (error || !presList || presList.length === 0) return [];
+
+      const presIds = presList.map((p) => p.id);
+      const { data: allItems } = await supabase
+        .from("prescription_items")
+        .select("*")
+        .in("prescription_id", presIds);
+
+      const itemsMap = new Map<string, PrescriptionItem[]>();
+      (allItems || []).forEach((item) => {
+        if (!itemsMap.has(item.prescription_id)) {
+          itemsMap.set(item.prescription_id, []);
+        }
+        itemsMap.get(item.prescription_id)!.push(item);
+      });
+
+      return presList.map((pres) => {
+        const docProfile = (pres as any).doctor_profiles;
+        return {
+          ...pres,
+          doctor_name: docProfile?.full_name || "Doctor",
+          specialization: docProfile?.specialization || "",
+          hospital_clinic_name: docProfile?.hospital_clinic_name || "",
+          items: itemsMap.get(pres.id) || [],
+        };
+      });
+    } catch {
+      return [];
+    }
   },
 
   // Patient logs dose as taken
@@ -222,16 +236,20 @@ export const prescriptionService = {
 
   // Fetch dose logs for today
   async getTodayDoseLogs(patientId: string): Promise<PatientDoseLog[]> {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
 
-    const { data, error } = await supabase
-      .from("patient_dose_logs")
-      .select("*")
-      .eq("patient_id", patientId)
-      .gte("taken_at", todayStart.toISOString());
+      const { data, error } = await supabase
+        .from("patient_dose_logs")
+        .select("*")
+        .eq("patient_id", patientId)
+        .gte("taken_at", todayStart.toISOString());
 
-    if (error) throw error;
-    return data || [];
+      if (error) return [];
+      return data || [];
+    } catch {
+      return [];
+    }
   },
 };

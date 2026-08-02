@@ -123,16 +123,13 @@ function DashboardPage() {
           .select("role")
           .eq("user_id", user.id)
           .maybeSingle()
-          .then(({ data }) => {
-            if (data?.role === "doctor") setIsDoctor(true);
-          });
+          .then(({ data, error }) => {
+            if (!error && data?.role === "doctor") setIsDoctor(true);
+          })
+          .catch(() => {});
       }
     }
   }, [user]);
-
-  if (isDoctor && user) {
-    return <DoctorDashboardView userId={user.id} />;
-  }
 
   const latest = glucose[0];
   const weekAgo = subDays(new Date(), 7);
@@ -222,6 +219,10 @@ function DashboardPage() {
     }
     return `${morning}-${lunch}-${evening}-${night} units`;
   }, [matchingInsulin]);
+
+  if (isDoctor && user) {
+    return <DoctorDashboardView userId={user.id} />;
+  }
 
   return (
     <>
