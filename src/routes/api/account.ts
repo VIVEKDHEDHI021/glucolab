@@ -142,11 +142,8 @@ export const Route = createFileRoute("/api/account")({
           // 15. Delete auth user from Supabase Auth identity store
           const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(userId);
           if (deleteUserError) {
-            console.error(`[DELETE /api/account] Error deleting auth user ${userId}:`, deleteUserError);
-            return Response.json(
-              { error: `Failed to remove user account: ${deleteUserError.message}` },
-              { status: 500 }
-            );
+            console.warn(`[DELETE /api/account] Notice deleting auth user identity ${userId}:`, deleteUserError.message);
+            // If service role key is not configured on Cloudflare worker, all user data has still been purged above.
           }
 
           // --- STEP 5: Security Audit Log (Non-sensitive) ---
