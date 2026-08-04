@@ -10,14 +10,31 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as ThirdPartyLicensesRouteImport } from './routes/third-party-licenses'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as SupportRouteImport } from './routes/support'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SecurityRouteImport } from './routes/security'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
+import { Route as PermissionsRouteImport } from './routes/permissions'
 import { Route as OtpRouteImport } from './routes/otp'
+import { Route as OpenSourceLicensesRouteImport } from './routes/open-source-licenses'
+import { Route as MedicalDisclaimerRouteImport } from './routes/medical-disclaimer'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as DeleteDataRouteImport } from './routes/delete-data'
+import { Route as DeleteAccountRouteImport } from './routes/delete-account'
+import { Route as DataSafetyRouteImport } from './routes/data-safety'
+import { Route as DataRetentionRouteImport } from './routes/data-retention'
+import { Route as CookiesRouteImport } from './routes/cookies'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as AccountDeletionRouteImport } from './routes/account-deletion'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiSendPushRouteImport } from './routes/api/send-push'
+import { Route as ApiAccountDeletionRequestRouteImport } from './routes/api/account-deletion-request'
 import { Route as ApiAccountRouteImport } from './routes/api/account'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedScannerRouteImport } from './routes/_authenticated/scanner'
@@ -37,9 +54,29 @@ const WelcomeRoute = WelcomeRouteImport.update({
   path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ThirdPartyLicensesRoute = ThirdPartyLicensesRouteImport.update({
+  id: '/third-party-licenses',
+  path: '/third-party-licenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SecurityRoute = SecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -47,9 +84,29 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PermissionsRoute = PermissionsRouteImport.update({
+  id: '/permissions',
+  path: '/permissions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OtpRoute = OtpRouteImport.update({
   id: '/otp',
   path: '/otp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OpenSourceLicensesRoute = OpenSourceLicensesRouteImport.update({
+  id: '/open-source-licenses',
+  path: '/open-source-licenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MedicalDisclaimerRoute = MedicalDisclaimerRouteImport.update({
+  id: '/medical-disclaimer',
+  path: '/medical-disclaimer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -60,6 +117,46 @@ const LoginRoute = LoginRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeleteDataRoute = DeleteDataRouteImport.update({
+  id: '/delete-data',
+  path: '/delete-data',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeleteAccountRoute = DeleteAccountRouteImport.update({
+  id: '/delete-account',
+  path: '/delete-account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DataSafetyRoute = DataSafetyRouteImport.update({
+  id: '/data-safety',
+  path: '/data-safety',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DataRetentionRoute = DataRetentionRouteImport.update({
+  id: '/data-retention',
+  path: '/data-retention',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CookiesRoute = CookiesRouteImport.update({
+  id: '/cookies',
+  path: '/cookies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountDeletionRoute = AccountDeletionRouteImport.update({
+  id: '/account-deletion',
+  path: '/account-deletion',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -76,6 +173,12 @@ const ApiSendPushRoute = ApiSendPushRouteImport.update({
   path: '/api/send-push',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAccountDeletionRequestRoute =
+  ApiAccountDeletionRequestRouteImport.update({
+    id: '/api/account-deletion-request',
+    path: '/api/account-deletion-request',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAccountRoute = ApiAccountRouteImport.update({
   id: '/api/account',
   path: '/api/account',
@@ -146,11 +249,27 @@ const AuthenticatedDoctorPatientIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/account-deletion': typeof AccountDeletionRoute
+  '/contact': typeof ContactRoute
+  '/cookies': typeof CookiesRoute
+  '/data-retention': typeof DataRetentionRoute
+  '/data-safety': typeof DataSafetyRoute
+  '/delete-account': typeof DeleteAccountRoute
+  '/delete-data': typeof DeleteDataRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/medical-disclaimer': typeof MedicalDisclaimerRoute
+  '/open-source-licenses': typeof OpenSourceLicensesRoute
   '/otp': typeof OtpRoute
+  '/permissions': typeof PermissionsRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/security': typeof SecurityRoute
   '/signup': typeof SignupRoute
+  '/support': typeof SupportRoute
+  '/terms': typeof TermsRoute
+  '/third-party-licenses': typeof ThirdPartyLicensesRoute
   '/welcome': typeof WelcomeRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/doctors': typeof AuthenticatedDoctorsRoute
@@ -163,17 +282,34 @@ export interface FileRoutesByFullPath {
   '/scanner': typeof AuthenticatedScannerRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/account': typeof ApiAccountRoute
+  '/api/account-deletion-request': typeof ApiAccountDeletionRequestRoute
   '/api/send-push': typeof ApiSendPushRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
   '/doctor/patient/$id': typeof AuthenticatedDoctorPatientIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/account-deletion': typeof AccountDeletionRoute
+  '/contact': typeof ContactRoute
+  '/cookies': typeof CookiesRoute
+  '/data-retention': typeof DataRetentionRoute
+  '/data-safety': typeof DataSafetyRoute
+  '/delete-account': typeof DeleteAccountRoute
+  '/delete-data': typeof DeleteDataRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/medical-disclaimer': typeof MedicalDisclaimerRoute
+  '/open-source-licenses': typeof OpenSourceLicensesRoute
   '/otp': typeof OtpRoute
+  '/permissions': typeof PermissionsRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/security': typeof SecurityRoute
   '/signup': typeof SignupRoute
+  '/support': typeof SupportRoute
+  '/terms': typeof TermsRoute
+  '/third-party-licenses': typeof ThirdPartyLicensesRoute
   '/welcome': typeof WelcomeRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/doctors': typeof AuthenticatedDoctorsRoute
@@ -186,6 +322,7 @@ export interface FileRoutesByTo {
   '/scanner': typeof AuthenticatedScannerRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/account': typeof ApiAccountRoute
+  '/api/account-deletion-request': typeof ApiAccountDeletionRequestRoute
   '/api/send-push': typeof ApiSendPushRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
   '/doctor/patient/$id': typeof AuthenticatedDoctorPatientIdRoute
@@ -194,11 +331,27 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/about': typeof AboutRoute
+  '/account-deletion': typeof AccountDeletionRoute
+  '/contact': typeof ContactRoute
+  '/cookies': typeof CookiesRoute
+  '/data-retention': typeof DataRetentionRoute
+  '/data-safety': typeof DataSafetyRoute
+  '/delete-account': typeof DeleteAccountRoute
+  '/delete-data': typeof DeleteDataRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/medical-disclaimer': typeof MedicalDisclaimerRoute
+  '/open-source-licenses': typeof OpenSourceLicensesRoute
   '/otp': typeof OtpRoute
+  '/permissions': typeof PermissionsRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/security': typeof SecurityRoute
   '/signup': typeof SignupRoute
+  '/support': typeof SupportRoute
+  '/terms': typeof TermsRoute
+  '/third-party-licenses': typeof ThirdPartyLicensesRoute
   '/welcome': typeof WelcomeRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/doctors': typeof AuthenticatedDoctorsRoute
@@ -211,6 +364,7 @@ export interface FileRoutesById {
   '/_authenticated/scanner': typeof AuthenticatedScannerRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/api/account': typeof ApiAccountRoute
+  '/api/account-deletion-request': typeof ApiAccountDeletionRequestRoute
   '/api/send-push': typeof ApiSendPushRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
   '/_authenticated/doctor/patient/$id': typeof AuthenticatedDoctorPatientIdRoute
@@ -219,11 +373,27 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
+    | '/account-deletion'
+    | '/contact'
+    | '/cookies'
+    | '/data-retention'
+    | '/data-safety'
+    | '/delete-account'
+    | '/delete-data'
     | '/forgot-password'
     | '/login'
+    | '/medical-disclaimer'
+    | '/open-source-licenses'
     | '/otp'
+    | '/permissions'
+    | '/privacy-policy'
     | '/reset-password'
+    | '/security'
     | '/signup'
+    | '/support'
+    | '/terms'
+    | '/third-party-licenses'
     | '/welcome'
     | '/dashboard'
     | '/doctors'
@@ -236,17 +406,34 @@ export interface FileRouteTypes {
     | '/scanner'
     | '/settings'
     | '/api/account'
+    | '/api/account-deletion-request'
     | '/api/send-push'
     | '/api/admin/reset-password'
     | '/doctor/patient/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
+    | '/account-deletion'
+    | '/contact'
+    | '/cookies'
+    | '/data-retention'
+    | '/data-safety'
+    | '/delete-account'
+    | '/delete-data'
     | '/forgot-password'
     | '/login'
+    | '/medical-disclaimer'
+    | '/open-source-licenses'
     | '/otp'
+    | '/permissions'
+    | '/privacy-policy'
     | '/reset-password'
+    | '/security'
     | '/signup'
+    | '/support'
+    | '/terms'
+    | '/third-party-licenses'
     | '/welcome'
     | '/dashboard'
     | '/doctors'
@@ -259,6 +446,7 @@ export interface FileRouteTypes {
     | '/scanner'
     | '/settings'
     | '/api/account'
+    | '/api/account-deletion-request'
     | '/api/send-push'
     | '/api/admin/reset-password'
     | '/doctor/patient/$id'
@@ -266,11 +454,27 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/about'
+    | '/account-deletion'
+    | '/contact'
+    | '/cookies'
+    | '/data-retention'
+    | '/data-safety'
+    | '/delete-account'
+    | '/delete-data'
     | '/forgot-password'
     | '/login'
+    | '/medical-disclaimer'
+    | '/open-source-licenses'
     | '/otp'
+    | '/permissions'
+    | '/privacy-policy'
     | '/reset-password'
+    | '/security'
     | '/signup'
+    | '/support'
+    | '/terms'
+    | '/third-party-licenses'
     | '/welcome'
     | '/_authenticated/dashboard'
     | '/_authenticated/doctors'
@@ -283,6 +487,7 @@ export interface FileRouteTypes {
     | '/_authenticated/scanner'
     | '/_authenticated/settings'
     | '/api/account'
+    | '/api/account-deletion-request'
     | '/api/send-push'
     | '/api/admin/reset-password'
     | '/_authenticated/doctor/patient/$id'
@@ -291,13 +496,30 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  AboutRoute: typeof AboutRoute
+  AccountDeletionRoute: typeof AccountDeletionRoute
+  ContactRoute: typeof ContactRoute
+  CookiesRoute: typeof CookiesRoute
+  DataRetentionRoute: typeof DataRetentionRoute
+  DataSafetyRoute: typeof DataSafetyRoute
+  DeleteAccountRoute: typeof DeleteAccountRoute
+  DeleteDataRoute: typeof DeleteDataRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
+  MedicalDisclaimerRoute: typeof MedicalDisclaimerRoute
+  OpenSourceLicensesRoute: typeof OpenSourceLicensesRoute
   OtpRoute: typeof OtpRoute
+  PermissionsRoute: typeof PermissionsRoute
+  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SecurityRoute: typeof SecurityRoute
   SignupRoute: typeof SignupRoute
+  SupportRoute: typeof SupportRoute
+  TermsRoute: typeof TermsRoute
+  ThirdPartyLicensesRoute: typeof ThirdPartyLicensesRoute
   WelcomeRoute: typeof WelcomeRoute
   ApiAccountRoute: typeof ApiAccountRoute
+  ApiAccountDeletionRequestRoute: typeof ApiAccountDeletionRequestRoute
   ApiSendPushRoute: typeof ApiSendPushRoute
   ApiAdminResetPasswordRoute: typeof ApiAdminResetPasswordRoute
 }
@@ -311,11 +533,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WelcomeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/third-party-licenses': {
+      id: '/third-party-licenses'
+      path: '/third-party-licenses'
+      fullPath: '/third-party-licenses'
+      preLoaderRoute: typeof ThirdPartyLicensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/security': {
+      id: '/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof SecurityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -325,11 +575,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/permissions': {
+      id: '/permissions'
+      path: '/permissions'
+      fullPath: '/permissions'
+      preLoaderRoute: typeof PermissionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/otp': {
       id: '/otp'
       path: '/otp'
       fullPath: '/otp'
       preLoaderRoute: typeof OtpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/open-source-licenses': {
+      id: '/open-source-licenses'
+      path: '/open-source-licenses'
+      fullPath: '/open-source-licenses'
+      preLoaderRoute: typeof OpenSourceLicensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/medical-disclaimer': {
+      id: '/medical-disclaimer'
+      path: '/medical-disclaimer'
+      fullPath: '/medical-disclaimer'
+      preLoaderRoute: typeof MedicalDisclaimerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -344,6 +622,62 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/delete-data': {
+      id: '/delete-data'
+      path: '/delete-data'
+      fullPath: '/delete-data'
+      preLoaderRoute: typeof DeleteDataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/delete-account': {
+      id: '/delete-account'
+      path: '/delete-account'
+      fullPath: '/delete-account'
+      preLoaderRoute: typeof DeleteAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/data-safety': {
+      id: '/data-safety'
+      path: '/data-safety'
+      fullPath: '/data-safety'
+      preLoaderRoute: typeof DataSafetyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/data-retention': {
+      id: '/data-retention'
+      path: '/data-retention'
+      fullPath: '/data-retention'
+      preLoaderRoute: typeof DataRetentionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cookies': {
+      id: '/cookies'
+      path: '/cookies'
+      fullPath: '/cookies'
+      preLoaderRoute: typeof CookiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account-deletion': {
+      id: '/account-deletion'
+      path: '/account-deletion'
+      fullPath: '/account-deletion'
+      preLoaderRoute: typeof AccountDeletionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -365,6 +699,13 @@ declare module '@tanstack/react-router' {
       path: '/api/send-push'
       fullPath: '/api/send-push'
       preLoaderRoute: typeof ApiSendPushRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/account-deletion-request': {
+      id: '/api/account-deletion-request'
+      path: '/api/account-deletion-request'
+      fullPath: '/api/account-deletion-request'
+      preLoaderRoute: typeof ApiAccountDeletionRequestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/account': {
@@ -496,13 +837,30 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  AboutRoute: AboutRoute,
+  AccountDeletionRoute: AccountDeletionRoute,
+  ContactRoute: ContactRoute,
+  CookiesRoute: CookiesRoute,
+  DataRetentionRoute: DataRetentionRoute,
+  DataSafetyRoute: DataSafetyRoute,
+  DeleteAccountRoute: DeleteAccountRoute,
+  DeleteDataRoute: DeleteDataRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
+  MedicalDisclaimerRoute: MedicalDisclaimerRoute,
+  OpenSourceLicensesRoute: OpenSourceLicensesRoute,
   OtpRoute: OtpRoute,
+  PermissionsRoute: PermissionsRoute,
+  PrivacyPolicyRoute: PrivacyPolicyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SecurityRoute: SecurityRoute,
   SignupRoute: SignupRoute,
+  SupportRoute: SupportRoute,
+  TermsRoute: TermsRoute,
+  ThirdPartyLicensesRoute: ThirdPartyLicensesRoute,
   WelcomeRoute: WelcomeRoute,
   ApiAccountRoute: ApiAccountRoute,
+  ApiAccountDeletionRequestRoute: ApiAccountDeletionRequestRoute,
   ApiSendPushRoute: ApiSendPushRoute,
   ApiAdminResetPasswordRoute: ApiAdminResetPasswordRoute,
 }

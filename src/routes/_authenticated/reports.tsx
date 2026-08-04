@@ -130,6 +130,11 @@ function ReportsPage() {
         </div>
       </div>
 
+      {/* Medical Disclaimer Banner */}
+      <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs">
+        <strong>Medical Notice:</strong> Estimated HbA1c and glucose averages are derived from logged readings over {days} days. They are for reference only and do not replace certified laboratory blood tests.
+      </div>
+
       {/* KPI */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KPI

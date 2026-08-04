@@ -60,11 +60,11 @@ export const Route = createFileRoute("/api/account")({
           const SUPABASE_URL =
             process.env.SUPABASE_URL ||
             process.env.VITE_SUPABASE_URL ||
-            "https://yhvnfwyeippnrqtttxac.supabase.co";
+            "";
           const SUPABASE_PUBLISHABLE_KEY =
             process.env.SUPABASE_PUBLISHABLE_KEY ||
             process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-            "sb_publishable_dR2EoURRwH6sHIEQd8-3dQ_daz0Qn-j";
+            "";
 
           const authVerifyClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
             auth: {

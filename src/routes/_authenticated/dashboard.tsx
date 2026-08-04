@@ -229,8 +229,15 @@ function DashboardPage() {
   return (
     <>
       <div className="space-y-5 md:space-y-6 animate-fade-in">
+        {/* Medical Disclaimer Banner */}
+        <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs">
+          <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+          <span>
+            <strong>Medical Disclaimer:</strong> GlucoLab is a self-tracking tool. It does not provide medical diagnoses or emergency response. Consult your physician for treatment advice.
+          </span>
+        </div>
 
-      {/* Stat cards */}
+        {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard
           icon={<Droplet className="h-5 w-5" />}
