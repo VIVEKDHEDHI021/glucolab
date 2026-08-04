@@ -10,6 +10,11 @@ import {
   PhoneCall,
   Pencil,
   LogOut,
+  AlertTriangle,
+  Trash2,
+  Eye,
+  EyeOff,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
@@ -24,6 +29,7 @@ import {
 } from "@/frontend/components/ui/dialog";
 import { healthService } from "@/backend/services/healthService";
 import { useAuth } from "@/frontend/lib/auth-context";
+import { accountService } from "@/services/accountService";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/profile")({
@@ -48,6 +54,15 @@ function ProfilePage() {
   const [editOpen, setEditOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Delete Account Modals & State
+  const [warningOpen, setWarningOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -141,6 +156,57 @@ function ProfilePage() {
 
   const handleLogout = async () => {
     await signOut();
+    navigate({ to: "/login" });
+  };
+
+  // Delete Account Flow Handlers
+  const handleOpenDeleteWarning = () => {
+    setPassword("");
+    setShowPassword(false);
+    setDeleteError(null);
+    setWarningOpen(true);
+  };
+
+  const handleProceedToPassword = () => {
+    setWarningOpen(false);
+    setPasswordOpen(true);
+  };
+
+  const handleConfirmDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password.trim()) {
+      setDeleteError("Password is required.");
+      return;
+    }
+
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      const offlineMsg = "Internet connection is required to permanently delete your account.";
+      setDeleteError(offlineMsg);
+      toast.error(offlineMsg);
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteError(null);
+
+    const res = await accountService.deleteAccount(password);
+
+    setDeleting(false);
+
+    if (!res.success) {
+      const errMsg = res.error || "Failed to delete account. Please try again.";
+      setDeleteError(errMsg);
+      toast.error(errMsg);
+      return;
+    }
+
+    // Success! Close password modal and show success screen
+    setPasswordOpen(false);
+    setSuccessOpen(true);
+  };
+
+  const handleReturnToLogin = () => {
+    setSuccessOpen(false);
     navigate({ to: "/login" });
   };
 
@@ -262,6 +328,26 @@ function ProfilePage() {
         >
           <LogOut className="h-5 w-5 mr-2" /> Logout
         </Button>
+      </div>
+
+      {/* 6. Danger Zone */}
+      <div className="bg-card border border-destructive/40 rounded-[18px] p-6 shadow-sm space-y-3 mt-6">
+        <div className="flex items-center gap-2 text-destructive">
+          <AlertTriangle className="h-5 w-5" />
+          <h3 className="text-base font-bold">Danger Zone</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Delete your account permanently.
+        </p>
+        <div className="pt-1">
+          <Button
+            variant="outline"
+            onClick={handleOpenDeleteWarning}
+            className="w-full sm:w-auto rounded-xl border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive font-semibold flex items-center gap-2"
+          >
+            <Trash2 className="h-4 w-4" /> Delete Account
+          </Button>
+        </div>
       </div>
 
       {/* Edit Profile Modal */}
@@ -407,6 +493,161 @@ function ProfilePage() {
               className="rounded-xl font-semibold"
             >
               Logout
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Account Deletion Confirmation Warning Modal */}
+      <Dialog open={warningOpen} onOpenChange={setWarningOpen}>
+        <DialogContent className="sm:max-w-md rounded-[18px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" /> Delete Account
+            </DialogTitle>
+            <DialogDescription className="text-sm font-medium text-foreground pt-2">
+              Deleting your account is permanent.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">
+              The following information will be permanently removed:
+            </p>
+            <ul className="space-y-1.5 list-disc list-inside text-sm pl-1">
+              <li>Profile Information</li>
+              <li>Email</li>
+              <li>Glucose Readings</li>
+              <li>Insulin Records</li>
+              <li>Reports</li>
+              <li>Notification Settings</li>
+              <li>Reminder Data</li>
+              <li>Device Tokens</li>
+              <li>Offline Sync Data</li>
+              <li>Any other account-related information</li>
+            </ul>
+            <p className="font-semibold text-destructive pt-2">
+              This action cannot be undone.
+            </p>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:justify-end pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setWarningOpen(false)}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleProceedToPassword}
+              className="rounded-xl font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Account Deletion Password Confirmation Modal */}
+      <Dialog
+        open={passwordOpen}
+        onOpenChange={(open) => {
+          if (!deleting) setPasswordOpen(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-md rounded-[18px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Confirm Password</DialogTitle>
+            <DialogDescription>
+              Please enter your current password to confirm permanent account deletion.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleConfirmDelete} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="deletePassword">Current Password</Label>
+              <div className="relative">
+                <Input
+                  id="deletePassword"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (deleteError) setDeleteError(null);
+                  }}
+                  placeholder="Enter current password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              {deleteError && (
+                <p className="text-xs text-destructive font-medium pt-1">{deleteError}</p>
+              )}
+            </div>
+
+            <DialogFooter className="flex gap-2 sm:justify-end pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPasswordOpen(false)}
+                disabled={deleting}
+                className="rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={deleting || !password.trim()}
+                className="rounded-xl font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? "Deleting..." : "Confirm"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Account Deletion Success Modal */}
+      <Dialog open={successOpen} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md rounded-[18px] text-center"
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="flex flex-col items-center">
+            <div className="h-12 w-12 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-2">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-xl font-bold">Account Deleted</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2 text-sm text-muted-foreground">
+            <p>Your account and all associated data have been permanently deleted.</p>
+            <p className="font-medium text-foreground">Thank you for using GlucoLab.</p>
+          </div>
+
+          <DialogFooter className="pt-4 flex justify-center">
+            <Button
+              type="button"
+              onClick={handleReturnToLogin}
+              className="w-full rounded-xl bg-primary text-primary-foreground font-semibold"
+            >
+              Return to Login
             </Button>
           </DialogFooter>
         </DialogContent>

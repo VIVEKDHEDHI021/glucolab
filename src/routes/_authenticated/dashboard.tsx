@@ -123,10 +123,12 @@ function DashboardPage() {
           .select("role")
           .eq("user_id", user.id)
           .maybeSingle()
-          .then(({ data, error }) => {
-            if (!error && data?.role === "doctor") setIsDoctor(true);
-          })
-          .catch(() => {});
+          .then(
+            ({ data, error }) => {
+              if (!error && data?.role === "doctor") setIsDoctor(true);
+            },
+            () => {}
+          );
       }
     }
   }, [user]);

@@ -5,6 +5,7 @@ const config: CapacitorConfig = {
   appName: "GlucoLab",
   webDir: "dist/client",
   server: {
+    androidScheme: "https",
     cleartext: true,
   },
   plugins: {

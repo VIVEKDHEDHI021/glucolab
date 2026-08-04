@@ -18,6 +18,9 @@ public class MainActivity extends BridgeActivity {
         if (webView != null) {
             webView.setVerticalScrollBarEnabled(false);
             webView.setHorizontalScrollBarEnabled(false);
+            webView.getSettings().setJavaScriptEnabled(true);
+            webView.getSettings().setDomStorageEnabled(true);
+            webView.getSettings().setDatabaseEnabled(true);
         }
     }
 }

@@ -43,8 +43,6 @@ import {
 
 const NAV = [
   { to: "/dashboard" as const, icon: Home, label: "Dashboard" },
-  { to: "/doctors" as const, icon: Stethoscope, label: "Doctors" },
-  { to: "/prescription" as const, icon: Pill, label: "Rx" },
   { to: "/history" as const, icon: History, label: "History" },
   { to: "/reports" as const, icon: BarChart3, label: "Reports" },
   { to: "/export" as const, icon: FileDown, label: "Export" },
@@ -386,7 +384,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         !showBottomNav && "translate-y-full",
         isMobile && "pb-safe"
       )}>
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-4">
           {mobileNavItems.map((n) => {
             const active = path === n.to;
             const Icon = n.icon;
