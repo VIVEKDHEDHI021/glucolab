@@ -44,7 +44,7 @@ export default function MedicalDisclaimerPage() {
               1. <strong>Informational & Self-Tracking Purpose Only:</strong> GlucoLab is designed solely as a digital logbook and organizational utility to help users store blood glucose readings, insulin doses, and weight metrics. It does not provide medical diagnoses, treatment guarantees, or automated prescription advice.
             </p>
             <p>
-              2. <strong>Insulin Calculation & Widget Presets:</strong> Quick Insulin widgets and calculation presets in GlucoLab are user-configurable memory shortcuts. They must be validated against your personal physician's prescribed dosage guidelines. Never adjust insulin dosages without consulting your endocrinologist.
+              2. <strong>Insulin Calculation & Presets:</strong> Insulin calculation presets in GlucoLab are user-configurable memory shortcuts. They must be validated against your personal physician's prescribed dosage guidelines. Never adjust insulin dosages without consulting your endocrinologist.
             </p>
             <p>
               3. <strong>Estimated HbA1c & Reports:</strong> Calculated HbA1c values generated in reports are mathematical approximations derived from average logged glucose values over 30 to 90 days. They do not replace laboratory blood draws or certified HbA1c clinical testing.

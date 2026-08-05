@@ -8,7 +8,7 @@ export const Route = createFileRoute("/support")({
       { title: "Help Center & FAQ — GlucoLab" },
       {
         name: "description",
-        content: "GlucoLab Help Center. Frequently asked questions, sync troubleshooting, and Android widget setup.",
+        content: "GlucoLab Help Center. Frequently asked questions and sync troubleshooting.",
       },
     ],
   }),
@@ -19,10 +19,6 @@ export default function SupportPage() {
     {
       q: "How does offline SQLite sync work in GlucoLab?",
       a: "GlucoLab stores all your glucose, insulin, and weight logs directly on your phone using SQLite. When an internet connection is established, changes are automatically synced to your secure cloud database.",
-    },
-    {
-      q: "How do I setup the Quick Insulin Android Widget?",
-      a: "Long-press your Android home screen, select Widgets, search for 'GlucoLab', and drag the Quick Insulin or Glucose Dashboard widget onto your screen. You can configure dose presets in App Settings.",
     },
     {
       q: "How do I share my readings with my physician?",

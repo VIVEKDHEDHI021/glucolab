@@ -41,6 +41,8 @@ import {
   DialogTitle,
 } from "@/frontend/components/ui/dialog";
 
+import { getAppVersionInfo } from "@/config/appConfig";
+
 const NAV = [
   { to: "/dashboard" as const, icon: Home, label: "Dashboard" },
   { to: "/history" as const, icon: History, label: "History" },
@@ -66,8 +68,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [appVersion, setAppVersion] = useState({ version: "3.0.0", build: "3" });
   const [showBottomNav, setShowBottomNav] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    getAppVersionInfo().then(setAppVersion);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -461,10 +468,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Activity className="h-8 w-8" strokeWidth={2.5} />
               </div>
               <h3 className="font-display text-lg font-bold">GlucoLab Pro</h3>
-              <p className="text-xs text-primary font-semibold tracking-widest uppercase">Version 2.4.0 (Build 90)</p>
+              <p className="text-xs text-primary font-semibold tracking-widest uppercase">
+                Version {appVersion.version} (Build {appVersion.build})
+              </p>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed text-left">
-              GlucoLab Pro is a modern, next-generation diabetes management platform. Built to support patients with precise charting, smart OCR display recognition, and fast local database indexing.
+              GlucoLab Pro is a modern, next-generation diabetes management platform. Built to support patients with precise charting, offline SQLite storage, and clinical report exports.
             </p>
             <div className="border-t border-border/60 my-2 pt-3" />
             <div className="text-left bg-muted p-3.5 rounded-2xl border border-border/40">

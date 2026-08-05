@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Activity, ShieldCheck, Heart, Cpu, ArrowLeft } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getAppVersionInfo } from "@/config/appConfig";
 
 export const Route = createFileRoute("/about")({
   component: AboutPage,
@@ -15,6 +17,12 @@ export const Route = createFileRoute("/about")({
 });
 
 export default function AboutPage() {
+  const [appVersion, setAppVersion] = useState({ version: "3.0.0", build: "3" });
+
+  useEffect(() => {
+    getAppVersionInfo().then(setAppVersion);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -22,7 +30,9 @@ export default function AboutPage() {
           <Link to="/" className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline">
             <ArrowLeft className="h-4 w-4" /> Back to GlucoLab
           </Link>
-          <span className="text-xs text-muted-foreground font-mono">Version 2.4.0 (Build 90)</span>
+          <span className="text-xs text-muted-foreground font-mono">
+            Version {appVersion.version} (Build {appVersion.build})
+          </span>
         </div>
 
         <div className="space-y-3">
