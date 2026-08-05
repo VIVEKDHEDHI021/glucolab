@@ -108,9 +108,9 @@ export default function ContactPage() {
         )}
 
         <div className="p-5 rounded-2xl bg-muted/30 border border-border space-y-1 text-xs text-muted-foreground">
-          <p className="font-bold text-foreground">Direct Email Contacts:</p>
-          <p>Technical Support: support@glucolab.app</p>
-          <p>Privacy & Data Officer: privacy@glucolab.app</p>
+          <p className="font-bold text-foreground">Direct Support Emails:</p>
+          <p>Official Support: <a href="mailto:contact@vioraa.app" className="text-primary underline">contact@vioraa.app</a></p>
+          <p>Developer Contact: <a href="mailto:vivekdhedhi21@gmail.com" className="text-primary underline">vivekdhedhi21@gmail.com</a></p>
         </div>
       </div>
     </div>

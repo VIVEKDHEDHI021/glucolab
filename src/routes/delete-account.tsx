@@ -578,7 +578,7 @@ export default function DeleteAccountPage() {
             If you have questions about our data safety practices or need assistance with an account deletion request, please reach out to our privacy compliance officer:
           </p>
           <div className="pt-1 inline-flex items-center gap-2 text-primary font-bold text-sm bg-background px-4 py-2 rounded-xl border border-border shadow-xs">
-            <Mail className="h-4 w-4" /> support@glucolab.app
+            <Mail className="h-4 w-4" /> contact@vioraa.app / vivekdhedhi21@gmail.com
           </div>
         </div>
       </main>

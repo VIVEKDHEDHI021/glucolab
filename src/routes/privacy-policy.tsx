@@ -105,7 +105,7 @@ export default function PrivacyPolicyPage() {
             <p>If you have questions or concerns regarding this Privacy Policy or data security practices, contact us at:</p>
             <div className="p-4 rounded-xl bg-muted/40 border border-border font-mono text-xs space-y-1">
               <p>GlucoLab Data Protection & Privacy Team</p>
-              <p>Email: privacy@glucolab.app</p>
+              <p>Email: <a href="mailto:contact@vioraa.app" className="text-primary underline">contact@vioraa.app</a> / <a href="mailto:vivekdhedhi21@gmail.com" className="text-primary underline">vivekdhedhi21@gmail.com</a></p>
               <p>Support Portal: <Link to="/contact" className="text-primary underline">/contact</Link></p>
             </div>
           </section>

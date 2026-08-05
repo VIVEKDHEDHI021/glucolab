@@ -445,7 +445,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <p className="text-xs text-muted-foreground leading-relaxed">
                 For questions, feature requests, or technical issues, reach out directly at:
               </p>
-              <p className="text-xs font-bold text-foreground mt-1">support@glucolab.com</p>
+              <p className="text-xs font-bold text-primary mt-1">contact@vioraa.app / vivekdhedhi21@gmail.com</p>
             </div>
           </div>
         </DialogContent>
