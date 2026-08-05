@@ -425,12 +425,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 Click the "+" buttons on the Dashboard to record blood glucose, insulin doses, or body weight. You can categorize readings by time (Before/After meals, Fasting, Bedtime).
               </p>
             </div>
-            <div className="space-y-1">
-              <h4 className="font-semibold text-foreground">How to use the Smart Scanner?</h4>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Tap the floating camera button. Hold your phone steady and frame your glucose meter display. Tap capture. The OCR will parse the digits automatically. Review and edit the reading before saving.
-              </p>
-            </div>
+
             <div className="space-y-1">
               <h4 className="font-semibold text-foreground">Does it work offline?</h4>
               <p className="text-xs text-muted-foreground leading-relaxed">

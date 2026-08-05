@@ -53,17 +53,6 @@ function WelcomePage() {
             </div>
           </div>
 
-          <div className="flex items-start gap-3">
-            <div className="h-8 w-8 rounded-xl bg-success/10 text-success flex items-center justify-center shrink-0">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-foreground">Smart Scanner</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Scan your medical meter display directly with Google Cloud Vision OCR.
-              </p>
-            </div>
-          </div>
 
           <div className="flex items-start gap-3">
             <div className="h-8 w-8 rounded-xl bg-accent text-accent-foreground flex items-center justify-center shrink-0">

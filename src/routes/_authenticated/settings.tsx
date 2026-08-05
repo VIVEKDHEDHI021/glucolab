@@ -141,7 +141,7 @@ function SettingsPage() {
         </h3>
         
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Create encrypted files to backup all your local reports, weight metrics, and smart scanner read logs safely.
+          Create encrypted files to backup all your local reports and weight metrics safely.
         </p>
 
         <div className="grid grid-cols-2 gap-3 pt-2">

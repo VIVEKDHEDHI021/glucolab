@@ -37,7 +37,6 @@ import { Route as ApiSendPushRouteImport } from './routes/api/send-push'
 import { Route as ApiAccountDeletionRequestRouteImport } from './routes/api/account-deletion-request'
 import { Route as ApiAccountRouteImport } from './routes/api/account'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedScannerRouteImport } from './routes/_authenticated/scanner'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedRemindersRouteImport } from './routes/_authenticated/reminders'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
@@ -189,11 +188,6 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedScannerRoute = AuthenticatedScannerRouteImport.update({
-  id: '/scanner',
-  path: '/scanner',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -279,7 +273,6 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AuthenticatedProfileRoute
   '/reminders': typeof AuthenticatedRemindersRoute
   '/reports': typeof AuthenticatedReportsRoute
-  '/scanner': typeof AuthenticatedScannerRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/account': typeof ApiAccountRoute
   '/api/account-deletion-request': typeof ApiAccountDeletionRequestRoute
@@ -319,7 +312,6 @@ export interface FileRoutesByTo {
   '/profile': typeof AuthenticatedProfileRoute
   '/reminders': typeof AuthenticatedRemindersRoute
   '/reports': typeof AuthenticatedReportsRoute
-  '/scanner': typeof AuthenticatedScannerRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/account': typeof ApiAccountRoute
   '/api/account-deletion-request': typeof ApiAccountDeletionRequestRoute
@@ -361,7 +353,6 @@ export interface FileRoutesById {
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/reminders': typeof AuthenticatedRemindersRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
-  '/_authenticated/scanner': typeof AuthenticatedScannerRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/api/account': typeof ApiAccountRoute
   '/api/account-deletion-request': typeof ApiAccountDeletionRequestRoute
@@ -403,7 +394,6 @@ export interface FileRouteTypes {
     | '/profile'
     | '/reminders'
     | '/reports'
-    | '/scanner'
     | '/settings'
     | '/api/account'
     | '/api/account-deletion-request'
@@ -443,7 +433,6 @@ export interface FileRouteTypes {
     | '/profile'
     | '/reminders'
     | '/reports'
-    | '/scanner'
     | '/settings'
     | '/api/account'
     | '/api/account-deletion-request'
@@ -484,7 +473,6 @@ export interface FileRouteTypes {
     | '/_authenticated/profile'
     | '/_authenticated/reminders'
     | '/_authenticated/reports'
-    | '/_authenticated/scanner'
     | '/_authenticated/settings'
     | '/api/account'
     | '/api/account-deletion-request'
@@ -722,13 +710,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/scanner': {
-      id: '/_authenticated/scanner'
-      path: '/scanner'
-      fullPath: '/scanner'
-      preLoaderRoute: typeof AuthenticatedScannerRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/reports': {
       id: '/_authenticated/reports'
       path: '/reports'
@@ -811,7 +792,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRemindersRoute: typeof AuthenticatedRemindersRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
-  AuthenticatedScannerRoute: typeof AuthenticatedScannerRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedDoctorPatientIdRoute: typeof AuthenticatedDoctorPatientIdRoute
 }
@@ -825,7 +805,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRemindersRoute: AuthenticatedRemindersRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
-  AuthenticatedScannerRoute: AuthenticatedScannerRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedDoctorPatientIdRoute: AuthenticatedDoctorPatientIdRoute,
 }

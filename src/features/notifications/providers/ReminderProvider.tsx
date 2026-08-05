@@ -194,10 +194,7 @@ export function ReminderProvider({ children }: { children: React.ReactNode }) {
               await handleReminderAction(reminder, "skip", extra.scheduledTime);
             } else if (actionId === "snooze") {
               await handleReminderAction(reminder, "snooze", extra.scheduledTime);
-            } else if (actionId === "scan") {
-              // Redirect to scanner
-              navigate({ to: "/scanner" });
-            } else if (actionId === "manual_entry") {
+            } else if (actionId === "scan" || actionId === "manual_entry") {
               // Redirect to dashboard where the user can log glucose
               navigate({ to: "/dashboard" });
             }
