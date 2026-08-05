@@ -10,6 +10,7 @@
     "build:dev": "vite build --mode development",
     "build:mobile": "vite build && node generate-index.mjs",
     "sync:mobile": "npm run build:mobile && npx cap sync android",
+    "build:apk": "npm run sync:mobile && cd android && gradlew.bat assembleDebug",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write ."
