@@ -25,8 +25,8 @@ export default function SupportPage() {
       a: "Long-press your Android home screen, select Widgets, search for 'GlucoLab', and drag the Quick Insulin or Glucose Dashboard widget onto your screen. You can configure dose presets in App Settings.",
     },
     {
-      q: "Can my doctor view my glucose readings?",
-      a: "Only if you grant permission. You can generate a Doctor ID or QR code connection from the 'My Connected Doctors' tab and set read-only, full, or temporary access levels.",
+      q: "How do I share my readings with my physician?",
+      a: "You can generate downloadable PDF and Excel clinical summary reports from the 'Reports' tab and share them via email, WhatsApp, or print.",
     },
     {
       q: "How do I export PDF and Excel reports?",

@@ -70,8 +70,7 @@ export default function PrivacyPolicyPage() {
             <p>GlucoLab collects only data essential for providing glucose logging, insulin calculation assistance, and clinical report generation:</p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
               <li><strong>Account Credentials:</strong> Email address, name, password hash, and authentication tokens.</li>
-              <li><strong>Health & Medical Data:</strong> Blood glucose readings (mg/dL or mmol/L), insulin doses, medication times, meal tags, weight logs, and smart scanner image logs.</li>
-              <li><strong>Doctor Access Records:</strong> Consent records authorizing specific healthcare providers to view your reports.</li>
+              <li><strong>Health & Medical Data:</strong> Blood glucose readings (mg/dL or mmol/L), insulin doses, medication times, meal tags, and weight logs.</li>
               <li><strong>Device & Diagnostics:</strong> Push notification tokens (FCM) and native device biometrics (processed strictly locally on your device).</li>
             </ul>
           </section>

@@ -430,7 +430,7 @@ function ProfilePage() {
                   id="editEmerName"
                   value={editEmerName}
                   onChange={(e) => setEditEmerName(e.target.value)}
-                  placeholder="Guardian or doctor name"
+                  placeholder="Emergency contact name"
                 />
               </div>
 

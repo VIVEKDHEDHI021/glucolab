@@ -109,34 +109,7 @@ export const Route = createFileRoute("/api/account")({
           // 7. Delete reminders
           await supabaseAdmin.from("reminders").delete().eq("user_id", userId);
 
-          // 8. Delete patient dose logs
-          await supabaseAdmin.from("patient_dose_logs").delete().eq("patient_id", userId);
-
-          // 9. Delete prescriptions
-          await supabaseAdmin.from("prescriptions").delete().eq("patient_id", userId);
-
-          // 10. Delete doctor access records
-          await supabaseAdmin
-            .from("patient_doctor_access")
-            .delete()
-            .or(`patient_id.eq.${userId},doctor_id.eq.${userId}`);
-
-          // 11. Delete doctor notes
-          await supabaseAdmin
-            .from("doctor_notes")
-            .delete()
-            .or(`patient_id.eq.${userId},doctor_id.eq.${userId}`);
-
-          // 12. Delete notifications
-          await supabaseAdmin
-            .from("doctor_patient_notifications")
-            .delete()
-            .eq("recipient_id", userId);
-
-          // 13. Delete doctor profile if user was a registered doctor
-          await supabaseAdmin.from("doctor_profiles").delete().eq("id", userId);
-
-          // 14. Delete user profile
+          // 8. Delete user profile
           await supabaseAdmin.from("profiles").delete().eq("user_id", userId);
 
           // 15. Delete auth user from Supabase Auth identity store

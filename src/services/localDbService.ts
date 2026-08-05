@@ -116,56 +116,6 @@ export const localDbService = {
           created_at TEXT,
           updated_at TEXT
         );
-        CREATE TABLE IF NOT EXISTS doctor_profiles (
-          id TEXT PRIMARY KEY,
-          doctor_id TEXT,
-          full_name TEXT,
-          phone TEXT,
-          email TEXT,
-          registration_number TEXT,
-          specialization TEXT,
-          hospital_clinic_name TEXT,
-          clinic_address TEXT,
-          experience_years INTEGER,
-          verification_status TEXT,
-          sync_status TEXT DEFAULT 'synced'
-        );
-        CREATE TABLE IF NOT EXISTS patient_doctor_access (
-          id TEXT PRIMARY KEY,
-          patient_id TEXT,
-          doctor_id TEXT,
-          access_level TEXT,
-          status TEXT,
-          expires_at TEXT,
-          sync_status TEXT DEFAULT 'synced'
-        );
-        CREATE TABLE IF NOT EXISTS prescriptions (
-          id TEXT PRIMARY KEY,
-          patient_id TEXT,
-          doctor_id TEXT,
-          version INTEGER,
-          status TEXT,
-          notes TEXT,
-          sync_status TEXT DEFAULT 'synced'
-        );
-        CREATE TABLE IF NOT EXISTS prescription_items (
-          id TEXT PRIMARY KEY,
-          prescription_id TEXT,
-          time_slot TEXT,
-          insulin_name TEXT,
-          dose_units REAL,
-          instructions TEXT,
-          remarks TEXT,
-          sync_status TEXT DEFAULT 'synced'
-        );
-        CREATE TABLE IF NOT EXISTS doctor_notes (
-          id TEXT PRIMARY KEY,
-          patient_id TEXT,
-          doctor_id TEXT,
-          note TEXT,
-          sync_status TEXT DEFAULT 'synced',
-          created_at TEXT
-        );
       `;
       
       await database.execute(tablesSchema);

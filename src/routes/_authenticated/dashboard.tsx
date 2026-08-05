@@ -44,7 +44,6 @@ import {
 } from "@/frontend/lib/types";
 import { cn } from "@/frontend/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/frontend/components/ui/tabs";
-import { DoctorDashboardView } from "@/frontend/components/doctor-dashboard-view";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -97,7 +96,6 @@ function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { glucose, insulin, weight, profileName, refreshData } = useHealthData();
-  const [isDoctor, setIsDoctor] = useState<boolean>(false);
   const [glucoseOpen, setGlucoseOpen] = useState(false);
   const [insulinOpen, setInsulinOpen] = useState(false);
   const [weightOpen, setWeightOpen] = useState(false);
@@ -114,23 +112,6 @@ function DashboardPage() {
 
   useEffect(() => {
     refreshData(false);
-    if (user) {
-      if (user.user_metadata?.role === "doctor") {
-        setIsDoctor(true);
-      } else {
-        supabase
-          .from("profiles")
-          .select("role")
-          .eq("user_id", user.id)
-          .maybeSingle()
-          .then(
-            ({ data, error }) => {
-              if (!error && data?.role === "doctor") setIsDoctor(true);
-            },
-            () => {}
-          );
-      }
-    }
   }, [user]);
 
   const latest = glucose[0];
@@ -222,9 +203,6 @@ function DashboardPage() {
     return `${morning}-${lunch}-${evening}-${night} units`;
   }, [matchingInsulin]);
 
-  if (isDoctor && user) {
-    return <DoctorDashboardView userId={user.id} />;
-  }
 
   return (
     <>

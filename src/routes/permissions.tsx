@@ -26,7 +26,7 @@ export default function PermissionsPage() {
       name: "android.permission.POST_NOTIFICATIONS",
       label: "Push Notifications",
       icon: Bell,
-      reason: "Required to deliver scheduled glucose logging reminders, high/low sugar alert notifications, and doctor message alerts.",
+      reason: "Required to deliver scheduled glucose logging reminders and high/low sugar alert notifications.",
     },
     {
       name: "android.permission.USE_BIOMETRIC",
