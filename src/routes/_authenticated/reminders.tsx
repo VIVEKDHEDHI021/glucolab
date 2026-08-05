@@ -128,7 +128,7 @@ function RemindersPage() {
     for (let i = 6; i >= 0; i--) {
       const d = subDays(new Date(), i);
       const dStr = format(d, "yyyy-MM-dd");
-      const dLabel = format(d, "MM/dd");
+      const dLabel = format(d, "dd/MM");
       data[dStr] = { dateStr: dStr, dateLabel: dLabel, total: 0, done: 0 };
     }
 
@@ -346,7 +346,7 @@ function RemindersPage() {
           ) : (
             <div className="space-y-3">
               {history.slice(0, 30).map((h) => {
-                const dateLabel = format(parseISO(h.scheduled_time), "MMM d, HH:mm");
+                const dateLabel = format(parseISO(h.scheduled_time), "dd MMM, hh:mm a");
                 const matchedReminder = reminders.find((rem) => rem.id === h.reminder_id);
 
                 return (
@@ -376,7 +376,7 @@ function RemindersPage() {
                         </p>
                         {h.action_time && (
                           <p className="text-[10px] text-muted-foreground/80 italic">
-                            Logged Action: {h.action_taken} at {format(parseISO(h.action_time), "HH:mm")}
+                            Logged Action: {h.action_taken} at {format(parseISO(h.action_time), "hh:mm a")}
                           </p>
                         )}
                       </div>

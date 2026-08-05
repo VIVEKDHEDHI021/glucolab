@@ -164,8 +164,8 @@ function DashboardPage() {
       [...trendReadings].reverse().map((r) => {
         const dateObj = new Date(r.date_time);
         return {
-          time: format(dateObj, "MM/dd HH:mm"),
-          fullTime: format(dateObj, "MMM d, yyyy HH:mm"),
+          time: format(dateObj, "dd/MM hh:mm a"),
+          fullTime: format(dateObj, "dd MMM yyyy, hh:mm a"),
           glucose: Number(r.glucose),
           type: r.reading_type,
           food: r.food,
@@ -246,7 +246,7 @@ function DashboardPage() {
           unit={latest ? "mg/dL" : ""}
           sub={
             latest
-              ? `${latest.reading_type} · ${format(new Date(latest.date_time), "MMM d, HH:mm")}`
+              ? `${latest.reading_type} · ${format(new Date(latest.date_time), "dd MMM, hh:mm a")}`
               : "No reading yet"
           }
           accent={latest ? glucoseStatus(Number(latest.glucose), latest.reading_type) : "normal"}
@@ -265,7 +265,7 @@ function DashboardPage() {
           unit=""
           sub={
             latestInsulin
-              ? `Total: ${insulinTotal} units · ${format(new Date(latestInsulin.entry_date), "MMM d")}`
+              ? `Total: ${insulinTotal} units · ${format(new Date(latestInsulin.entry_date), "dd MMM")}`
               : "No data"
           }
         />
@@ -274,7 +274,7 @@ function DashboardPage() {
           label="Latest weight"
           value={latestWeight ? `${Number(latestWeight.weight_kg).toFixed(1)}` : "—"}
           unit={latestWeight ? "kg" : ""}
-          sub={latestWeight ? format(new Date(latestWeight.entry_date), "MMM d") : "No data"}
+          sub={latestWeight ? format(new Date(latestWeight.entry_date), "dd MMM") : "No data"}
         />
       </div>
 
@@ -332,7 +332,7 @@ function DashboardPage() {
                   axisLine={false}
                   tickFormatter={(tick) => {
                     try {
-                      return format(new Date(tick), days === 7 ? "MM/dd HH:mm" : "MM/dd");
+                      return format(new Date(tick), days === 7 ? "dd/MM hh:mm a" : "dd/MM");
                     } catch {
                       return tick;
                     }
@@ -538,7 +538,7 @@ function DashboardPage() {
                     axisLine={false}
                     tickFormatter={(tick) => {
                       try {
-                        return format(new Date(tick), days === 7 ? "MM/dd HH:mm" : "MM/dd");
+                        return format(new Date(tick), days === 7 ? "dd/MM hh:mm a" : "dd/MM");
                       } catch {
                         return tick;
                       }

@@ -75,7 +75,7 @@ function ReportsPage() {
   const dailyAvg = useMemo(() => {
     const map = new Map<string, number[]>();
     glucose.forEach((g) => {
-      const d = format(new Date(g.date_time), "MM/dd");
+      const d = format(new Date(g.date_time), "dd/MM");
       if (!map.has(d)) map.set(d, []);
       map.get(d)!.push(Number(g.glucose));
     });
@@ -97,12 +97,12 @@ function ReportsPage() {
   }, [glucose]);
 
   const insulinTrend = insulin.map((i) => ({
-    date: format(new Date(i.entry_date), "MM/dd"),
+    date: format(new Date(i.entry_date), "dd/MM"),
     total: Number(i.morning) + Number(i.lunch) + (Number(i.afternoon) || 0) + Number(i.evening) + Number(i.night),
   }));
 
   const weightTrend = weight.map((w) => ({
-    date: format(new Date(w.entry_date), "MM/dd"),
+    date: format(new Date(w.entry_date), "dd/MM"),
     kg: Number(w.weight_kg),
   }));
 
@@ -147,14 +147,14 @@ function ReportsPage() {
           label="Highest"
           value={stats ? `${Math.round(Number(stats.high.glucose))}` : "—"}
           unit="mg/dL"
-          sub={stats && format(new Date(stats.high.date_time), "MMM d HH:mm")}
+          sub={stats && format(new Date(stats.high.date_time), "dd MMM, hh:mm a")}
           icon={<TrendingUp className="h-4 w-4 text-destructive" />}
         />
         <KPI
           label="Lowest"
           value={stats ? `${Math.round(Number(stats.low.glucose))}` : "—"}
           unit="mg/dL"
-          sub={stats && format(new Date(stats.low.date_time), "MMM d HH:mm")}
+          sub={stats && format(new Date(stats.low.date_time), "dd MMM, hh:mm a")}
           icon={<TrendingDown className="h-4 w-4 text-warning" />}
         />
         <KPI

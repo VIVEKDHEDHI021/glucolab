@@ -107,7 +107,7 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
             await messagingService.sendGlucoseAlert(p.data.phone, {
               glucose: data.glucose,
               type: data.reading_type,
-              date: format(new Date(data.date_time), "MMM d, HH:mm"),
+              date: format(new Date(data.date_time), "dd MMM, hh:mm a"),
               notes: data.notes || null,
             });
           } else {

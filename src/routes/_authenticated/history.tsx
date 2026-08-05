@@ -277,7 +277,7 @@ function HistoryPage() {
 
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Clock className="h-3.5 w-3.5" />
-                            <span>{format(new Date(e.date_time), "EEEE, MMM d, yyyy · HH:mm")}</span>
+                            <span>{format(new Date(e.date_time), "EEEE, dd MMM yyyy · hh:mm a")}</span>
                           </div>
 
                           <div className="space-y-1 mt-1">
@@ -370,7 +370,7 @@ function HistoryPage() {
 
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Clock className="h-3.5 w-3.5" />
-                            <span>{format(new Date(w.entry_date + "T12:00:00"), "EEEE, MMM d, yyyy")}</span>
+                            <span>{format(new Date(w.entry_date + "T12:00:00"), "EEEE, dd MMM yyyy")}</span>
                           </div>
 
                           {w.notes && (
