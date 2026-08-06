@@ -38,12 +38,22 @@ export const Route = createFileRoute("/delete-account")({
   component: DeleteAccountPage,
   head: () => ({
     meta: [
-      { title: "Account & Data Deletion Policy — GlucoLab" },
+      { title: "Delete Account & Data Purge — GlucoLab | Viora Technology" },
       {
         name: "description",
         content:
-          "Request account deletion and learn how GlucoLab handles user data, deletion requests, and retention policies in compliance with Google Play Store standards.",
+          "Request account deletion and learn how GlucoLab handles user data, step-by-step app deletion instructions, and permanent data purge policies by Viora Technology.",
       },
+      { property: "og:title", content: "Delete Account & Data Purge — GlucoLab" },
+      {
+        property: "og:description",
+        content:
+          "Permanently delete your GlucoLab account, personal information, and health records in accordance with Google Play Developer Policy.",
+      },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://www.vioraa.app/delete-account" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { rel: "canonical", href: "https://www.vioraa.app/delete-account" },
     ],
   }),
 });
@@ -585,14 +595,31 @@ export default function DeleteAccountPage() {
 
       {/* Footer */}
       <footer className="border-t border-border bg-card mt-12 py-8">
-        <div className="mx-auto max-w-6xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 text-primary" />
-            <span>&copy; {new Date().getFullYear()} GlucoLab Pro. All rights reserved.</span>
+        <div className="mx-auto max-w-6xl px-4 flex flex-col items-center gap-4 text-xs text-muted-foreground text-center">
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link to="/privacy-policy" className="hover:text-primary transition-colors">
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <Link to="/terms" className="hover:text-primary transition-colors">
+              Terms & Conditions
+            </Link>
+            <span>•</span>
+            <Link to="/delete-account" className="text-primary font-bold underline">
+              Delete Account
+            </Link>
+            <span>•</span>
+            <Link to="/medical-disclaimer" className="hover:text-primary transition-colors">
+              Medical Disclaimer
+            </Link>
+            <span>•</span>
+            <Link to="/data-safety" className="hover:text-primary transition-colors">
+              Data Safety
+            </Link>
           </div>
-          <div className="flex items-center gap-4">
-            <Link to="/login" className="hover:text-foreground">Sign In</Link>
-            <Link to="/delete-account" className="hover:text-foreground font-semibold text-primary">Account Deletion Policy</Link>
+          <div className="flex items-center justify-center gap-2">
+            <Activity className="h-4 w-4 text-primary" />
+            <span>© {new Date().getFullYear()} GlucoLab by Viora Technology. All rights reserved.</span>
           </div>
         </div>
       </footer>
