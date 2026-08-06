@@ -117,12 +117,10 @@ function SettingsPage() {
               value={language}
               onChange={(e) => {
                 setLanguage(e.target.value);
-                toast.success(`Language changed to ${e.target.value === "en" ? "English" : "Spanish"}`);
               }}
               className="bg-muted/45 text-xs font-semibold px-3 py-2 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 theme-transition"
             >
               <option value="en">English (US)</option>
-              <option value="es">Español</option>
             </select>
           </div>
         </div>

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as ThirdPartyLicensesRouteImport } from './routes/third-party-licenses'
+import { Route as TermsAndConditionsRouteImport } from './routes/terms-and-conditions'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as SignupRouteImport } from './routes/signup'
@@ -53,6 +54,11 @@ const WelcomeRoute = WelcomeRouteImport.update({
 const ThirdPartyLicensesRoute = ThirdPartyLicensesRouteImport.update({
   id: '/third-party-licenses',
   path: '/third-party-licenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsAndConditionsRoute = TermsAndConditionsRouteImport.update({
+  id: '/terms-and-conditions',
+  path: '/terms-and-conditions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TermsRoute = TermsRouteImport.update({
@@ -243,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
+  '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/third-party-licenses': typeof ThirdPartyLicensesRoute
   '/welcome': typeof WelcomeRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -279,6 +286,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
+  '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/third-party-licenses': typeof ThirdPartyLicensesRoute
   '/welcome': typeof WelcomeRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -317,6 +325,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
+  '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/third-party-licenses': typeof ThirdPartyLicensesRoute
   '/welcome': typeof WelcomeRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -355,6 +364,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/support'
     | '/terms'
+    | '/terms-and-conditions'
     | '/third-party-licenses'
     | '/welcome'
     | '/dashboard'
@@ -391,6 +401,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/support'
     | '/terms'
+    | '/terms-and-conditions'
     | '/third-party-licenses'
     | '/welcome'
     | '/dashboard'
@@ -428,6 +439,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/support'
     | '/terms'
+    | '/terms-and-conditions'
     | '/third-party-licenses'
     | '/welcome'
     | '/_authenticated/dashboard'
@@ -466,6 +478,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SupportRoute: typeof SupportRoute
   TermsRoute: typeof TermsRoute
+  TermsAndConditionsRoute: typeof TermsAndConditionsRoute
   ThirdPartyLicensesRoute: typeof ThirdPartyLicensesRoute
   WelcomeRoute: typeof WelcomeRoute
   ApiAccountRoute: typeof ApiAccountRoute
@@ -488,6 +501,13 @@ declare module '@tanstack/react-router' {
       path: '/third-party-licenses'
       fullPath: '/third-party-licenses'
       preLoaderRoute: typeof ThirdPartyLicensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms-and-conditions': {
+      id: '/terms-and-conditions'
+      path: '/terms-and-conditions'
+      fullPath: '/terms-and-conditions'
+      preLoaderRoute: typeof TermsAndConditionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/terms': {
@@ -771,6 +791,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SupportRoute: SupportRoute,
   TermsRoute: TermsRoute,
+  TermsAndConditionsRoute: TermsAndConditionsRoute,
   ThirdPartyLicensesRoute: ThirdPartyLicensesRoute,
   WelcomeRoute: WelcomeRoute,
   ApiAccountRoute: ApiAccountRoute,
