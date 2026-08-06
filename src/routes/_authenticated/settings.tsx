@@ -33,7 +33,6 @@ function SettingsPage() {
   const [reminders, setReminders] = useState(true);
   const [highSugarAlerts, setHighSugarAlerts] = useState(true);
   const [lowSugarAlerts, setLowSugarAlerts] = useState(true);
-  const [biometrics, setBiometrics] = useState(false);
   const [language, setLanguage] = useState("en");
 
   const handleBackup = () => {
@@ -109,16 +108,6 @@ function SettingsPage() {
         </h3>
 
         <div className="space-y-3.5 pt-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="text-sm font-semibold">Biometric Access Locked</h4>
-              <p className="text-xs text-muted-foreground">Require fingerprint/face scanner on launch.</p>
-            </div>
-            <Switch checked={biometrics} onCheckedChange={setBiometrics} />
-          </div>
-
-          <div className="border-t border-border/60" />
-
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-sm font-semibold">Application Language</h4>
