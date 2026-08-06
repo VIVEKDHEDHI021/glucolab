@@ -15,6 +15,7 @@ import { Switch } from "@/frontend/components/ui/switch";
 import { toast } from "sonner";
 
 import { getAppVersionInfo } from "@/config/appConfig";
+import { useAuth } from "@/frontend/lib/auth-context";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,

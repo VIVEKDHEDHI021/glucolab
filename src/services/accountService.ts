@@ -52,13 +52,13 @@ export const accountService = {
         const user = sessionRes.data.session?.user;
         if (user?.id) {
           const uid = user.id;
-          await supabase.from("glucose_entries").delete().eq("user_id", uid).catch(() => {});
-          await supabase.from("insulin_entries").delete().eq("user_id", uid).catch(() => {});
-          await supabase.from("weight_entries").delete().eq("user_id", uid).catch(() => {});
-          await supabase.from("smart_scan_readings").delete().eq("user_id", uid).catch(() => {});
-          await supabase.from("reminders").delete().eq("user_id", uid).catch(() => {});
-          await supabase.from("reminder_history").delete().eq("user_id", uid).catch(() => {});
-          await supabase.from("profiles").delete().eq("user_id", uid).catch(() => {});
+          try { await supabase.from("glucose_entries").delete().eq("user_id", uid); } catch {}
+          try { await supabase.from("insulin_entries").delete().eq("user_id", uid); } catch {}
+          try { await supabase.from("weight_entries").delete().eq("user_id", uid); } catch {}
+          try { await supabase.from("smart_scan_readings").delete().eq("user_id", uid); } catch {}
+          try { await supabase.from("reminders").delete().eq("user_id", uid); } catch {}
+          try { await supabase.from("reminder_history").delete().eq("user_id", uid); } catch {}
+          try { await supabase.from("profiles").delete().eq("user_id", uid); } catch {}
         }
 
         await this.clearAllLocalUserData();
