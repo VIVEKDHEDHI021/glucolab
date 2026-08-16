@@ -10,8 +10,20 @@ export const authService = {
     return supabase.auth.signUp({ email, password });
   },
 
-  async resetPassword(email: string, redirectTo: string) {
-    return supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  async requestPasswordResetOtp(email: string) {
+    return supabase.auth.resetPasswordForEmail(email);
+  },
+
+  async verifyPasswordResetOtp(email: string, token: string) {
+    return supabase.auth.verifyOtp({
+      email,
+      token,
+      type: "recovery",
+    });
+  },
+
+  async resetPassword(email: string, redirectTo?: string) {
+    return supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
   },
 
   async updatePassword(password: string) {
@@ -30,3 +42,4 @@ export const authService = {
     return supabase.auth.onAuthStateChange(callback);
   },
 };
+

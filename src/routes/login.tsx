@@ -27,32 +27,25 @@ function LoginPage() {
 
   useEffect(() => {
     async function loadRememberedLoginInfo() {
+      // 1. Purge legacy insecure storage format that held plaintext passwords
       if (Capacitor.isNativePlatform()) {
         try {
           const { Preferences } = await import("@capacitor/preferences");
-          const { value } = await Preferences.get({ key: "remembered_login_info" });
+          await Preferences.remove({ key: "remembered_login_info" });
+          const { value } = await Preferences.get({ key: "remembered_email" });
           if (value) {
-            const { email: savedEmail, password: savedPassword } = JSON.parse(value);
-            if (savedEmail) setEmail(savedEmail);
-            if (savedPassword) setPassword(savedPassword);
+            setEmail(value);
             setRememberMe(true);
           }
         } catch (err) {
           console.warn("Failed to load remembered login info on mobile:", err);
         }
       } else if (typeof window !== "undefined") {
-        const value = localStorage.getItem("remembered_login_info");
-        if (value) {
-          try {
-            const { email: savedEmail, password: savedPassword } = JSON.parse(value);
-            if (savedEmail) setEmail(savedEmail);
-            if (savedPassword) setPassword(savedPassword);
-            setRememberMe(true);
-          } catch (e) {
-            // Fallback for old style email only string
-            setEmail(value);
-            setRememberMe(true);
-          }
+        localStorage.removeItem("remembered_login_info");
+        const savedEmail = localStorage.getItem("remembered_email");
+        if (savedEmail) {
+          setEmail(savedEmail);
+          setRememberMe(true);
         }
       }
     }
@@ -70,33 +63,32 @@ function LoginPage() {
       return;
     }
 
-    // Save or clear remembered login info
+    // Save or clear remembered email (never save plaintext password)
     if (rememberMe) {
-      const loginInfo = JSON.stringify({ email: cleanEmail, password });
       if (Capacitor.isNativePlatform()) {
         try {
           const { Preferences } = await import("@capacitor/preferences");
-          await Preferences.set({ key: "remembered_login_info", value: loginInfo });
-          await Preferences.remove({ key: "remembered_email" }); // Clean up old format
+          await Preferences.set({ key: "remembered_email", value: cleanEmail });
+          await Preferences.remove({ key: "remembered_login_info" });
         } catch (err) {
-          console.warn("Failed to save remembered login info on mobile:", err);
+          console.warn("Failed to save remembered email on mobile:", err);
         }
       } else if (typeof window !== "undefined") {
-        localStorage.setItem("remembered_login_info", loginInfo);
-        localStorage.removeItem("remembered_email"); // Clean up old format
+        localStorage.setItem("remembered_email", cleanEmail);
+        localStorage.removeItem("remembered_login_info");
       }
     } else {
       if (Capacitor.isNativePlatform()) {
         try {
           const { Preferences } = await import("@capacitor/preferences");
-          await Preferences.remove({ key: "remembered_login_info" });
           await Preferences.remove({ key: "remembered_email" });
+          await Preferences.remove({ key: "remembered_login_info" });
         } catch (err) {
-          console.warn("Failed to remove remembered login info on mobile:", err);
+          console.warn("Failed to remove remembered email on mobile:", err);
         }
       } else if (typeof window !== "undefined") {
-        localStorage.removeItem("remembered_login_info");
         localStorage.removeItem("remembered_email");
+        localStorage.removeItem("remembered_login_info");
       }
     }
 
