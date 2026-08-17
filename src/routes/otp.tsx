@@ -76,13 +76,13 @@ function OTPVerificationPage() {
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Reliable 1-second countdown on client mount that does not reset on typing/re-renders
   useEffect(() => {
-    if (timer <= 0) return;
     const interval = setInterval(() => {
-      setTimer((t) => (t > 0 ? t - 1 : 0));
+      setTimer((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(interval);
-  }, [timer]);
+  }, []);
 
   const handleResend = useCallback(async () => {
     if (timer > 0 || resending) return;
@@ -96,7 +96,7 @@ function OTPVerificationPage() {
       toast.success("If an account exists for this email, a verification code has been sent.");
     } catch (err) {
       console.warn("Resend OTP error:", err);
-      toast.error("Unable to resend code right now. Please try again in a few moments.");
+      toast.error("Unable to resend code right now. Please try again later.");
     } finally {
       setResending(false);
     }
@@ -192,12 +192,11 @@ function OTPVerificationPage() {
                 Enter 8-digit verification code
               </label>
 
-              <div className="flex justify-center overflow-x-auto py-1">
+              <div className="flex justify-center items-center py-2 px-1">
                 <InputOTP
                   maxLength={8}
                   value={code}
                   onChange={(val) => {
-                    // Only accept numeric input up to 8 characters
                     const numericVal = val.replace(/[^0-9]/g, "").slice(0, 8);
                     setCode(numericVal);
                     if (errorMsg) setErrorMsg(null);
@@ -205,7 +204,7 @@ function OTPVerificationPage() {
                   disabled={verifying}
                   autoFocus
                 >
-                  <InputOTPGroup className="gap-1 sm:gap-2">
+                  <InputOTPGroup className="gap-1.5 sm:gap-2">
                     <InputOTPSlot index={0} />
                     <InputOTPSlot index={1} />
                     <InputOTPSlot index={2} />
