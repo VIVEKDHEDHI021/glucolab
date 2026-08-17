@@ -163,7 +163,7 @@ function OTPVerificationPage() {
             </h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            A verification code was sent to:{" "}
+            A 6-digit verification code was sent to:{" "}
             <strong className="text-foreground font-semibold">
               {maskEmail(email)}
             </strong>
@@ -183,7 +183,7 @@ function OTPVerificationPage() {
           >
             <div className="space-y-4">
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider text-center">
-                Enter 6-digit code
+                Enter 6-digit verification code
               </label>
 
               <div className="flex justify-center">
