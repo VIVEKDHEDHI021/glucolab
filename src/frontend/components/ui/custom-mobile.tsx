@@ -10,7 +10,7 @@ interface OTPFieldProps {
   length?: number;
 }
 
-export function OTPField({ value, onChange, length = 6 }: OTPFieldProps) {
+export function OTPField({ value, onChange, length = 8 }: OTPFieldProps) {
   const inputsRef = React.useRef<HTMLInputElement[]>([]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {

@@ -56,7 +56,7 @@ function ForgotPage() {
             Forgot password
           </h1>
           <p className="text-sm text-muted-foreground">
-            Enter your registered email address to receive a 6-digit verification code.
+            Enter your registered email address to receive an 8-digit verification code.
           </p>
         </div>
 

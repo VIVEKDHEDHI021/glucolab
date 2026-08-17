@@ -96,7 +96,7 @@ function ResetPage() {
             Verification Required
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            You must verify your 6-digit email code before creating a new password.
+            You must verify your 8-digit email code before creating a new password.
           </p>
           <div className="mt-6 flex flex-col gap-2.5">
             <Button asChild className="w-full gradient-primary text-primary-foreground rounded-xl" size="lg">

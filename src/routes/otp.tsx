@@ -12,17 +12,12 @@ function maskEmail(email: string): string {
   if (localPart.length <= 1) {
     return `${localPart}***@${domain}`;
   }
-  if (localPart.length === 2) {
-    return `${localPart[0]}***@${domain}`;
-  }
-  const firstChar = localPart[0];
-  const lastChar = localPart[localPart.length - 1];
-  return `${firstChar}***${lastChar}@${domain}`;
+  return `${localPart[0]}***@${domain}`;
 }
 
 function getFriendlyOtpErrorMessage(err: unknown): string {
   if (!err || typeof err !== "object") {
-    return "Invalid verification code. Please check and try again.";
+    return "Unable to verify the code. Please try again.";
   }
   const errorObj = err as { message?: string; code?: string; status?: number };
   const msg = (errorObj.message || "").toLowerCase();
@@ -35,7 +30,7 @@ function getFriendlyOtpErrorMessage(err: unknown): string {
     msg.includes("too many requests") ||
     code.includes("over_email_send_rate_limit")
   ) {
-    return "Too many attempts. Please request a new verification code.";
+    return "Too many attempts. Please try again later.";
   }
   if (
     msg.includes("expired") ||
@@ -48,7 +43,8 @@ function getFriendlyOtpErrorMessage(err: unknown): string {
     msg.includes("invalid") ||
     msg.includes("token is invalid") ||
     msg.includes("otp") ||
-    code.includes("otp_disabled")
+    code.includes("otp_disabled") ||
+    msg.includes("incorrect")
   ) {
     return "Invalid verification code.";
   }
@@ -60,7 +56,7 @@ function getFriendlyOtpErrorMessage(err: unknown): string {
   ) {
     return "Unable to verify the code. Please check your connection and try again.";
   }
-  return "Invalid verification code. Please check and try again.";
+  return "Unable to verify the code. Please try again.";
 }
 
 export const Route = createFileRoute("/otp")({
@@ -108,7 +104,10 @@ function OTPVerificationPage() {
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (code.length < 6 || verifying) return;
+    if (code.length < 8 || !/^[0-9]{8}$/.test(code) || verifying) {
+      toast.error("Please enter the 8-digit verification code.");
+      return;
+    }
 
     setVerifying(true);
     setErrorMsg(null);
@@ -143,6 +142,8 @@ function OTPVerificationPage() {
     }
   };
 
+  const isComplete = code.length === 8 && /^[0-9]{8}$/.test(code);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 animate-fade-in">
       <div className="w-full max-w-md space-y-6">
@@ -163,11 +164,16 @@ function OTPVerificationPage() {
             </h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            A 6-digit verification code was sent to:{" "}
-            <strong className="text-foreground font-semibold">
-              {maskEmail(email)}
-            </strong>
+            Enter the 8-digit verification code sent to your email.
           </p>
+          {email && (
+            <p className="text-xs text-muted-foreground pt-0.5">
+              Code sent to:{" "}
+              <strong className="text-foreground font-semibold">
+                {maskEmail(email)}
+              </strong>
+            </p>
+          )}
         </div>
 
         {success ? (
@@ -179,31 +185,35 @@ function OTPVerificationPage() {
         ) : (
           <form
             onSubmit={handleVerify}
-            className="space-y-6 bg-card border border-border rounded-3xl p-6 sm:p-8 shadow-elevated"
+            className="space-y-6 bg-card border border-border rounded-3xl p-5 sm:p-8 shadow-elevated"
           >
             <div className="space-y-4">
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider text-center">
-                Enter 6-digit verification code
+                Enter 8-digit verification code
               </label>
 
-              <div className="flex justify-center">
+              <div className="flex justify-center overflow-x-auto py-1">
                 <InputOTP
-                  maxLength={6}
+                  maxLength={8}
                   value={code}
                   onChange={(val) => {
-                    setCode(val);
+                    // Only accept numeric input up to 8 characters
+                    const numericVal = val.replace(/[^0-9]/g, "").slice(0, 8);
+                    setCode(numericVal);
                     if (errorMsg) setErrorMsg(null);
                   }}
                   disabled={verifying}
                   autoFocus
                 >
-                  <InputOTPGroup className="gap-2 sm:gap-3">
+                  <InputOTPGroup className="gap-1 sm:gap-2">
                     <InputOTPSlot index={0} />
                     <InputOTPSlot index={1} />
                     <InputOTPSlot index={2} />
                     <InputOTPSlot index={3} />
                     <InputOTPSlot index={4} />
                     <InputOTPSlot index={5} />
+                    <InputOTPSlot index={6} />
+                    <InputOTPSlot index={7} />
                   </InputOTPGroup>
                 </InputOTP>
               </div>
@@ -242,7 +252,7 @@ function OTPVerificationPage() {
 
             <Button
               type="submit"
-              disabled={verifying || code.length < 6}
+              disabled={verifying || !isComplete}
               className="w-full gradient-primary text-primary-foreground btn-ripple-effect rounded-2xl h-12 text-sm font-semibold shadow-soft"
             >
               {verifying ? "Verifying..." : "Verify Code"}
@@ -253,4 +263,3 @@ function OTPVerificationPage() {
     </div>
   );
 }
-
