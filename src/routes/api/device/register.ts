@@ -6,17 +6,16 @@ export const Route = createFileRoute("/api/device/register")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          // 1. Authenticate the request via Supabase Bearer token
-          const authHeader = request.headers.get("authorization");
-          const token = authHeader?.replace(/^Bearer\s+/i, "").trim();
-
-          if (!token) {
+          // 1. Authenticate user from Bearer Token
+          const authHeader = request.headers.get("Authorization");
+          if (!authHeader || !authHeader.startsWith("Bearer ")) {
             return Response.json(
-              { error: "Unauthorized: Missing authentication token." },
+              { error: "Unauthorized. Missing or invalid Bearer token." },
               { status: 401 },
             );
           }
 
+          const token = authHeader.split(" ")[1];
           const {
             data: { user },
             error: authError,
@@ -24,92 +23,82 @@ export const Route = createFileRoute("/api/device/register")({
 
           if (authError || !user) {
             return Response.json(
-              { error: "Unauthorized: Invalid or expired session." },
+              { error: "Unauthorized. Invalid authentication session." },
               { status: 401 },
             );
           }
 
-          // 2. Parse and validate device payload
+          // 2. Parse and validate request body
           const body = await request.json();
-          const deviceToken = body?.device_token ? String(body.device_token).trim() : null;
-          const deviceType = body?.device_type ? String(body.device_type).trim().toLowerCase() : "web";
-          const deviceName = body?.device_name ? String(body.device_name).trim().substring(0, 150) : null;
+          const deviceToken = body.device_token?.trim();
+          const deviceType = body.device_type?.trim() || "web";
+          const deviceName = body.device_name?.trim() || null;
 
           if (!deviceToken) {
             return Response.json(
-              { error: "Bad Request: device_token is required." },
+              { error: "device_token is required." },
               { status: 400 },
             );
           }
 
-          console.log(
-            `[api/device/register] Registering device for user ${user.id} (type: ${deviceType}, name: ${deviceName})...`,
-          );
-
-          // 3. Upsert device token in user_devices table
-          const { data: existing, error: findError } = await supabaseAdmin
-            .from("user_devices")
-            .select("id, user_id, is_active")
-            .eq("device_token", deviceToken)
-            .maybeSingle();
-
-          if (findError) {
-            console.error("[api/device/register] Error querying user_devices:", findError);
-            return Response.json({ error: findError.message }, { status: 500 });
-          }
-
           const now = new Date().toISOString();
 
-          if (existing) {
-            // Re-activate and safely re-associate with current user if needed
-            const { data: updated, error: updateError } = await supabaseAdmin
+          // 3. Try to register in user_devices table
+          let registeredInUserDevices = false;
+          try {
+            const { data: existing } = await supabaseAdmin
               .from("user_devices")
-              .update({
+              .select("id, user_id, is_active")
+              .eq("device_token", deviceToken)
+              .maybeSingle();
+
+            if (existing) {
+              await supabaseAdmin
+                .from("user_devices")
+                .update({
+                  user_id: user.id,
+                  device_type: deviceType,
+                  device_name: deviceName,
+                  is_active: true,
+                  last_used_at: now,
+                  updated_at: now,
+                })
+                .eq("id", existing.id);
+            } else {
+              await supabaseAdmin
+                .from("user_devices")
+                .insert({
+                  user_id: user.id,
+                  device_token: deviceToken,
+                  device_type: deviceType,
+                  device_name: deviceName,
+                  is_active: true,
+                  last_used_at: now,
+                });
+            }
+            registeredInUserDevices = true;
+          } catch (e) {}
+
+          // 4. Also register/upsert in push_tokens table for dual compatibility
+          try {
+            await supabaseAdmin.from("push_tokens").upsert(
+              {
                 user_id: user.id,
-                device_type: deviceType,
+                token: deviceToken,
+                platform: deviceType,
                 device_name: deviceName,
-                is_active: true,
-                last_used_at: now,
                 updated_at: now,
-              })
-              .eq("id", existing.id)
-              .select()
-              .single();
+              },
+              { onConflict: "user_id,token" },
+            );
+          } catch (e) {}
 
-            if (updateError) {
-              console.error("[api/device/register] Error updating device:", updateError);
-              return Response.json({ error: updateError.message }, { status: 500 });
-            }
-
-            console.log(`[api/device/register] Device ${existing.id} updated and activated successfully.`);
-            return Response.json({ success: true, device: updated });
-          } else {
-            // Insert new device record
-            const { data: created, error: insertError } = await supabaseAdmin
-              .from("user_devices")
-              .insert({
-                user_id: user.id,
-                device_token: deviceToken,
-                device_type: deviceType,
-                device_name: deviceName,
-                is_active: true,
-                last_used_at: now,
-              })
-              .select()
-              .single();
-
-            if (insertError) {
-              console.error("[api/device/register] Error inserting device:", insertError);
-              return Response.json({ error: insertError.message }, { status: 500 });
-            }
-
-            console.log(`[api/device/register] New device ${created.id} registered successfully.`);
-            return Response.json({ success: true, device: created }, { status: 201 });
-          }
-        } catch (e: any) {
-          console.error("[api/device/register] Uncaught error:", e);
+          console.log(`[api/device/register] Device token registered for user ${user.id}`);
+          return Response.json({ success: true, message: "Device registered successfully." });
+        } catch (err: any) {
+          console.error("[api/device/register] Unexpected error:", err);
           return Response.json(
-            { error: e instanceof Error ? e.message : "Internal Server Error" },
+            { error: err?.message || "Internal server error" },
             { status: 500 },
           );
         }

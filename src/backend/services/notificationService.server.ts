@@ -24,30 +24,28 @@ function initFirebaseAdmin(): boolean {
           credential: cert(serviceAccount),
         });
         adminInitialized = true;
-        console.log("[Firebase Admin] Initialized successfully via FIREBASE_SERVICE_ACCOUNT JSON.");
+        console.log("[Firebase Admin] Initialized with FIREBASE_SERVICE_ACCOUNT credentials.");
         return true;
-      } catch (jsonErr) {
-        console.error("[Firebase Admin] Failed to parse FIREBASE_SERVICE_ACCOUNT JSON:", jsonErr);
+      } catch (parseErr) {
+        console.warn("[Firebase Admin] Failed to parse FIREBASE_SERVICE_ACCOUNT JSON:", parseErr);
       }
     }
 
     // 2. Check for individual environment variables
     const projectId = process.env.FIREBASE_PROJECT_ID;
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
 
     if (projectId && clientEmail && privateKey) {
-      // Clean and format private key if necessary (replace literal \n with real newlines)
-      const formattedKey = privateKey.replace(/\\n/g, "\n");
       adminApp = initializeApp({
         credential: cert({
           projectId,
           clientEmail,
-          privateKey: formattedKey,
+          privateKey,
         }),
       });
       adminInitialized = true;
-      console.log("[Firebase Admin] Initialized successfully via individual environment variables.");
+      console.log(`[Firebase Admin] Initialized for project ${projectId}.`);
       return true;
     }
 
@@ -66,7 +64,7 @@ export interface NotificationPayload {
   body: string;
 }
 
-export interface SendOptions {
+export interface NotificationSendOptions {
   excludeDeviceToken?: string;
   data?: Record<string, string>;
 }
@@ -76,27 +74,26 @@ export interface NotificationResult {
   sentCount: number;
   failureCount: number;
   tokensCount: number;
+  error?: string;
   simulated?: boolean;
   message?: string;
-  error?: string;
 }
 
-// Error codes indicating a permanent token failure that warrants deactivation
-const INVALID_TOKEN_ERROR_CODES = new Set([
-  "messaging/invalid-registration-token",
-  "messaging/registration-token-not-registered",
-  "messaging/invalid-argument",
-  "messaging/mismatched-credential",
-]);
-
+/**
+ * Server-side notification service for GlucoLab.
+ * Handles device discovery, exclusions, FCM HTTP v1 multicast dispatch,
+ * and automatic cleanup of expired/invalid registration tokens.
+ */
 export const notificationServiceServer = {
   /**
-   * Send push notification to all active devices of a user, excluding the originating device
+   * Send push notification to all active devices of a user,
+   * with optional exclusion of the originating device.
    */
   async sendToUser(
     userId: string,
     notification: NotificationPayload,
-    options: SendOptions = {},
+    options: NotificationSendOptions = {},
+    client?: any,
   ): Promise<NotificationResult> {
     try {
       if (!userId) {
@@ -109,29 +106,41 @@ export const notificationServiceServer = {
         };
       }
 
-      // 1. Fetch active devices from user_devices table
-      let query = supabaseAdmin
+      const db = client || supabaseAdmin;
+
+      // 1. Fetch active devices from user_devices table or push_tokens table
+      let tokens: string[] = [];
+
+      const { data: devices, error: dbError } = await db
         .from("user_devices")
         .select("device_token")
         .eq("user_id", userId)
         .eq("is_active", true);
 
-      const { data: devices, error: dbError } = await query;
+      if (!dbError && devices) {
+        tokens = devices.map((d: any) => d.device_token).filter(Boolean);
+      } else {
+        // Fallback to push_tokens table
+        const { data: legacyTokens, error: legacyErr } = await db
+          .from("push_tokens")
+          .select("token")
+          .eq("user_id", userId);
 
-      if (dbError) {
-        console.error("[NotificationService] Database query error fetching devices:", dbError);
-        return {
-          success: false,
-          sentCount: 0,
-          failureCount: 0,
-          tokensCount: 0,
-          error: dbError.message,
-        };
+        if (!legacyErr && legacyTokens) {
+          tokens = legacyTokens.map((d: any) => d.token).filter(Boolean);
+        } else if (legacyErr && dbError) {
+          console.error("[NotificationService] Database query error fetching devices:", dbError);
+          return {
+            success: false,
+            sentCount: 0,
+            failureCount: 0,
+            tokensCount: 0,
+            error: dbError.message,
+          };
+        }
       }
 
       // 2. Filter target tokens (excluding source device)
-      let tokens = (devices || []).map((d) => d.device_token).filter(Boolean);
-
       if (options.excludeDeviceToken) {
         const sourceToken = options.excludeDeviceToken.trim();
         tokens = tokens.filter((t) => t !== sourceToken);
@@ -218,64 +227,81 @@ export const notificationServiceServer = {
             channelId: "default",
             sound: "default",
             priority: "high",
-            defaultSound: true,
-            defaultVibrateTimings: true,
+            clickAction: "OPEN_ACTIVITY",
+          },
+        },
+        apns: {
+          payload: {
+            aps: {
+              alert: {
+                title: notification.title,
+                body: notification.body,
+              },
+              sound: "default",
+              badge: 1,
+            },
           },
         },
         webpush: {
-          headers: {
-            Urgency: "high",
-          },
           notification: {
             title: notification.title,
             body: notification.body,
             icon: "/logo.png",
+            badge: "/icon/icon.png",
+          },
+          fcmOptions: {
+            link: "/",
           },
         },
       };
 
-      console.log(
-        `[NotificationService] Sending push notifications to ${tokens.length} device tokens...`,
-      );
-      const response = await getMessaging().sendEachForMulticast(messagePayload);
+      const messaging = getMessaging(adminApp!);
+      const response = await messaging.sendEachForMulticast(messagePayload);
 
       console.log(
-        `[NotificationService] Push results: ${response.successCount} success, ${response.failureCount} failed.`,
+        `[NotificationService] Multicast completed: ${response.successCount} sent, ${response.failureCount} failed out of ${tokens.length} tokens.`,
       );
 
-      // Handle invalid/expired tokens by deactivating them
+      // Handle token cleanup for invalid / uninstalled devices
       if (response.failureCount > 0) {
-        const tokensToDeactivate: string[] = [];
+        const invalidTokens: string[] = [];
 
-        response.responses.forEach((res: SendResponse, index: number) => {
+        response.responses.forEach((res: SendResponse, idx: number) => {
           if (!res.success && res.error) {
-            const errCode = res.error.code;
-            if (INVALID_TOKEN_ERROR_CODES.has(errCode)) {
-              tokensToDeactivate.push(tokens[index]);
-              console.warn(
-                `[NotificationService] Invalid token detected (${errCode}): ${tokens[index].substring(0, 15)}...`,
-              );
+            const errorCode = res.error.code;
+            console.warn(`[NotificationService] Failed to send to token [${tokens[idx]?.substring(0, 15)}...]: ${errorCode} - ${res.error.message}`);
+            
+            // FCM error codes that indicate a token is no longer valid
+            if (
+              errorCode === "messaging/invalid-registration-token" ||
+              errorCode === "messaging/registration-token-not-registered" ||
+              errorCode === "messaging/invalid-argument"
+            ) {
+              invalidTokens.push(tokens[idx]);
             }
           }
         });
 
-        if (tokensToDeactivate.length > 0) {
-          console.log(
-            `[NotificationService] Deactivating ${tokensToDeactivate.length} invalid device tokens...`,
-          );
-          let deactivationQuery = supabaseAdmin
-            .from("user_devices")
-            .update({ is_active: false, updated_at: new Date().toISOString() })
-            .in("device_token", tokensToDeactivate);
+        if (invalidTokens.length > 0) {
+          console.log(`[NotificationService] Deactivating ${invalidTokens.length} expired / invalid device tokens...`);
+          // Try deactivating in user_devices
+          try {
+            await supabaseAdmin
+              .from("user_devices")
+              .update({
+                is_active: false,
+                updated_at: new Date().toISOString(),
+              })
+              .in("device_token", invalidTokens);
+          } catch (e) {}
 
-          if (userIdForCleanup) {
-            deactivationQuery = deactivationQuery.eq("user_id", userIdForCleanup);
-          }
-
-          const { error: deactError } = await deactivationQuery;
-          if (deactError) {
-            console.error("[NotificationService] Error deactivating invalid tokens:", deactError);
-          }
+          // Also delete from push_tokens
+          try {
+            await supabaseAdmin
+              .from("push_tokens")
+              .delete()
+              .in("token", invalidTokens);
+          } catch (e) {}
         }
       }
 
@@ -286,13 +312,13 @@ export const notificationServiceServer = {
         tokensCount: tokens.length,
       };
     } catch (err: any) {
-      console.error("[NotificationService] Error sending multicast push:", err);
+      console.error("[NotificationService] Multicast dispatch error:", err);
       return {
         success: false,
         sentCount: 0,
         failureCount: tokens.length,
         tokensCount: tokens.length,
-        error: err?.message || "Multicast dispatch error",
+        error: err?.message || "Firebase multicast dispatch failed",
       };
     }
   },
