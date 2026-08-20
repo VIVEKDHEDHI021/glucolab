@@ -381,9 +381,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <nav className={cn(
         "fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 backdrop-blur-xl md:hidden shrink-0 theme-transition transition-transform duration-300",
         !showBottomNav && "translate-y-full",
-        isMobile && "pb-safe"
+        "pb-[calc(max(env(safe-area-inset-bottom),6px))]"
       )}>
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-4 w-full">
           {mobileNavItems.map((n) => {
             const active = path === n.to;
             const Icon = n.icon;
@@ -393,7 +393,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 to={n.to}
                 onClick={triggerHapticFeedback}
                 className={cn(
-                  "flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold transition-colors",
+                  "flex flex-col items-center justify-center gap-1 py-2 text-[11px] font-semibold transition-colors",
                   active ? "text-primary" : "text-muted-foreground"
                 )}
               >
