@@ -2,7 +2,8 @@ import React, { createContext, useContext, useEffect, useRef } from "react";
 import { useNotifications } from "../hooks/useNotifications";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { supabase } from "@/db/client";
-import { showLocalNotification } from "@/services/notificationService";
+import { showLocalNotification, handleNotificationNavigation } from "@/services/notificationService";
+import { deviceService } from "@/services/deviceService";
 import { toast } from "sonner";
 import { READING_LABELS, type ReadingType } from "@/frontend/lib/types";
 import { Capacitor } from "@capacitor/core";
@@ -22,7 +23,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const initializedRef = useRef(false);
 
   useEffect(() => {
-    // Only request permission/register token once when the user is logged in
+    // Register device token with backend once user is authenticated
     if (user && !initializedRef.current && typeof window !== "undefined") {
       initializedRef.current = true;
       notifications.initNotifications().then(async (token) => {
@@ -30,26 +31,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           const activePlatform = Capacitor.isNativePlatform()
             ? Capacitor.getPlatform()
             : "web";
-          console.log(`[NotificationProvider] Saving FCM ${activePlatform} token to database...`);
-          const { error } = await supabase.from("push_tokens").upsert(
-            {
-              user_id: user.id,
-              token: token,
-              platform: activePlatform,
-              device_name: navigator.userAgent.substring(0, 100),
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "user_id,token" },
-          );
-          if (error) {
-            console.error("[NotificationProvider] Error saving FCM token:", error);
-          } else {
-            console.log(
-              `[NotificationProvider] ${activePlatform.toUpperCase()} FCM token successfully registered in database.`,
-            );
-          }
+          const deviceName = typeof navigator !== "undefined" ? navigator.userAgent.substring(0, 100) : "GlucoLab Client";
+
+          console.log(`[NotificationProvider] Registering ${activePlatform} device token with backend...`);
+          await deviceService.registerDevice(token, activePlatform, deviceName);
         }
       });
+    }
+
+    if (!user) {
+      initializedRef.current = false;
     }
   }, [user, notifications]);
 

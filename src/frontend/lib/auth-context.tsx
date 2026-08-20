@@ -34,6 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    try {
+      const { deviceService } = await import("@/services/deviceService");
+      await deviceService.deactivateCurrentDevice();
+    } catch (e) {
+      console.warn("[Auth] Device deactivation error during signout:", e);
+    }
     await supabase.auth.signOut();
   };
 

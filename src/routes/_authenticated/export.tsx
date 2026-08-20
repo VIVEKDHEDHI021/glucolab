@@ -12,6 +12,7 @@ import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
 import { Label } from "@/frontend/components/ui/label";
 import { Capacitor } from "@capacitor/core";
+import { notifyReportUploaded } from "@/services/notificationService";
 import {
   READING_TYPES,
   type GlucoseEntry,
@@ -252,6 +253,7 @@ function ExportPage() {
         XLSX.writeFile(wb, fname);
         toast.success("Excel file downloaded");
       }
+      notifyReportUploaded(user.id, fname).catch(() => {});
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Export failed");
     } finally {
@@ -328,6 +330,7 @@ function ExportPage() {
         doc.save(fname);
         toast.success("PDF report downloaded");
       }
+      notifyReportUploaded(user.id, fname).catch(() => {});
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Export failed");
     } finally {

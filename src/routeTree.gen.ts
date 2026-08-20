@@ -26,6 +26,9 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as ApiDeviceRegisterRouteImport } from './routes/api/device/register'
+import { Route as ApiDeviceRefreshRouteImport } from './routes/api/device/refresh'
+import { Route as ApiDeviceDeactivateRouteImport } from './routes/api/device/deactivate'
 import { Route as ApiAdminResetPasswordRouteImport } from './routes/api/admin/reset-password'
 
 const WelcomeRoute = WelcomeRouteImport.update({
@@ -112,6 +115,21 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const ApiDeviceRegisterRoute = ApiDeviceRegisterRouteImport.update({
+  id: '/api/device/register',
+  path: '/api/device/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDeviceRefreshRoute = ApiDeviceRefreshRouteImport.update({
+  id: '/api/device/refresh',
+  path: '/api/device/refresh',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDeviceDeactivateRoute = ApiDeviceDeactivateRouteImport.update({
+  id: '/api/device/deactivate',
+  path: '/api/device/deactivate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminResetPasswordRoute = ApiAdminResetPasswordRouteImport.update({
   id: '/api/admin/reset-password',
   path: '/api/admin/reset-password',
@@ -136,6 +154,9 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/send-push': typeof ApiSendPushRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
+  '/api/device/deactivate': typeof ApiDeviceDeactivateRoute
+  '/api/device/refresh': typeof ApiDeviceRefreshRoute
+  '/api/device/register': typeof ApiDeviceRegisterRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -155,6 +176,9 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/send-push': typeof ApiSendPushRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
+  '/api/device/deactivate': typeof ApiDeviceDeactivateRoute
+  '/api/device/refresh': typeof ApiDeviceRefreshRoute
+  '/api/device/register': typeof ApiDeviceRegisterRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -176,6 +200,9 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/api/send-push': typeof ApiSendPushRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
+  '/api/device/deactivate': typeof ApiDeviceDeactivateRoute
+  '/api/device/refresh': typeof ApiDeviceRefreshRoute
+  '/api/device/register': typeof ApiDeviceRegisterRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -197,6 +224,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/send-push'
     | '/api/admin/reset-password'
+    | '/api/device/deactivate'
+    | '/api/device/refresh'
+    | '/api/device/register'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -216,6 +246,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/send-push'
     | '/api/admin/reset-password'
+    | '/api/device/deactivate'
+    | '/api/device/refresh'
+    | '/api/device/register'
   id:
     | '__root__'
     | '/'
@@ -236,6 +269,9 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/api/send-push'
     | '/api/admin/reset-password'
+    | '/api/device/deactivate'
+    | '/api/device/refresh'
+    | '/api/device/register'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -249,6 +285,9 @@ export interface RootRouteChildren {
   WelcomeRoute: typeof WelcomeRoute
   ApiSendPushRoute: typeof ApiSendPushRoute
   ApiAdminResetPasswordRoute: typeof ApiAdminResetPasswordRoute
+  ApiDeviceDeactivateRoute: typeof ApiDeviceDeactivateRoute
+  ApiDeviceRefreshRoute: typeof ApiDeviceRefreshRoute
+  ApiDeviceRegisterRoute: typeof ApiDeviceRegisterRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -372,6 +411,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/device/register': {
+      id: '/api/device/register'
+      path: '/api/device/register'
+      fullPath: '/api/device/register'
+      preLoaderRoute: typeof ApiDeviceRegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/device/refresh': {
+      id: '/api/device/refresh'
+      path: '/api/device/refresh'
+      fullPath: '/api/device/refresh'
+      preLoaderRoute: typeof ApiDeviceRefreshRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/device/deactivate': {
+      id: '/api/device/deactivate'
+      path: '/api/device/deactivate'
+      fullPath: '/api/device/deactivate'
+      preLoaderRoute: typeof ApiDeviceDeactivateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/reset-password': {
       id: '/api/admin/reset-password'
       path: '/api/admin/reset-password'
@@ -419,6 +479,9 @@ const rootRouteChildren: RootRouteChildren = {
   WelcomeRoute: WelcomeRoute,
   ApiSendPushRoute: ApiSendPushRoute,
   ApiAdminResetPasswordRoute: ApiAdminResetPasswordRoute,
+  ApiDeviceDeactivateRoute: ApiDeviceDeactivateRoute,
+  ApiDeviceRefreshRoute: ApiDeviceRefreshRoute,
+  ApiDeviceRegisterRoute: ApiDeviceRegisterRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

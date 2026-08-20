@@ -3,6 +3,8 @@ import { messaging, vapidKey } from "../lib/firebase";
 import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { LocalNotifications } from "@capacitor/local-notifications";
+import { deviceService } from "./deviceService";
+import { supabase } from "@/db/client";
 
 export async function requestNotificationPermission(): Promise<string | null> {
   console.log("Notification service started");
@@ -21,7 +23,7 @@ export async function requestNotificationPermission(): Promise<string | null> {
         await LocalNotifications.createChannel({
           id: "default",
           name: "Default Notifications",
-          description: "Health alerts and reminders",
+          description: "Health alerts and updates",
           importance: 4,
           visibility: 1,
           vibration: true,
@@ -39,8 +41,9 @@ export async function requestNotificationPermission(): Promise<string | null> {
       return new Promise<string | null>((resolve) => {
         let resolved = false;
 
-        PushNotifications.addListener("registration", (token) => {
+        PushNotifications.addListener("registration", async (token) => {
           console.log("[Native Push] Token registered successfully:", token.value);
+          await deviceService.setCurrentDeviceToken(token.value);
           if (!resolved) {
             resolved = true;
             resolve(token.value);
@@ -56,11 +59,21 @@ export async function requestNotificationPermission(): Promise<string | null> {
         });
 
         PushNotifications.addListener("pushNotificationReceived", (notification) => {
-          console.log("[Native Push Received]:", notification);
+          console.log("[Native Push Received in Foreground]:", notification);
           showLocalNotification(
-            notification.title || "Health Alert",
-            notification.body || "",
+            notification.title || "GlucoLab Update",
+            notification.body || "A new update was recorded on your account.",
           );
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("health-data-updated"));
+          }
+        });
+
+        PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+          console.log("[Native Push Action Clicked]:", action);
+          const data = action.notification?.data;
+          const targetAction = data?.action || "open_dashboard";
+          handleNotificationNavigation(targetAction);
         });
 
         PushNotifications.register().catch((e) => {
@@ -140,6 +153,7 @@ export async function requestNotificationPermission(): Promise<string | null> {
 
     if (token) {
       console.log("FCM Token:", token);
+      await deviceService.setCurrentDeviceToken(token);
       return token;
     } else {
       console.warn("[Notification Service] No registration token available.");
@@ -148,6 +162,29 @@ export async function requestNotificationPermission(): Promise<string | null> {
   } catch (error) {
     console.error("[Notification Service] Error during notification setup:", error);
     return null;
+  }
+}
+
+/**
+ * Navigate to target screen when a notification action is tapped
+ */
+export function handleNotificationNavigation(action: string) {
+  if (typeof window === "undefined") return;
+
+  switch (action) {
+    case "open_reports":
+      window.location.hash = "/reports";
+      break;
+    case "open_history":
+      window.location.hash = "/history";
+      break;
+    case "open_scanner":
+      window.location.hash = "/dashboard";
+      break;
+    case "open_dashboard":
+    default:
+      window.location.hash = "/dashboard";
+      break;
   }
 }
 
@@ -202,41 +239,78 @@ export async function showLocalNotification(title: string, body: string) {
         console.error("Failed to show legacy notification:", e);
       }
     }
-  } else {
-    console.warn(
-      "[Notification Service] Cannot show notification, permission status:",
-      Notification.permission,
-    );
-  }
-}
-
-export async function triggerPushNotification(userId: string, title: string, body: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const res = await fetch("/api/send-push", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ userId, title, body }),
-    });
-    if (!res.ok) {
-      const errData = await res.json();
-      console.warn("Failed to trigger background push notification:", errData);
-    } else {
-      console.log("Successfully triggered background push notification call.");
-    }
-  } catch (err) {
-    console.error("Error triggering background push notification:", err);
   }
 }
 
 /**
- * Dispatch action-specific notification to both local browser and all user devices via FCM push
+ * Trigger background multi-device push notification via backend API.
+ * Automatically attaches authentication Bearer token and sourceDeviceToken to exclude the originating device.
  */
-export async function notifyReadingAction(userId: string, title: string, body: string) {
-  showLocalNotification(title, body);
-  await triggerPushNotification(userId, title, body);
+export async function triggerPushNotification(
+  userId: string,
+  title: string,
+  body: string,
+  dataPayload?: Record<string, string>,
+) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const sourceToken = deviceService.getCachedDeviceToken() || (await deviceService.getCurrentDeviceToken());
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (session?.access_token) {
+      headers["Authorization"] = `Bearer ${session.access_token}`;
+    }
+
+    const res = await fetch("/api/send-push", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        userId,
+        title,
+        body,
+        excludeDeviceToken: sourceToken || undefined,
+        data: dataPayload,
+      }),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      console.warn("[NotificationService] Background push notification response:", errData);
+    } else {
+      const resData = await res.json().catch(() => ({}));
+      console.log("[NotificationService] Push notification successfully queued/sent:", resData);
+    }
+  } catch (err) {
+    console.error("[NotificationService] Non-blocking push notification error:", err);
+  }
+}
+
+/**
+ * Dispatch action-specific notification:
+ * 1. Immediate local in-app feedback on current device
+ * 2. Privacy-preserving push notification to other user devices (source excluded)
+ */
+export async function notifyReadingAction(
+  userId: string,
+  localTitle: string,
+  localBody: string,
+  pushTitle: string,
+  pushBody: string,
+  dataPayload?: Record<string, string>,
+) {
+  // Show local in-app alert on the originating device
+  showLocalNotification(localTitle, localBody);
+
+  // Send privacy-preserving push to all other active devices belonging to the account
+  triggerPushNotification(userId, pushTitle, pushBody, dataPayload).catch((e) =>
+    console.error("[NotificationService] Failed to trigger background multi-device push:", e),
+  );
 }
 
 export async function notifyGlucoseAdded(userId: string, glucose: number, typeLabel: string) {
@@ -256,53 +330,103 @@ export async function notifyGlucoseAdded(userId: string, glucose: number, typeLa
     }
   }
 
-  let title = `🩸 Glucose Reading: ${glucose} mg/dL`;
-  let body = `Blood sugar level of ${glucose} mg/dL (${typeLabel}) was recorded.`;
+  // Local notification copy (on current device)
+  let localTitle = `🩸 Glucose Reading: ${glucose} mg/dL`;
+  let localBody = `Blood sugar level of ${glucose} mg/dL (${typeLabel}) was recorded.`;
 
   if (glucose < lowTarget) {
-    title = `🚨 CRITICAL LOW SUGAR WARNING: ${glucose} mg/dL`;
-    body = `URGENT: Blood sugar level of ${glucose} mg/dL (${typeLabel}) is dangerously LOW (< ${lowTarget} mg/dL). Please consume 15g of fast-acting sugar immediately!`;
+    localTitle = `🚨 CRITICAL LOW SUGAR WARNING: ${glucose} mg/dL`;
+    localBody = `URGENT: Blood sugar level of ${glucose} mg/dL (${typeLabel}) is dangerously LOW (< ${lowTarget} mg/dL). Please consume 15g of fast-acting sugar immediately!`;
   } else if (glucose > highTarget) {
-    title = `⚠️ HIGH SUGAR ALERT: ${glucose} mg/dL`;
-    body = `WARNING: Blood sugar level of ${glucose} mg/dL (${typeLabel}) exceeds high target (${highTarget} mg/dL). Consider checking your insulin dose or drinking water.`;
+    localTitle = `⚠️ HIGH SUGAR ALERT: ${glucose} mg/dL`;
+    localBody = `WARNING: Blood sugar level of ${glucose} mg/dL (${typeLabel}) exceeds high target (${highTarget} mg/dL). Consider checking your insulin dose or drinking water.`;
   }
 
-  await notifyReadingAction(userId, title, body);
+  // Non-sensitive privacy-compliant copy (for remote multi-device push)
+  const pushTitle = "GlucoLab Update";
+  const pushBody = "A new blood glucose reading was recorded on your account.";
+  const dataPayload = {
+    type: "glucose_entry",
+    action: "open_dashboard",
+  };
+
+  await notifyReadingAction(userId, localTitle, localBody, pushTitle, pushBody, dataPayload);
 }
 
-export async function notifyInsulinAdded(userId: string, scheduleStr: string, totalUnits: number, entryDate: string) {
-  const title = "💉 New Insulin Dosage Logged";
-  const body = `Insulin schedule (${scheduleStr} - total ${totalUnits} units) recorded for ${entryDate}.`;
-  await notifyReadingAction(userId, title, body);
+export async function notifyInsulinAdded(
+  userId: string,
+  scheduleStr: string,
+  totalUnits: number,
+  entryDate: string,
+) {
+  const localTitle = "💉 New Insulin Dosage Logged";
+  const localBody = `Insulin schedule (${scheduleStr} - total ${totalUnits} units) recorded for ${entryDate}.`;
+
+  const pushTitle = "GlucoLab Update";
+  const pushBody = "A new insulin dosage was logged to your account.";
+  const dataPayload = {
+    type: "insulin_entry",
+    action: "open_dashboard",
+  };
+
+  await notifyReadingAction(userId, localTitle, localBody, pushTitle, pushBody, dataPayload);
 }
 
 export async function notifyWeightAdded(userId: string, weightKg: number, entryDate: string) {
-  const title = "⚖️ New Weight Reading Logged";
-  const body = `Weight entry of ${weightKg} kg was recorded for ${entryDate}.`;
-  await notifyReadingAction(userId, title, body);
+  const localTitle = "⚖️ New Weight Reading Logged";
+  const localBody = `Weight entry of ${weightKg} kg was recorded for ${entryDate}.`;
+
+  const pushTitle = "GlucoLab Update";
+  const pushBody = "A new weight entry was logged to your account.";
+  const dataPayload = {
+    type: "weight_entry",
+    action: "open_dashboard",
+  };
+
+  await notifyReadingAction(userId, localTitle, localBody, pushTitle, pushBody, dataPayload);
 }
 
 export async function notifyScanReadingAdded(userId: string, deviceType: string, data: any) {
-  let title = `📷 New ${deviceType} Scan Saved`;
-  let body = `A new ${deviceType} reading was scanned and saved.`;
+  let localTitle = `📷 New ${deviceType} Scan Saved`;
+  let localBody = `A new ${deviceType} reading was scanned and saved.`;
 
   if (deviceType === "Blood Glucose Meter" && data.glucose !== undefined) {
-    title = "🩸 Scanned Glucose Reading Saved";
-    body = `Smart Scan Glucose: ${data.glucose} ${data.unit || "mg/dL"} (${data.glucose_reading_type || "Fasting"}).`;
+    localTitle = "🩸 Scanned Glucose Reading Saved";
+    localBody = `Smart Scan Glucose: ${data.glucose} ${data.unit || "mg/dL"} (${data.glucose_reading_type || "Fasting"}).`;
   } else if (deviceType === "Blood Pressure Monitor" && data.systolic !== undefined) {
-    title = "🫀 Scanned Blood Pressure Reading Saved";
-    body = `Smart Scan BP: ${data.systolic}/${data.diastolic} mmHg${data.pulse ? ` (Pulse: ${data.pulse} bpm)` : ""}.`;
+    localTitle = "🫀 Scanned Blood Pressure Reading Saved";
+    localBody = `Smart Scan BP: ${data.systolic}/${data.diastolic} mmHg${data.pulse ? ` (Pulse: ${data.pulse} bpm)` : ""}.`;
   } else if (deviceType === "Pulse Oximeter" && data.spo2 !== undefined) {
-    title = "🫁 Scanned SpO₂ Reading Saved";
-    body = `Smart Scan SpO₂: ${data.spo2}%${data.pulse ? ` (Pulse: ${data.pulse} bpm)` : ""}.`;
+    localTitle = "🫁 Scanned SpO₂ Reading Saved";
+    localBody = `Smart Scan SpO₂: ${data.spo2}%${data.pulse ? ` (Pulse: ${data.pulse} bpm)` : ""}.`;
   } else if (deviceType === "Thermometer" && data.temperature !== undefined) {
-    title = "🌡️ Scanned Temperature Reading Saved";
-    body = `Smart Scan Temperature: ${data.temperature} ${data.unit || "°C"}.`;
+    localTitle = "🌡️ Scanned Temperature Reading Saved";
+    localBody = `Smart Scan Temperature: ${data.temperature} ${data.unit || "°C"}.`;
   } else if (deviceType === "Weight Scale" && data.weight !== undefined) {
-    title = "⚖️ Scanned Weight Reading Saved";
-    body = `Smart Scan Weight: ${data.weight} ${data.unit || "kg"}.`;
+    localTitle = "⚖️ Scanned Weight Reading Saved";
+    localBody = `Smart Scan Weight: ${data.weight} ${data.unit || "kg"}.`;
   }
 
-  await notifyReadingAction(userId, title, body);
+  const pushTitle = "GlucoLab Update";
+  const pushBody = `A new ${deviceType} reading was scanned and saved to your account.`;
+  const dataPayload = {
+    type: "scan_reading",
+    action: "open_dashboard",
+  };
+
+  await notifyReadingAction(userId, localTitle, localBody, pushTitle, pushBody, dataPayload);
 }
 
+export async function notifyReportUploaded(userId: string, reportName?: string) {
+  const localTitle = "📊 Report Export Generated";
+  const localBody = reportName ? `Report ${reportName} was generated successfully.` : "Your clinical report was generated.";
+
+  const pushTitle = "GlucoLab Update";
+  const pushBody = "A new report was uploaded to your account.";
+  const dataPayload = {
+    type: "report_uploaded",
+    action: "open_reports",
+  };
+
+  await notifyReadingAction(userId, localTitle, localBody, pushTitle, pushBody, dataPayload);
+}

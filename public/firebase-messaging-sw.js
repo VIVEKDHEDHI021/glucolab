@@ -11,15 +11,49 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
-messaging.onBackgroundMessage((payload) => {
-  console.log("[firebase-messaging-sw.js] Received background message ", payload);
 
-  const notificationTitle = payload.notification?.title || "New Message";
+messaging.onBackgroundMessage((payload) => {
+  console.log("[firebase-messaging-sw.js] Received background message:", payload);
+
+  const notificationTitle = payload.notification?.title || "GlucoLab Update";
   const notificationOptions = {
-    body: payload.notification?.body || "",
+    body: payload.notification?.body || "A new update was recorded on your account.",
     icon: "/logo.png",
-    data: JSON.stringify(payload.data),
+    badge: "/icon/icon.png",
+    data: payload.data || {},
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// Handle notification clicks to focus existing tab or open GlucoLab
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const data = event.notification.data || {};
+  let targetUrl = "/";
+
+  if (data.action === "open_reports") {
+    targetUrl = "/reports";
+  } else if (data.action === "open_history") {
+    targetUrl = "/history";
+  } else if (data.action === "open_dashboard") {
+    targetUrl = "/dashboard";
+  }
+
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if ("focus" in client) {
+          if ("navigate" in client) {
+            client.navigate(targetUrl);
+          }
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    }),
+  );
 });

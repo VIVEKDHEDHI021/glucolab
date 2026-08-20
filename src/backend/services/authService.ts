@@ -31,6 +31,12 @@ export const authService = {
   },
 
   async signOut() {
+    try {
+      const { deviceService } = await import("@/services/deviceService");
+      await deviceService.deactivateCurrentDevice();
+    } catch (e) {
+      console.warn("[authService] Device deactivation error during signOut:", e);
+    }
     return supabase.auth.signOut();
   },
 
