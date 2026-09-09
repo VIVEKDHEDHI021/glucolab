@@ -116,6 +116,20 @@ export const localDbService = {
           created_at TEXT,
           updated_at TEXT
         );
+        CREATE TABLE IF NOT EXISTS patient_reminder_settings (
+          id TEXT PRIMARY KEY,
+          user_id TEXT UNIQUE,
+          insulin_reminder_enabled INTEGER DEFAULT 0,
+          insulin_reminder_time TEXT DEFAULT '20:00',
+          glucose_reminder_enabled INTEGER DEFAULT 0,
+          glucose_reminder_days INTEGER DEFAULT 2,
+          last_insulin_reminder_at TEXT,
+          last_glucose_reminder_at TEXT,
+          user_timezone TEXT DEFAULT 'UTC',
+          sync_status TEXT DEFAULT 'synced',
+          created_at TEXT,
+          updated_at TEXT
+        );
       `;
       
       await database.execute(tablesSchema);
@@ -378,6 +392,56 @@ export const localDbService = {
     }));
   },
 
+  // Cache patient reminder settings
+  async cacheReminderSettings(entries: any[]) {
+    if (!isMobile || !database) return;
+    try {
+      for (const entry of entries) {
+        await database.run(
+          `INSERT OR REPLACE INTO patient_reminder_settings (
+            id, user_id, insulin_reminder_enabled, insulin_reminder_time,
+            glucose_reminder_enabled, glucose_reminder_days,
+            last_insulin_reminder_at, last_glucose_reminder_at,
+            user_timezone, sync_status, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            entry.id,
+            entry.user_id,
+            entry.insulin_reminder_enabled ? 1 : 0,
+            entry.insulin_reminder_time || "20:00",
+            entry.glucose_reminder_enabled ? 1 : 0,
+            entry.glucose_reminder_days || 2,
+            entry.last_insulin_reminder_at || null,
+            entry.last_glucose_reminder_at || null,
+            entry.user_timezone || "UTC",
+            entry.sync_status || "synced",
+            entry.created_at,
+            entry.updated_at
+          ]
+        );
+      }
+    } catch (err) {
+      console.error("[SQLITE] Error caching patient reminder settings:", err);
+    }
+  },
+
+  // Get patient reminder settings
+  async getReminderSettings(userId: string) {
+    const rows = await this.selectQuery(
+      `SELECT * FROM patient_reminder_settings WHERE user_id = ? LIMIT 1`,
+      [userId]
+    );
+    if (!rows || rows.length === 0) return null;
+    const r = rows[0];
+    return {
+      ...r,
+      insulin_reminder_enabled: r.insulin_reminder_enabled === 1,
+      glucose_reminder_enabled: r.glucose_reminder_enabled === 1,
+      last_insulin_reminder_at: r.last_insulin_reminder_at || null,
+      last_glucose_reminder_at: r.last_glucose_reminder_at || null,
+    };
+  },
+
   // Fetch all pending sync rows across all tables
   async getPendingSyncRows() {
     const pendingGlucose = await this.selectQuery(`SELECT * FROM glucose_entries WHERE sync_status = 'pending_sync'`);
@@ -387,6 +451,7 @@ export const localDbService = {
     const pendingScans = await this.selectQuery(`SELECT * FROM smart_scan_readings WHERE sync_status = 'pending_sync'`);
     const pendingReminders = await this.selectQuery(`SELECT * FROM reminders WHERE sync_status = 'pending_sync'`);
     const pendingHistory = await this.selectQuery(`SELECT * FROM reminder_history WHERE sync_status = 'pending_sync'`);
+    const pendingReminderSettings = await this.selectQuery(`SELECT * FROM patient_reminder_settings WHERE sync_status = 'pending_sync'`);
 
     return {
       glucose: pendingGlucose,
@@ -405,6 +470,11 @@ export const localDbService = {
         reminder_data: typeof r.reminder_data === "string" ? JSON.parse(r.reminder_data) : r.reminder_data,
       })),
       history: pendingHistory,
+      reminderSettings: pendingReminderSettings.map((r: any) => ({
+        ...r,
+        insulin_reminder_enabled: r.insulin_reminder_enabled === 1,
+        glucose_reminder_enabled: r.glucose_reminder_enabled === 1,
+      })),
     };
   },
 
@@ -420,6 +490,7 @@ export const localDbService = {
         DELETE FROM smart_scan_readings;
         DELETE FROM reminders;
         DELETE FROM reminder_history;
+        DELETE FROM patient_reminder_settings;
       `);
       console.log("[SQLITE] Local caches cleared.");
     } catch (err) {

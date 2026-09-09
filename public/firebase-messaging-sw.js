@@ -2,7 +2,7 @@ importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js
 importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js");
 
 firebase.initializeApp({
-  apiKey: "AIzaSyChFMJEzPJeCr8EeZYsqgNLA5B3QoXXzI",
+  apiKey: "AIzaSyChFMJEzPJeCr8EeZYsqgNLA5B3QoXXzIY",
   authDomain: "glucolab-1ad86.firebaseapp.com",
   projectId: "glucolab-1ad86",
   storageBucket: "glucolab-1ad86.firebasestorage.app",

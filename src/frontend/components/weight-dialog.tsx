@@ -75,12 +75,11 @@ export function WeightDialog({
         { onConflict: "user_id,entry_date" },
       );
       if (error) throw error;
-      toast.success(entry ? "Weight updated" : "Weight saved");
+      const isUpdate = Boolean(entry);
+      toast.success(isUpdate ? "Weight updated" : "Weight saved");
 
-      if (!entry) {
-        // Dispatch action notification to all devices logged into the account
-        notifyWeightAdded(user.id, data.weight_kg, data.entry_date);
-      }
+      // Dispatch action notification to all devices logged into the account (both for new and updated entries)
+      notifyWeightAdded(user.id, data.weight_kg, data.entry_date, isUpdate);
 
       onOpenChange(false);
       onSaved?.();

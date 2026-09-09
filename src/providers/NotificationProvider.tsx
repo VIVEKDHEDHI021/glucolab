@@ -55,13 +55,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "glucose_entries",
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          const rec = payload.new as any;
+          const rec = (payload.new || payload.old) as any;
+          if (!rec) return;
+          const isUpdate = payload.eventType === "UPDATE";
           const typeLabel = READING_LABELS[rec.reading_type as ReadingType] || rec.reading_type;
           const glucose = Number(rec.glucose) || 0;
 
@@ -76,15 +78,23 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             }
           } catch (e) {}
 
-          let title = `🩸 New Glucose Reading: ${glucose} mg/dL`;
-          let body = `Glucose level of ${glucose} mg/dL (${typeLabel}) was logged on your account.`;
+          let title = isUpdate
+            ? `🩸 Glucose Reading Updated: ${glucose} mg/dL`
+            : `🩸 New Glucose Reading: ${glucose} mg/dL`;
+          let body = isUpdate
+            ? `Glucose reading of ${glucose} mg/dL (${typeLabel}) was updated on your account.`
+            : `Glucose level of ${glucose} mg/dL (${typeLabel}) was logged on your account.`;
 
           if (glucose > 0 && glucose < lowTarget) {
-            title = `🚨 CRITICAL LOW SUGAR WARNING: ${glucose} mg/dL`;
+            title = isUpdate
+              ? `🚨 CRITICAL LOW SUGAR WARNING (UPDATED): ${glucose} mg/dL`
+              : `🚨 CRITICAL LOW SUGAR WARNING: ${glucose} mg/dL`;
             body = `URGENT: Blood sugar reading of ${glucose} mg/dL (${typeLabel}) is LOW (< ${lowTarget} mg/dL). Please consume 15g of fast-acting sugar immediately!`;
             toast.error(title, { description: body, duration: 15000 });
           } else if (glucose > highTarget) {
-            title = `⚠️ HIGH SUGAR ALERT: ${glucose} mg/dL`;
+            title = isUpdate
+              ? `⚠️ HIGH SUGAR ALERT (UPDATED): ${glucose} mg/dL`
+              : `⚠️ HIGH SUGAR ALERT: ${glucose} mg/dL`;
             body = `WARNING: Blood sugar reading of ${glucose} mg/dL (${typeLabel}) exceeds target (${highTarget} mg/dL). Consider checking your insulin or drinking water.`;
             toast.warning(title, { description: body, duration: 15000 });
           } else {
@@ -98,16 +108,22 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "insulin_entries",
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          const rec = payload.new as any;
+          const rec = (payload.new || payload.old) as any;
+          if (!rec) return;
+          const isUpdate = payload.eventType === "UPDATE";
           const total = (rec.morning || 0) + (rec.lunch || 0) + (rec.afternoon || 0) + (rec.evening || 0) + (rec.night || 0);
-          const title = "💉 New Insulin Dosage Logged";
-          const body = `Insulin schedule (${total} units total) was logged for ${rec.entry_date} on your account.`;
+          const title = isUpdate
+            ? "💉 Insulin Dosage Updated"
+            : "💉 New Insulin Dosage Logged";
+          const body = isUpdate
+            ? `Insulin schedule (${total} units total) was updated for ${rec.entry_date} on your account.`
+            : `Insulin schedule (${total} units total) was logged for ${rec.entry_date} on your account.`;
 
           toast.info(title, { description: body });
           showLocalNotification(title, body);
@@ -118,15 +134,21 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "weight_entries",
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          const rec = payload.new as any;
-          const title = "⚖️ New Weight Reading Logged";
-          const body = `Weight entry of ${rec.weight_kg} kg was logged for ${rec.entry_date} on your account.`;
+          const rec = (payload.new || payload.old) as any;
+          if (!rec) return;
+          const isUpdate = payload.eventType === "UPDATE";
+          const title = isUpdate
+            ? "⚖️ Weight Reading Updated"
+            : "⚖️ New Weight Reading Logged";
+          const body = isUpdate
+            ? `Weight entry of ${rec.weight_kg} kg was updated for ${rec.entry_date} on your account.`
+            : `Weight entry of ${rec.weight_kg} kg was logged for ${rec.entry_date} on your account.`;
 
           toast.info(title, { description: body });
           showLocalNotification(title, body);
@@ -137,19 +159,33 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "smart_scan_readings",
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          const rec = payload.new as any;
+          const rec = (payload.new || payload.old) as any;
+          if (!rec) return;
           const title = `📷 New ${rec.device_type} Scan Saved`;
           const body = `Smart device scan reading was saved on your account.`;
 
           toast.info(title, { description: body });
           showLocalNotification(title, body);
 
+          window.dispatchEvent(new Event("health-data-updated"));
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "profiles",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          console.log("[NotificationProvider] Profile changed in Realtime, dispatching health-data-updated");
           window.dispatchEvent(new Event("health-data-updated"));
         },
       )

@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { Sparkles } from "lucide-react";
 import { supabase } from "@/db/client";
 import { healthService } from "@/backend/services/healthService";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { messagingService } from "@/frontend/lib/messaging";
 import { notifyGlucoseAdded } from "../../services/notificationService";
+import { getSuggestedReadingType } from "@/frontend/lib/glucose-suggestions";
 import {
   READING_TYPES,
   READING_LABELS,
@@ -60,20 +62,46 @@ interface Props {
 export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [isSuggested, setIsSuggested] = useState(false);
 
   const form = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(schema),
-    values: {
-      glucose: entry?.glucose ?? ("" as unknown as number),
-      reading_type: (entry?.reading_type as ReadingType) ?? "BB",
-      date_time: entry
-        ? format(new Date(entry.date_time), "yyyy-MM-dd'T'HH:mm")
-        : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-      food: entry?.food ?? "",
-      notes: entry?.notes ?? "",
-      insulin_all_day: entry?.symptoms ?? "",
+    defaultValues: {
+      glucose: "" as unknown as number,
+      reading_type: "BB",
+      date_time: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      food: "",
+      notes: "",
+      insulin_all_day: "",
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      if (entry) {
+        setIsSuggested(false);
+        form.reset({
+          glucose: entry.glucose,
+          reading_type: entry.reading_type,
+          date_time: format(new Date(entry.date_time), "yyyy-MM-dd'T'HH:mm"),
+          food: entry.food ?? "",
+          notes: entry.notes ?? "",
+          insulin_all_day: entry.symptoms ?? "",
+        });
+      } else {
+        const suggestedType = getSuggestedReadingType(new Date());
+        setIsSuggested(true);
+        form.reset({
+          glucose: "" as unknown as number,
+          reading_type: suggestedType,
+          date_time: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+          food: "",
+          notes: "",
+          insulin_all_day: "",
+        });
+      }
+    }
+  }, [open, entry]);
 
   const onSubmit = async (data: FormData) => {
     if (!user) return;
@@ -97,8 +125,11 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
         : await supabase.from("glucose_entries").insert(payload);
       if (res.error) throw res.error;
 
-      // If it's a new reading, send alert
-      if (!entry) {
+      const isUpdate = Boolean(entry);
+      const typeLabel = READING_LABELS[data.reading_type] || data.reading_type;
+
+      // If it's a new reading, send SMS alert if phone is present
+      if (!isUpdate) {
         console.log("[GLUCOSE_DIALOG] Fetching profile for alert...");
         try {
           const p = await healthService.getProfile();
@@ -116,25 +147,23 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
         } catch (err) {
           console.error("[GLUCOSE_DIALOG] Error fetching profile for alert:", err);
         }
+      }
 
-        // Dispatch action notification to all devices logged into the account
-        const typeLabel = READING_LABELS[data.reading_type] || data.reading_type;
-        notifyGlucoseAdded(user.id, data.glucose, typeLabel);
-        if (data.glucose < 70) {
-          toast.error(`🚨 LOW SUGAR WARNING: ${data.glucose} mg/dL`, {
-            description: "Reading is LOW! Please consume 15g of fast-acting sugar immediately.",
-            duration: 15000,
-          });
-        } else if (data.glucose > 180) {
-          toast.warning(`⚠️ HIGH SUGAR ALERT: ${data.glucose} mg/dL`, {
-            description: "Reading exceeds target range (180 mg/dL). Consider checking insulin or drinking water.",
-            duration: 15000,
-          });
-        } else {
-          toast.success(entry ? "Reading updated" : "Reading saved");
-        }
+      // Dispatch action notification to all devices logged into the account (both for new and updated entries)
+      notifyGlucoseAdded(user.id, data.glucose, typeLabel, isUpdate);
+
+      if (data.glucose < 70) {
+        toast.error(`🚨 LOW SUGAR WARNING: ${data.glucose} mg/dL`, {
+          description: "Reading is LOW! Please consume 15g of fast-acting sugar immediately.",
+          duration: 15000,
+        });
+      } else if (data.glucose > 180) {
+        toast.warning(`⚠️ HIGH SUGAR ALERT: ${data.glucose} mg/dL`, {
+          description: "Reading exceeds target range (180 mg/dL). Consider checking insulin or drinking water.",
+          duration: 15000,
+        });
       } else {
-        toast.success("Reading updated");
+        toast.success(isUpdate ? "Reading updated" : "Reading saved");
       }
       onOpenChange(false);
       onSaved?.();
@@ -169,10 +198,20 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
               )}
             </div>
             <div className="space-y-1.5">
-              <Label>Reading type</Label>
+              <div className="flex items-center justify-between">
+                <Label>Reading type</Label>
+                {isSuggested && !entry && (
+                  <span className="text-[10px] text-primary font-medium tracking-tight bg-primary/10 px-2 py-0.5 rounded-full animate-fade-in flex items-center gap-1">
+                    <Sparkles className="w-2.5 h-2.5" /> Suggested
+                  </span>
+                )}
+              </div>
               <Select
                 value={form.watch("reading_type")}
-                onValueChange={(v) => form.setValue("reading_type", v as ReadingType)}
+                onValueChange={(v) => {
+                  form.setValue("reading_type", v as ReadingType);
+                  setIsSuggested(false);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -185,6 +224,11 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
                   ))}
                 </SelectContent>
               </Select>
+              {isSuggested && !entry && (
+                <p className="text-[11px] text-muted-foreground/80 leading-tight">
+                  Suggested based on current time
+                </p>
+              )}
             </div>
           </div>
 

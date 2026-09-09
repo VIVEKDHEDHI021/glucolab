@@ -45,7 +45,7 @@ export const pushService = {
       // 5. Handle notification click / tap
       PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
         const data = action.notification?.data;
-        const targetAction = data?.action || "open_dashboard";
+        const targetAction = data?.action || data?.type || "open_dashboard";
         handleNotificationNavigation(targetAction);
       });
     } catch (e) {

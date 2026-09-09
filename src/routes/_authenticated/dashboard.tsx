@@ -114,6 +114,22 @@ function DashboardPage() {
     refreshData(false);
   }, [user]);
 
+  useEffect(() => {
+    const handleOpenDialog = (e: any) => {
+      const target = e.detail?.dialog;
+      if (target === "insulin") {
+        setInsulinOpen(true);
+      } else if (target === "glucose") {
+        setGlucoseOpen(true);
+      }
+    };
+
+    window.addEventListener("glucolab-open-dialog", handleOpenDialog);
+    return () => {
+      window.removeEventListener("glucolab-open-dialog", handleOpenDialog);
+    };
+  }, []);
+
   const latest = glucose[0];
   const weekAgo = subDays(new Date(), 7);
   const weekReadings = glucose.filter((g) => isAfter(new Date(g.date_time), weekAgo));

@@ -26,6 +26,7 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as ApiRemindersCheckRouteImport } from './routes/api/reminders/check'
 import { Route as ApiDeviceRegisterRouteImport } from './routes/api/device/register'
 import { Route as ApiDeviceRefreshRouteImport } from './routes/api/device/refresh'
 import { Route as ApiDeviceDeactivateRouteImport } from './routes/api/device/deactivate'
@@ -115,6 +116,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const ApiRemindersCheckRoute = ApiRemindersCheckRouteImport.update({
+  id: '/api/reminders/check',
+  path: '/api/reminders/check',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDeviceRegisterRoute = ApiDeviceRegisterRouteImport.update({
   id: '/api/device/register',
   path: '/api/device/register',
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/api/device/deactivate': typeof ApiDeviceDeactivateRoute
   '/api/device/refresh': typeof ApiDeviceRefreshRoute
   '/api/device/register': typeof ApiDeviceRegisterRoute
+  '/api/reminders/check': typeof ApiRemindersCheckRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -179,6 +186,7 @@ export interface FileRoutesByTo {
   '/api/device/deactivate': typeof ApiDeviceDeactivateRoute
   '/api/device/refresh': typeof ApiDeviceRefreshRoute
   '/api/device/register': typeof ApiDeviceRegisterRoute
+  '/api/reminders/check': typeof ApiRemindersCheckRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -203,6 +211,7 @@ export interface FileRoutesById {
   '/api/device/deactivate': typeof ApiDeviceDeactivateRoute
   '/api/device/refresh': typeof ApiDeviceRefreshRoute
   '/api/device/register': typeof ApiDeviceRegisterRoute
+  '/api/reminders/check': typeof ApiRemindersCheckRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -227,6 +236,7 @@ export interface FileRouteTypes {
     | '/api/device/deactivate'
     | '/api/device/refresh'
     | '/api/device/register'
+    | '/api/reminders/check'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -249,6 +259,7 @@ export interface FileRouteTypes {
     | '/api/device/deactivate'
     | '/api/device/refresh'
     | '/api/device/register'
+    | '/api/reminders/check'
   id:
     | '__root__'
     | '/'
@@ -272,6 +283,7 @@ export interface FileRouteTypes {
     | '/api/device/deactivate'
     | '/api/device/refresh'
     | '/api/device/register'
+    | '/api/reminders/check'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -288,6 +300,7 @@ export interface RootRouteChildren {
   ApiDeviceDeactivateRoute: typeof ApiDeviceDeactivateRoute
   ApiDeviceRefreshRoute: typeof ApiDeviceRefreshRoute
   ApiDeviceRegisterRoute: typeof ApiDeviceRegisterRoute
+  ApiRemindersCheckRoute: typeof ApiRemindersCheckRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -411,6 +424,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/reminders/check': {
+      id: '/api/reminders/check'
+      path: '/api/reminders/check'
+      fullPath: '/api/reminders/check'
+      preLoaderRoute: typeof ApiRemindersCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/device/register': {
       id: '/api/device/register'
       path: '/api/device/register'
@@ -482,6 +502,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDeviceDeactivateRoute: ApiDeviceDeactivateRoute,
   ApiDeviceRefreshRoute: ApiDeviceRefreshRoute,
   ApiDeviceRegisterRoute: ApiDeviceRegisterRoute,
+  ApiRemindersCheckRoute: ApiRemindersCheckRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

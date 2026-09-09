@@ -22,12 +22,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
+
+      if (s?.user) {
+        import("@/services/oneSignalService").then(({ oneSignalService }) => {
+          oneSignalService.login(s.user.id);
+        });
+      }
     });
 
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
+
+      if (s?.user) {
+        import("@/services/oneSignalService").then(({ oneSignalService }) => {
+          oneSignalService.login(s.user.id);
+        });
+      }
     });
 
     return () => sub.subscription.unsubscribe();
@@ -37,6 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { deviceService } = await import("@/services/deviceService");
       await deviceService.deactivateCurrentDevice();
+      const { oneSignalService } = await import("@/services/oneSignalService");
+      await oneSignalService.logout();
     } catch (e) {
       console.warn("[Auth] Device deactivation error during signout:", e);
     }

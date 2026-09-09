@@ -34,6 +34,8 @@ export const authService = {
     try {
       const { deviceService } = await import("@/services/deviceService");
       await deviceService.deactivateCurrentDevice();
+      const { oneSignalService } = await import("@/services/oneSignalService");
+      await oneSignalService.logout();
     } catch (e) {
       console.warn("[authService] Device deactivation error during signOut:", e);
     }

@@ -40,7 +40,7 @@ export const syncService = {
 
     try {
       console.log("[SYNC] Querying pending records from SQLite...");
-      const { glucose, insulin, weight, profile, scans, reminders, history } = await localDbService.getPendingSyncRows();
+      const { glucose, insulin, weight, profile, scans, reminders, history, reminderSettings } = await localDbService.getPendingSyncRows();
 
       let syncedCount = 0;
 
@@ -238,7 +238,34 @@ export const syncService = {
         }
       }
 
+      // 8. Sync Patient Reminder Settings
+      if (reminderSettings && reminderSettings.length > 0) {
+        console.log(`[SYNC] Syncing ${reminderSettings.length} patient reminder settings...`);
+        for (const s of reminderSettings) {
+          const { error } = await supabase.from("patient_reminder_settings").upsert({
+            id: s.id,
+            user_id: s.user_id,
+            insulin_reminder_enabled: s.insulin_reminder_enabled,
+            insulin_reminder_time: s.insulin_reminder_time,
+            glucose_reminder_enabled: s.glucose_reminder_enabled,
+            glucose_reminder_days: s.glucose_reminder_days,
+            last_insulin_reminder_at: s.last_insulin_reminder_at,
+            last_glucose_reminder_at: s.last_glucose_reminder_at,
+            user_timezone: s.user_timezone,
+            updated_at: s.updated_at,
+          });
 
+          if (!error) {
+            await localDbService.runQuery(
+              `UPDATE patient_reminder_settings SET sync_status = 'synced' WHERE id = ?`,
+              [s.id]
+            );
+            syncedCount++;
+          } else {
+            console.error(`[SYNC] Failed to sync reminder settings ID ${s.id}:`, error);
+          }
+        }
+      }
 
       // Silent sync complete - no toast message shown to user
     } catch (err) {

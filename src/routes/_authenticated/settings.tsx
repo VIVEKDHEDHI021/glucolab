@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
   Bell,
+  Clock,
   Globe,
   Lock,
   Database,
@@ -15,6 +16,8 @@ import { Button } from "@/frontend/components/ui/button";
 import { Switch } from "@/frontend/components/ui/switch";
 import { toast } from "sonner";
 import { widgetService } from "@/services/widgetService";
+import { useAuth } from "@/frontend/lib/auth-context";
+import { patientReminderService } from "@/services/patientReminderService";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -57,23 +60,16 @@ function SettingsPage() {
         <p className="text-sm text-muted-foreground">Manage your clinical notifications and data options.</p>
       </div>
 
+      {/* Reminders Module */}
+      <PatientRemindersCard />
+
       {/* Notifications Module */}
       <div className="bg-card border border-border/80 rounded-3xl p-5 shadow-soft space-y-4">
         <h3 className="font-display text-base font-bold text-foreground flex items-center gap-2">
-          <Bell className="h-5 w-5 text-primary" /> Notifications
+          <Bell className="h-5 w-5 text-primary" /> Instant Health Alerts
         </h3>
         
         <div className="space-y-3.5 pt-2">
-          <div className="flex items-center justify-between opacity-60">
-            <div>
-              <h4 className="text-sm font-semibold">Medication Reminders</h4>
-              <p className="text-xs text-muted-foreground">Alerts for checking glucose (Disabled temporarily).</p>
-            </div>
-            <Switch disabled checked={false} onCheckedChange={() => {}} />
-          </div>
-
-          <div className="border-t border-border/60" />
-
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-sm font-semibold">High Sugar Warnings</h4>
@@ -160,6 +156,157 @@ function SettingsPage() {
           <ShieldCheck className="h-4 w-4 text-success" /> GlucoLab Pro Safe Engine
         </div>
         <p className="text-[10px] text-muted-foreground font-semibold">Version 2.4.0 (Build 90)</p>
+      </div>
+    </div>
+  );
+}
+
+function PatientRemindersCard() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [insulinEnabled, setInsulinEnabled] = useState(false);
+  const [insulinTime, setInsulinTime] = useState("20:00");
+  const [glucoseEnabled, setGlucoseEnabled] = useState(false);
+  const [glucoseDays, setGlucoseDays] = useState(2);
+
+  useEffect(() => {
+    if (!user) return;
+    patientReminderService.getSettings(user.id).then((settings) => {
+      setInsulinEnabled(settings.insulin_reminder_enabled);
+      setInsulinTime(settings.insulin_reminder_time || "20:00");
+      setGlucoseEnabled(settings.glucose_reminder_enabled);
+      setGlucoseDays(settings.glucose_reminder_days || 2);
+      setLoading(false);
+    });
+  }, [user]);
+
+  const handleToggleInsulin = async (enabled: boolean) => {
+    setInsulinEnabled(enabled);
+    if (!user) return;
+    const res = await patientReminderService.saveSettings(user.id, {
+      insulin_reminder_enabled: enabled,
+      insulin_reminder_time: insulinTime,
+    });
+    if (res.success) {
+      toast.success(enabled ? "Insulin reminder enabled" : "Insulin reminder disabled");
+    } else {
+      toast.error("Failed to update reminder settings");
+    }
+  };
+
+  const handleChangeInsulinTime = async (time: string) => {
+    setInsulinTime(time);
+    if (!user) return;
+    const res = await patientReminderService.saveSettings(user.id, {
+      insulin_reminder_enabled: insulinEnabled,
+      insulin_reminder_time: time,
+    });
+    if (res.success) {
+      toast.success("Insulin reminder time updated");
+    }
+  };
+
+  const handleToggleGlucose = async (enabled: boolean) => {
+    setGlucoseEnabled(enabled);
+    if (!user) return;
+    const res = await patientReminderService.saveSettings(user.id, {
+      glucose_reminder_enabled: enabled,
+      glucose_reminder_days: glucoseDays,
+    });
+    if (res.success) {
+      toast.success(enabled ? "Glucose check reminder enabled" : "Glucose check reminder disabled");
+    } else {
+      toast.error("Failed to update reminder settings");
+    }
+  };
+
+  const handleChangeGlucoseDays = async (days: number) => {
+    setGlucoseDays(days);
+    if (!user) return;
+    const res = await patientReminderService.saveSettings(user.id, {
+      glucose_reminder_enabled: glucoseEnabled,
+      glucose_reminder_days: days,
+    });
+    if (res.success) {
+      toast.success(`Glucose reminder set for ${days} ${days === 1 ? "day" : "days"} inactivity`);
+    }
+  };
+
+  return (
+    <div className="bg-card border border-border/80 rounded-3xl p-5 shadow-soft space-y-4">
+      <h3 className="font-display text-base font-bold text-foreground flex items-center gap-2">
+        <Clock className="h-5 w-5 text-primary" /> Reminders
+      </h3>
+
+      <div className="space-y-4 pt-1">
+        {/* Insulin Reminder */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <span>💉</span> Insulin Reminder
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Remind to record today&apos;s dose if not added yet.
+              </p>
+            </div>
+            <Switch
+              disabled={loading}
+              checked={insulinEnabled}
+              onCheckedChange={handleToggleInsulin}
+            />
+          </div>
+
+          {insulinEnabled && (
+            <div className="flex items-center justify-between pl-6 pt-1">
+              <span className="text-xs font-medium text-muted-foreground">Reminder time:</span>
+              <input
+                type="time"
+                value={insulinTime}
+                onChange={(e) => handleChangeInsulinTime(e.target.value)}
+                className="bg-muted/45 text-xs font-semibold px-3 py-2 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-border/60" />
+
+        {/* Glucose Check Reminder */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <span>🩸</span> Glucose Check Reminder
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Remind to check glucose if not recorded recently.
+              </p>
+            </div>
+            <Switch
+              disabled={loading}
+              checked={glucoseEnabled}
+              onCheckedChange={handleToggleGlucose}
+            />
+          </div>
+
+          {glucoseEnabled && (
+            <div className="flex items-center justify-between pl-6 pt-1">
+              <span className="text-xs font-medium text-muted-foreground">Reminder after:</span>
+              <select
+                value={glucoseDays}
+                onChange={(e) => handleChangeGlucoseDays(Number(e.target.value))}
+                className="bg-muted/45 text-xs font-semibold px-3 py-2 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+              >
+                <option value={1}>1 day</option>
+                <option value={2}>2 days (Default)</option>
+                <option value={3}>3 days</option>
+                <option value={5}>5 days</option>
+                <option value={7}>7 days</option>
+              </select>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

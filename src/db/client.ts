@@ -137,6 +137,8 @@ class MobileQueryBuilder {
           await localDb.cacheReminders(dataArray);
         } else if (this.tableName === "reminder_history") {
           await localDb.cacheReminderHistory(dataArray);
+        } else if (this.tableName === "patient_reminder_settings") {
+          await localDb.cacheReminderSettings(dataArray);
         }
       }
       return onfulfilled ? onfulfilled(res) : res;
@@ -170,6 +172,9 @@ class MobileQueryBuilder {
       data = await localDb.getReminders(user.id);
     } else if (this.tableName === "reminder_history") {
       data = await localDb.getReminderHistory(user.id);
+    } else if (this.tableName === "patient_reminder_settings") {
+      const s = await localDb.getReminderSettings(user.id);
+      data = s ? [s] : [];
     }
 
     // Apply basic filter matching
@@ -294,7 +299,7 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
     if (prop === "from" && typeof window !== "undefined" && Capacitor.isNativePlatform()) {
       return (tableName: any) => {
         const realBuilder = (_supabase! as any).from(tableName);
-        if (!["glucose_entries", "insulin_entries", "weight_entries", "profiles", "smart_scan_readings", "reminders", "reminder_history"].includes(tableName)) {
+        if (!["glucose_entries", "insulin_entries", "weight_entries", "profiles", "smart_scan_readings", "reminders", "reminder_history", "patient_reminder_settings"].includes(tableName)) {
           return realBuilder;
         }
 
@@ -325,6 +330,8 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
               await localDb.cacheReminders([{ ...record, sync_status: "pending_sync" }]);
             } else if (tableName === "reminder_history") {
               await localDb.cacheReminderHistory([{ ...record, sync_status: "pending_sync" }]);
+            } else if (tableName === "patient_reminder_settings") {
+              await localDb.cacheReminderSettings([{ ...record, sync_status: "pending_sync" }]);
             }
 
             try {
@@ -385,10 +392,12 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
               await localDb.cacheReminders([{ ...record, sync_status: "pending_sync" }]);
             } else if (tableName === "reminder_history") {
               await localDb.cacheReminderHistory([{ ...record, sync_status: "pending_sync" }]);
+            } else if (tableName === "patient_reminder_settings") {
+              await localDb.cacheReminderSettings([{ ...record, sync_status: "pending_sync" }]);
             }
 
             try {
-              const res = await realBuilder.upsert(record);
+              const res = await realBuilder.upsert(record, options);
               if (!res.error) {
                 if (tableName === "profiles") {
                   await localDb.runQuery(`UPDATE profiles SET sync_status = 'synced' WHERE user_id = ?`, [record.user_id]);

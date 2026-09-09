@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { AppShell } from "@/frontend/components/app-shell";
 import { Activity } from "lucide-react";
+import { oneSignalService } from "@/services/oneSignalService";
 import { pushService } from "@/frontend/lib/push-notifications";
 import { Capacitor } from "@capacitor/core";
 
@@ -18,6 +19,7 @@ function AuthenticatedLayout() {
     if (!loading && !user) {
       navigate({ to: "/login" });
     } else if (user && Capacitor.isNativePlatform()) {
+      oneSignalService.login(user.id);
       pushService.register(user.id);
     }
   }, [loading, user, navigate]);

@@ -48,6 +48,49 @@ export type Database = {
         Relationships: [];
       };
 
+      patient_reminder_settings: {
+        Row: {
+          id: string;
+          user_id: string;
+          insulin_reminder_enabled: boolean;
+          insulin_reminder_time: string;
+          glucose_reminder_enabled: boolean;
+          glucose_reminder_days: number;
+          last_insulin_reminder_at: string | null;
+          last_glucose_reminder_at: string | null;
+          user_timezone: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          insulin_reminder_enabled?: boolean;
+          insulin_reminder_time?: string;
+          glucose_reminder_enabled?: boolean;
+          glucose_reminder_days?: number;
+          last_insulin_reminder_at?: string | null;
+          last_glucose_reminder_at?: string | null;
+          user_timezone?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          insulin_reminder_enabled?: boolean;
+          insulin_reminder_time?: string;
+          glucose_reminder_enabled?: boolean;
+          glucose_reminder_days?: number;
+          last_insulin_reminder_at?: string | null;
+          last_glucose_reminder_at?: string | null;
+          user_timezone?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+
       reminders: {
         Row: {
           id: string;

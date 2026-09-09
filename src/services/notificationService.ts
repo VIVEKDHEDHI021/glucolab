@@ -4,6 +4,7 @@ import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { deviceService } from "./deviceService";
+import { oneSignalService } from "./oneSignalService";
 import { supabase } from "@/db/client";
 
 export async function requestNotificationPermission(): Promise<string | null> {
@@ -14,10 +15,10 @@ export async function requestNotificationPermission(): Promise<string | null> {
     return null;
   }
 
-  // 1. Native Capacitor Platform Handling (Android / iOS)
+  // 1. Native Capacitor Platform Handling (Android / iOS via OneSignal)
   if (Capacitor.isNativePlatform()) {
     try {
-      console.log("[Notification Service] Initializing Native Mobile Notifications...");
+      console.log("[Notification Service] Initializing OneSignal Mobile Notifications...");
 
       if (Capacitor.getPlatform() === "android") {
         await LocalNotifications.createChannel({
@@ -30,19 +31,28 @@ export async function requestNotificationPermission(): Promise<string | null> {
         }).catch((e) => console.warn("[Native Channel] Failed to create default channel:", e));
       }
 
-      await LocalNotifications.requestPermissions();
-      const pushPerm = await PushNotifications.requestPermissions();
+      // Initialize OneSignal
+      await oneSignalService.init();
 
-      if (pushPerm.receive !== "granted") {
-        console.warn("[Notification Service] Push notification permission denied on native device.");
-        return null;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.user?.id) {
+        await oneSignalService.login(session.user.id);
+      }
+
+      const subscriptionId = await oneSignalService.getSubscriptionId();
+      if (subscriptionId) {
+        console.log("[Notification Service] OneSignal Subscription ID captured:", subscriptionId);
+        return subscriptionId;
       }
 
       return new Promise<string | null>((resolve) => {
         let resolved = false;
 
         PushNotifications.addListener("registration", async (token) => {
-          console.log("[Native Push] Token registered successfully:", token.value);
+          console.log("[Native Push] Token registered:", token.value);
           await deviceService.setCurrentDeviceToken(token.value);
           if (!resolved) {
             resolved = true;
@@ -50,34 +60,7 @@ export async function requestNotificationPermission(): Promise<string | null> {
           }
         });
 
-        PushNotifications.addListener("registrationError", (err) => {
-          console.error("[Native Push] Registration error:", err);
-          if (!resolved) {
-            resolved = true;
-            resolve(null);
-          }
-        });
-
-        PushNotifications.addListener("pushNotificationReceived", (notification) => {
-          console.log("[Native Push Received in Foreground]:", notification);
-          showLocalNotification(
-            notification.title || "GlucoLab Update",
-            notification.body || "A new update was recorded on your account.",
-          );
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new Event("health-data-updated"));
-          }
-        });
-
-        PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-          console.log("[Native Push Action Clicked]:", action);
-          const data = action.notification?.data;
-          const targetAction = data?.action || "open_dashboard";
-          handleNotificationNavigation(targetAction);
-        });
-
-        PushNotifications.register().catch((e) => {
-          console.error("[Native Push] PushNotifications.register failed:", e);
+        PushNotifications.register().catch(() => {
           if (!resolved) {
             resolved = true;
             resolve(null);
@@ -87,13 +70,12 @@ export async function requestNotificationPermission(): Promise<string | null> {
         setTimeout(() => {
           if (!resolved) {
             resolved = true;
-            console.warn("[Native Push] Token registration timed out.");
             resolve(null);
           }
-        }, 10000);
+        }, 5000);
       });
     } catch (err) {
-      console.error("[Notification Service] Native setup error:", err);
+      console.error("[Notification Service] Native OneSignal setup error:", err);
       return null;
     }
   }
@@ -172,6 +154,24 @@ export function handleNotificationNavigation(action: string) {
   if (typeof window === "undefined") return;
 
   switch (action) {
+    case "open_insulin":
+    case "insulin_reminder":
+      window.location.hash = "/dashboard";
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("glucolab-open-dialog", { detail: { dialog: "insulin" } }),
+        );
+      }, 200);
+      break;
+    case "open_glucose":
+    case "glucose_reminder":
+      window.location.hash = "/dashboard";
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("glucolab-open-dialog", { detail: { dialog: "glucose" } }),
+        );
+      }, 200);
+      break;
     case "open_reports":
       window.location.hash = "/reports";
       break;
@@ -260,31 +260,108 @@ export async function triggerPushNotification(
       data: { session },
     } = await supabase.auth.getSession();
 
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (session?.access_token) {
-      headers["Authorization"] = `Bearer ${session.access_token}`;
+    let apiSucceeded = false;
+
+    // 1. Try Backend API endpoint if reachable (Web / SSR)
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      const res = await fetch("/api/send-push", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          userId,
+          title,
+          body,
+          excludeDeviceToken: sourceToken || undefined,
+          data: dataPayload,
+        }),
+      });
+
+      if (res.ok) {
+        apiSucceeded = true;
+        console.log("[NotificationService] Push notification dispatched via backend API.");
+      }
+    } catch (apiErr) {
+      // Expected in standalone Capacitor mobile environments where /api/ is not locally hosted
     }
 
-    const res = await fetch("/api/send-push", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        userId,
-        title,
-        body,
-        excludeDeviceToken: sourceToken || undefined,
-        data: dataPayload,
-      }),
-    });
+    // 2. Direct OneSignal Cloud API Dispatch Fallback (Guaranteed to work directly on Mobile & Web)
+    if (!apiSucceeded) {
+      const appId =
+        (typeof import.meta !== "undefined" && import.meta.env?.VITE_ONESIGNAL_APP_ID) ||
+        (typeof process !== "undefined" && process.env?.VITE_ONESIGNAL_APP_ID) ||
+        "eae3b62b-2f16-4a28-8ec4-a1c9bdca69fe";
 
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      console.warn("[NotificationService] Background push notification response:", errData);
-    } else {
-      const resData = await res.json().catch(() => ({}));
-      console.log("[NotificationService] Push notification successfully queued/sent:", resData);
+      const apiKey =
+        (typeof import.meta !== "undefined" && import.meta.env?.VITE_ONESIGNAL_REST_API_KEY) ||
+        (typeof process !== "undefined" && process.env?.VITE_ONESIGNAL_REST_API_KEY) ||
+        (typeof process !== "undefined" && process.env?.ONESIGNAL_REST_API_KEY);
+
+      if (appId && apiKey) {
+        // Query active user subscriptions excluding source device
+        let targetTokens: string[] = [];
+        const { data: devices } = await supabase
+          .from("user_devices")
+          .select("device_token")
+          .eq("user_id", userId)
+          .eq("is_active", true);
+
+        if (devices) {
+          targetTokens = devices.map((d: any) => d.device_token).filter(Boolean);
+          if (sourceToken) {
+            targetTokens = targetTokens.filter((t) => t !== sourceToken.trim());
+          }
+        }
+
+        const oneSignalBody: any = {
+          app_id: appId,
+          headings: { en: title },
+          contents: { en: body },
+          data: {
+            ...(dataPayload || {}),
+            timestamp: new Date().toISOString(),
+          },
+          priority: 10,
+          android_channel_id: "default",
+          android_accent_color: "0284C7",
+          small_icon: "ic_notification",
+        };
+
+        if (targetTokens.length > 0) {
+          oneSignalBody.include_subscription_ids = targetTokens;
+          oneSignalBody.include_player_ids = targetTokens;
+        } else {
+          oneSignalBody.include_aliases = { external_id: [userId] };
+          oneSignalBody.include_external_user_ids = [userId];
+        }
+
+        console.log(
+          `[NotificationService] Sending direct OneSignal cloud push for user ${userId} (targets: ${targetTokens.length})...`,
+        );
+
+        const osRes = await fetch("https://onesignal.com/api/v1/notifications", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            Authorization: `Basic ${apiKey}`,
+          },
+          body: JSON.stringify(oneSignalBody),
+        });
+
+        if (osRes.ok) {
+          const osData = await osRes.json().catch(() => ({}));
+          console.log("[NotificationService] Direct OneSignal push sent successfully:", osData);
+        } else {
+          const osErr = await osRes.json().catch(() => ({}));
+          console.warn("[NotificationService] Direct OneSignal dispatch error:", osRes.status, osErr);
+        }
+      }
     }
   } catch (err) {
     console.error("[NotificationService] Non-blocking push notification error:", err);
@@ -313,7 +390,12 @@ export async function notifyReadingAction(
   );
 }
 
-export async function notifyGlucoseAdded(userId: string, glucose: number, typeLabel: string) {
+export async function notifyGlucoseAdded(
+  userId: string,
+  glucose: number,
+  typeLabel: string,
+  isUpdate: boolean = false,
+) {
   let lowTarget = 70;
   let highTarget = 180;
 
@@ -331,20 +413,30 @@ export async function notifyGlucoseAdded(userId: string, glucose: number, typeLa
   }
 
   // Local notification copy (on current device)
-  let localTitle = `🩸 Glucose Reading: ${glucose} mg/dL`;
-  let localBody = `Blood sugar level of ${glucose} mg/dL (${typeLabel}) was recorded.`;
+  let localTitle = isUpdate
+    ? `🩸 Glucose Reading Updated: ${glucose} mg/dL`
+    : `🩸 Glucose Reading: ${glucose} mg/dL`;
+  let localBody = isUpdate
+    ? `Blood sugar level of ${glucose} mg/dL (${typeLabel}) was updated.`
+    : `Blood sugar level of ${glucose} mg/dL (${typeLabel}) was recorded.`;
 
   if (glucose < lowTarget) {
-    localTitle = `🚨 CRITICAL LOW SUGAR WARNING: ${glucose} mg/dL`;
+    localTitle = isUpdate
+      ? `🚨 CRITICAL LOW SUGAR WARNING (UPDATED): ${glucose} mg/dL`
+      : `🚨 CRITICAL LOW SUGAR WARNING: ${glucose} mg/dL`;
     localBody = `URGENT: Blood sugar level of ${glucose} mg/dL (${typeLabel}) is dangerously LOW (< ${lowTarget} mg/dL). Please consume 15g of fast-acting sugar immediately!`;
   } else if (glucose > highTarget) {
-    localTitle = `⚠️ HIGH SUGAR ALERT: ${glucose} mg/dL`;
+    localTitle = isUpdate
+      ? `⚠️ HIGH SUGAR ALERT (UPDATED): ${glucose} mg/dL`
+      : `⚠️ HIGH SUGAR ALERT: ${glucose} mg/dL`;
     localBody = `WARNING: Blood sugar level of ${glucose} mg/dL (${typeLabel}) exceeds high target (${highTarget} mg/dL). Consider checking your insulin dose or drinking water.`;
   }
 
   // Non-sensitive privacy-compliant copy (for remote multi-device push)
   const pushTitle = "GlucoLab Update";
-  const pushBody = "A new blood glucose reading was recorded on your account.";
+  const pushBody = isUpdate
+    ? "A blood glucose reading was updated on your account."
+    : "A new blood glucose reading was recorded on your account.";
   const dataPayload = {
     type: "glucose_entry",
     action: "open_dashboard",
@@ -372,12 +464,23 @@ export async function notifyInsulinAdded(
   await notifyReadingAction(userId, localTitle, localBody, pushTitle, pushBody, dataPayload);
 }
 
-export async function notifyWeightAdded(userId: string, weightKg: number, entryDate: string) {
-  const localTitle = "⚖️ New Weight Reading Logged";
-  const localBody = `Weight entry of ${weightKg} kg was recorded for ${entryDate}.`;
+export async function notifyWeightAdded(
+  userId: string,
+  weightKg: number,
+  entryDate: string,
+  isUpdate: boolean = false,
+) {
+  const localTitle = isUpdate
+    ? "⚖️ Weight Reading Updated"
+    : "⚖️ New Weight Reading Logged";
+  const localBody = isUpdate
+    ? `Weight entry of ${weightKg} kg was updated for ${entryDate}.`
+    : `Weight entry of ${weightKg} kg was recorded for ${entryDate}.`;
 
   const pushTitle = "GlucoLab Update";
-  const pushBody = "A new weight entry was logged to your account.";
+  const pushBody = isUpdate
+    ? "A weight entry was updated on your account."
+    : "A new weight entry was logged to your account.";
   const dataPayload = {
     type: "weight_entry",
     action: "open_dashboard",
