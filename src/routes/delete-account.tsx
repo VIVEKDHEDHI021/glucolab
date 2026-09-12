@@ -64,6 +64,14 @@ function DeleteAccountPage() {
   // Active tab for unauthenticated visitors
   const [unauthTab, setUnauthTab] = useState<"instant" | "request">("instant");
 
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      window.history.back();
+    } else if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
+  };
+
   // Handle deletion for logged-in user
   const handleAuthenticatedDelete = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -248,13 +256,21 @@ function DeleteAccountPage() {
       {/* Navigation Header */}
       <header className="sticky top-0 z-30 border-b border-border/80 bg-background/90 backdrop-blur-md">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link
-            to="/welcome"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back to GlucoLab</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBack}
+              className="gap-1.5 text-xs font-bold rounded-xl border-border/80 hover:bg-muted shadow-xs"
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back</span>
+            </Button>
+            <Link to="/" className="font-display font-bold text-sm text-foreground hover:text-primary transition-colors hidden sm:inline-block">
+              GlucoLab Pro
+            </Link>
+          </div>
 
           <div className="flex items-center gap-2">
             <Link to="/privacy-policy">
@@ -629,6 +645,23 @@ function DeleteAccountPage() {
             .
           </p>
         </section>
+
+        {/* Return to App Action */}
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Button
+            variant="outline"
+            onClick={handleBack}
+            className="font-semibold rounded-xl px-6 gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Return to Previous Page
+          </Button>
+          <Link to="/">
+            <Button size="sm" className="gradient-primary text-primary-foreground font-semibold rounded-xl px-6">
+              Return to GlucoLab App
+            </Button>
+          </Link>
+        </div>
 
         {/* Footer */}
         <footer className="pt-4 border-t border-border/60 text-center space-y-1">
