@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/db/client.server";
+import { createUserScopedClient, supabaseAdmin } from "@/db/client.server";
 
 export const Route = createFileRoute("/api/device/deactivate")({
   server: {
@@ -16,10 +16,11 @@ export const Route = createFileRoute("/api/device/deactivate")({
           }
 
           const token = authHeader.split(" ")[1];
+          const userClient = createUserScopedClient(token);
           const {
             data: { user },
             error: authError,
-          } = await supabaseAdmin.auth.getUser(token);
+          } = await userClient.auth.getUser();
 
           if (authError || !user) {
             return Response.json(
@@ -40,10 +41,11 @@ export const Route = createFileRoute("/api/device/deactivate")({
           }
 
           const now = new Date().toISOString();
+          const db = userClient || supabaseAdmin;
 
           // 3. Deactivate ONLY the specific device token in user_devices
           try {
-            await supabaseAdmin
+            await db
               .from("user_devices")
               .update({
                 is_active: false,
@@ -55,7 +57,7 @@ export const Route = createFileRoute("/api/device/deactivate")({
 
           // 4. Remove from push_tokens for dual compatibility
           try {
-            await supabaseAdmin
+            await db
               .from("push_tokens")
               .delete()
               .eq("user_id", user.id)

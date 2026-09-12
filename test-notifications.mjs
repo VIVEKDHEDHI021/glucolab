@@ -421,6 +421,55 @@ forbiddenKeywords.forEach(keyword => {
 
 
 // ---------------------------------------------------------
+// TEST 12: Dual Token Categorization (FCM vs OneSignal)
+// ---------------------------------------------------------
+console.log("\n12. Testing Token Categorization for Dual FCM & OneSignal Dispatch...");
+
+function isOneSignalSubscriptionId(token) {
+  if (!token) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token.trim());
+}
+
+function routeTokens(tokens) {
+  const fcmTokens = [];
+  const oneSignalTokens = [];
+  for (const t of tokens) {
+    if (isOneSignalSubscriptionId(t)) {
+      oneSignalTokens.push(t);
+    } else {
+      fcmTokens.push(t);
+    }
+  }
+  return { fcmTokens, oneSignalTokens };
+}
+
+const mixedTokens = [
+  "eae3b62b-2f16-4a28-8ec4-a1c9bdca69fe", // OneSignal UUID
+  "fK3-x_c7Y0g:APA91bFwO-zE42_web_token_abc", // Web FCM token
+  "99e3b62b-1111-2222-3333-a1c9bdca69ff", // OneSignal UUID
+  "dM4-z_p8Q1h:APA91bGxP-aF53_android_fcm_xyz", // Android FCM token
+];
+
+const routed = routeTokens(mixedTokens);
+assert(routed.oneSignalTokens.length === 2, "Identifies 2 OneSignal UUID subscription IDs");
+assert(routed.fcmTokens.length === 2, "Identifies 2 Firebase FCM tokens");
+assert(routed.oneSignalTokens.includes("eae3b62b-2f16-4a28-8ec4-a1c9bdca69fe"), "OneSignal list contains UUID 1");
+assert(routed.fcmTokens.includes("fK3-x_c7Y0g:APA91bFwO-zE42_web_token_abc"), "FCM list contains web token");
+
+// ---------------------------------------------------------
+// TEST 13: Source Device Exclusion across Dual Providers
+// ---------------------------------------------------------
+console.log("\n13. Testing Source Exclusion across Dual Providers...");
+
+const sourceDevice = "fK3-x_c7Y0g:APA91bFwO-zE42_web_token_abc"; // Originating from web
+const excludedTargetTokens = mixedTokens.filter(t => t !== sourceDevice);
+const postExclusionRouted = routeTokens(excludedTargetTokens);
+
+assert(postExclusionRouted.fcmTokens.length === 1, "FCM targets reduced to 1 after excluding source device");
+assert(!postExclusionRouted.fcmTokens.includes(sourceDevice), "Originating Web device token is strictly excluded");
+assert(postExclusionRouted.oneSignalTokens.length === 2, "Both OneSignal mobile devices remain targeted");
+
+// ---------------------------------------------------------
 // SUMMARY
 // ---------------------------------------------------------
 console.log("\n==================================================");
@@ -432,3 +481,4 @@ if (failed > 0) {
 } else {
   process.exit(0);
 }
+

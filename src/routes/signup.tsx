@@ -116,6 +116,14 @@ function SignupPage() {
             Sign in
           </Link>
         </p>
+
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          By signing up, you acknowledge our{" "}
+          <Link to="/privacy-policy" className="underline hover:text-foreground">
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </div>
     </div>
   );

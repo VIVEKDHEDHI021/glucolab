@@ -7,6 +7,8 @@ import { deviceService } from "@/services/deviceService";
 import { toast } from "sonner";
 import { READING_LABELS, type ReadingType } from "@/frontend/lib/types";
 import { Capacitor } from "@capacitor/core";
+import { messaging } from "@/lib/firebase";
+import { onMessage } from "firebase/messaging";
 
 interface NotificationContextType {
   token: string | null;
@@ -43,6 +45,27 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       initializedRef.current = false;
     }
   }, [user, notifications]);
+
+  // Foreground FCM Push Notification Listener (Web)
+  useEffect(() => {
+    if (typeof window === "undefined" || Capacitor.isNativePlatform() || !messaging) return;
+
+    try {
+      const unsubscribe = onMessage(messaging, (payload) => {
+        console.log("[NotificationProvider] Foreground FCM push received:", payload);
+        const title = payload.notification?.title || "GlucoLab Update";
+        const body = payload.notification?.body || "A new update was recorded on your account.";
+        toast.info(title, { description: body });
+        showLocalNotification(title, body);
+        window.dispatchEvent(new Event("health-data-updated"));
+      });
+      return () => {
+        unsubscribe();
+      };
+    } catch (err) {
+      console.warn("[NotificationProvider] onMessage registration warning:", err);
+    }
+  }, []);
 
   // Real-Time Multi-Device Reading Notification & Sync Subscription
   useEffect(() => {

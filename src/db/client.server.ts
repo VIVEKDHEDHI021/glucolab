@@ -43,3 +43,35 @@ export const supabaseAdmin = new Proxy({} as ReturnType<typeof createSupabaseAdm
     return Reflect.get(_supabaseAdmin, prop, receiver);
   },
 });
+
+/**
+ * Creates a server-side Supabase client authenticated as the calling user.
+ * Enables RLS policies to evaluate auth.uid() properly without requiring service role key.
+ */
+export function createUserScopedClient(bearerToken: string) {
+  const SUPABASE_URL =
+    process.env.SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL ||
+    "https://yhvnfwyeippnrqtttxac.supabase.co";
+
+  const SUPABASE_ANON_KEY =
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    "sb_publishable_dR2EoURRwH6sHIEQd8-3dQ_daz0Qn-j";
+
+  const cleanToken = bearerToken.replace(/^Bearer\s+/i, "").trim();
+
+  return createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      storage: undefined,
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${cleanToken}`,
+      },
+    },
+  });
+}
+

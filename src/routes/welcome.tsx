@@ -108,6 +108,15 @@ function WelcomePage() {
             Biometric Login
           </Button>
         </div>
+
+        <div className="pt-2 text-center">
+          <Link
+            to="/privacy-policy"
+            className="text-[11px] font-medium text-muted-foreground hover:text-foreground hover:underline transition-colors"
+          >
+            Privacy Policy &amp; Data Protection
+          </Link>
+        </div>
       </div>
     </div>
   );

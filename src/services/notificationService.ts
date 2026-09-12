@@ -48,7 +48,7 @@ export async function requestNotificationPermission(): Promise<string | null> {
         return subscriptionId;
       }
 
-      return new Promise<string | null>((resolve) => {
+      return new Promise<string | null>(async (resolve) => {
         let resolved = false;
 
         PushNotifications.addListener("registration", async (token) => {
@@ -60,12 +60,32 @@ export async function requestNotificationPermission(): Promise<string | null> {
           }
         });
 
-        PushNotifications.register().catch(() => {
+        PushNotifications.addListener("registrationError", (err) => {
+          console.warn("[Native Push] Registration error:", err);
           if (!resolved) {
             resolved = true;
             resolve(null);
           }
         });
+
+        try {
+          const perm = await PushNotifications.requestPermissions();
+          if (perm.receive === "granted") {
+            await PushNotifications.register();
+          } else {
+            console.warn("[Native Push] Permission not granted:", perm.receive);
+            if (!resolved) {
+              resolved = true;
+              resolve(null);
+            }
+          }
+        } catch (regErr) {
+          console.warn("[Native Push] Registration exception:", regErr);
+          if (!resolved) {
+            resolved = true;
+            resolve(null);
+          }
+        }
 
         setTimeout(() => {
           if (!resolved) {
@@ -285,10 +305,14 @@ export async function triggerPushNotification(
 
       if (res.ok) {
         apiSucceeded = true;
-        console.log("[NotificationService] Push notification dispatched via backend API.");
+        const resData = await res.json().catch(() => ({}));
+        console.log("[NotificationService] Push notification dispatched via backend API:", resData);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        console.warn("[NotificationService] Backend /api/send-push returned status:", res.status, errData);
       }
     } catch (apiErr) {
-      // Expected in standalone Capacitor mobile environments where /api/ is not locally hosted
+      console.warn("[NotificationService] /api/send-push fetch attempt failed:", apiErr);
     }
 
     // 2. Direct OneSignal Cloud API Dispatch Fallback (Guaranteed to work directly on Mobile & Web)
@@ -319,6 +343,11 @@ export async function triggerPushNotification(
           }
         }
 
+        // Only pass valid OneSignal UUIDs to include_subscription_ids to avoid invalid_player_ids error
+        const oneSignalSubscriptionIds = targetTokens.filter((t) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t),
+        );
+
         const oneSignalBody: any = {
           app_id: appId,
           headings: { en: title },
@@ -333,16 +362,16 @@ export async function triggerPushNotification(
           small_icon: "ic_notification",
         };
 
-        if (targetTokens.length > 0) {
-          oneSignalBody.include_subscription_ids = targetTokens;
-          oneSignalBody.include_player_ids = targetTokens;
+        if (oneSignalSubscriptionIds.length > 0) {
+          oneSignalBody.include_subscription_ids = oneSignalSubscriptionIds;
+          oneSignalBody.include_player_ids = oneSignalSubscriptionIds;
         } else {
           oneSignalBody.include_aliases = { external_id: [userId] };
           oneSignalBody.include_external_user_ids = [userId];
         }
 
         console.log(
-          `[NotificationService] Sending direct OneSignal cloud push for user ${userId} (targets: ${targetTokens.length})...`,
+          `[NotificationService] Sending direct OneSignal cloud push for user ${userId} (targets: ${oneSignalSubscriptionIds.length})...`,
         );
 
         const osRes = await fetch("https://onesignal.com/api/v1/notifications", {
@@ -533,3 +562,61 @@ export async function notifyReportUploaded(userId: string, reportName?: string) 
 
   await notifyReadingAction(userId, localTitle, localBody, pushTitle, pushBody, dataPayload);
 }
+
+/**
+ * Dispatches an explicit test push notification to verify Dual FCM & OneSignal multi-device delivery.
+ */
+export async function sendTestPushNotification(userId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const localTitle = "🔔 Test Notification Received";
+    const localBody = "Multi-device push notification pipeline is active and working.";
+    const pushTitle = "GlucoLab Test Alert";
+    const pushBody = "Multi-device push verification alert successfully delivered to your account.";
+
+    showLocalNotification(localTitle, localBody);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const sourceToken = deviceService.getCachedDeviceToken() || (await deviceService.getCurrentDeviceToken());
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (session?.access_token) {
+      headers["Authorization"] = `Bearer ${session.access_token}`;
+    }
+
+    const res = await fetch("/api/send-push", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        userId,
+        title: pushTitle,
+        body: pushBody,
+        excludeDeviceToken: undefined, // Include all registered devices for test verification
+        data: {
+          type: "test_notification",
+          action: "open_dashboard",
+        },
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      return {
+        success: true,
+        message: `Dispatched to ${data.sentCount ?? 1} device(s) via ${data.fcm ? "FCM" : ""}${data.fcm && data.onesignal ? " & " : ""}${data.onesignal ? "OneSignal" : ""}.`,
+      };
+    } else {
+      return {
+        success: false,
+        message: data.error || `Server responded with HTTP ${res.status}`,
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.message || "Failed to trigger test notification.",
+    };
+  }
+}
+

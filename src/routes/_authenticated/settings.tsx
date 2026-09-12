@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
   Bell,
@@ -11,6 +11,11 @@ import {
   ShieldCheck,
   Languages,
   Zap,
+  Smartphone,
+  Send,
+  CheckCircle2,
+  AlertCircle,
+  Radio,
 } from "lucide-react";
 import { Button } from "@/frontend/components/ui/button";
 import { Switch } from "@/frontend/components/ui/switch";
@@ -18,6 +23,9 @@ import { toast } from "sonner";
 import { widgetService } from "@/services/widgetService";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { patientReminderService } from "@/services/patientReminderService";
+import { sendTestPushNotification } from "@/services/notificationService";
+import { deviceService } from "@/services/deviceService";
+import { useNotificationContext } from "@/providers/NotificationProvider";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -25,11 +33,45 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 function SettingsPage() {
+  const { user } = useAuth();
+  const notificationContext = useNotificationContext();
   const [reminders, setReminders] = useState(true);
   const [highSugarAlerts, setHighSugarAlerts] = useState(true);
   const [lowSugarAlerts, setLowSugarAlerts] = useState(true);
   const [biometrics, setBiometrics] = useState(false);
   const [language, setLanguage] = useState("en");
+  const [testPushLoading, setTestPushLoading] = useState(false);
+  const [deviceToken, setDeviceToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    deviceService.getCurrentDeviceToken().then((token) => {
+      setDeviceToken(token);
+    });
+  }, [notificationContext.token]);
+
+  const handleTestPush = async () => {
+    if (!user) {
+      toast.error("Please log in to test push notifications.");
+      return;
+    }
+
+    setTestPushLoading(true);
+    toast.promise(sendTestPushNotification(user.id), {
+      loading: "Dispatching multi-device test push via Dual FCM & OneSignal...",
+      success: (data) => {
+        setTestPushLoading(false);
+        if (data.success) {
+          return `Test push sent! ${data.message}`;
+        } else {
+          throw new Error(data.message);
+        }
+      },
+      error: (err) => {
+        setTestPushLoading(false);
+        return `Push delivery note: ${err?.message || "Check device registrations"}`;
+      },
+    });
+  };
 
   const handleBackup = () => {
     toast.promise(
@@ -53,6 +95,9 @@ function SettingsPage() {
     );
   };
 
+  const permission = notificationContext.permission;
+  const isPermissionGranted = permission === "granted";
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto animate-fade-in">
       <div className="space-y-1">
@@ -65,10 +110,35 @@ function SettingsPage() {
 
       {/* Notifications Module */}
       <div className="bg-card border border-border/80 rounded-3xl p-5 shadow-soft space-y-4">
-        <h3 className="font-display text-base font-bold text-foreground flex items-center gap-2">
-          <Bell className="h-5 w-5 text-primary" /> Instant Health Alerts
-        </h3>
-        
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-base font-bold text-foreground flex items-center gap-2">
+            <Bell className="h-5 w-5 text-primary" /> Multi-Device Health Alerts
+          </h3>
+          <span
+            className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 ${
+              isPermissionGranted
+                ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                : permission === "denied"
+                ? "bg-destructive/10 text-destructive border border-destructive/20"
+                : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+            }`}
+          >
+            {isPermissionGranted ? (
+              <>
+                <CheckCircle2 className="h-3 w-3" /> Push Active
+              </>
+            ) : permission === "denied" ? (
+              <>
+                <AlertCircle className="h-3 w-3" /> Blocked
+              </>
+            ) : (
+              <>
+                <Radio className="h-3 w-3" /> Needs Permission
+              </>
+            )}
+          </span>
+        </div>
+
         <div className="space-y-3.5 pt-2">
           <div className="flex items-center justify-between">
             <div>
@@ -86,6 +156,47 @@ function SettingsPage() {
               <p className="text-xs text-muted-foreground">Instant alerts when readings drop below 70 mg/dL.</p>
             </div>
             <Switch checked={lowSugarAlerts} onCheckedChange={setLowSugarAlerts} />
+          </div>
+
+          <div className="border-t border-border/60" />
+
+          {/* Test Push & Registration Action */}
+          <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-muted/30 p-3 rounded-2xl border border-border/40">
+            <div className="space-y-0.5">
+              <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <Smartphone className="h-3.5 w-3.5 text-primary" /> Dual FCM & OneSignal Verification
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {deviceToken ? (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[10px]">
+                    Device token registered ({deviceToken.substring(0, 16)}...)
+                  </span>
+                ) : (
+                  "No push token registered yet on this browser/device."
+                )}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {!isPermissionGranted && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-xl text-xs font-bold h-8"
+                  onClick={() => notificationContext.initNotifications()}
+                >
+                  Enable Push
+                </Button>
+              )}
+              <Button
+                size="sm"
+                disabled={testPushLoading}
+                onClick={handleTestPush}
+                className="rounded-xl text-xs font-bold h-8 flex items-center gap-1.5 shadow-sm"
+              >
+                <Send className="h-3 w-3" /> Test Push
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -151,11 +262,19 @@ function SettingsPage() {
       </div>
 
       {/* Footer Version Details */}
-      <div className="text-center space-y-1 py-4">
+      <div className="text-center space-y-1.5 py-4">
         <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
           <ShieldCheck className="h-4 w-4 text-success" /> GlucoLab Pro Safe Engine
         </div>
         <p className="text-[10px] text-muted-foreground font-semibold">Version 2.4.0 (Build 90)</p>
+        <div className="pt-1">
+          <Link
+            to="/privacy-policy"
+            className="text-xs text-primary hover:underline font-medium inline-flex items-center gap-1"
+          >
+            Privacy Policy &amp; Health Data Protection
+          </Link>
+        </div>
       </div>
     </div>
   );

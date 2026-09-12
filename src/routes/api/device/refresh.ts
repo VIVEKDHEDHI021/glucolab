@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/db/client.server";
+import { createUserScopedClient, supabaseAdmin } from "@/db/client.server";
 
 export const Route = createFileRoute("/api/device/refresh")({
   server: {
@@ -17,10 +17,11 @@ export const Route = createFileRoute("/api/device/refresh")({
             );
           }
 
+          const userClient = createUserScopedClient(token);
           const {
             data: { user },
             error: authError,
-          } = await supabaseAdmin.auth.getUser(token);
+          } = await userClient.auth.getUser();
 
           if (authError || !user) {
             return Response.json(
@@ -45,10 +46,11 @@ export const Route = createFileRoute("/api/device/refresh")({
 
           console.log(`[api/device/refresh] Refreshing token for user ${user.id}...`);
           const now = new Date().toISOString();
+          const db = userClient || supabaseAdmin;
 
           // 3. If oldToken provided, update that specific record
           if (oldToken && oldToken !== newToken) {
-            const { data: updatedOld, error: oldUpdateError } = await supabaseAdmin
+            const { data: updatedOld, error: oldUpdateError } = await db
               .from("user_devices")
               .update({
                 device_token: newToken,
@@ -69,34 +71,18 @@ export const Route = createFileRoute("/api/device/refresh")({
           }
 
           // 4. Fallback: Upsert new token record
-          const { data: existingNew } = await supabaseAdmin
-            .from("user_devices")
-            .select("id")
-            .eq("device_token", newToken)
-            .maybeSingle();
-
-          if (existingNew) {
-            await supabaseAdmin
-              .from("user_devices")
-              .update({
-                user_id: user.id,
-                device_type: deviceType,
-                device_name: deviceName,
-                is_active: true,
-                last_used_at: now,
-                updated_at: now,
-              })
-              .eq("id", existingNew.id);
-          } else {
-            await supabaseAdmin.from("user_devices").insert({
+          await db.from("user_devices").upsert(
+            {
               user_id: user.id,
               device_token: newToken,
               device_type: deviceType,
               device_name: deviceName,
               is_active: true,
               last_used_at: now,
-            });
-          }
+              updated_at: now,
+            },
+            { onConflict: "device_token" },
+          );
 
           return Response.json({ success: true, message: "New token registered successfully." });
         } catch (e: any) {

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/db/client.server";
+import { supabaseAdmin, createUserScopedClient } from "@/db/client.server";
 import { notificationServiceServer } from "@/backend/services/notificationService.server";
 
 export const Route = createFileRoute("/api/send-push")({
@@ -12,11 +12,15 @@ export const Route = createFileRoute("/api/send-push")({
           const token = authHeader?.replace(/^Bearer\s+/i, "").trim();
 
           let authenticatedUserId: string | null = null;
+          let userClient: any = null;
+
           if (token) {
+            userClient = createUserScopedClient(token);
             const {
               data: { user },
               error: authErr,
-            } = await supabaseAdmin.auth.getUser(token);
+            } = await userClient.auth.getUser();
+
             if (!authErr && user) {
               authenticatedUserId = user.id;
             }
@@ -54,7 +58,7 @@ export const Route = createFileRoute("/api/send-push")({
             `[api/send-push] Dispatching push for user ${targetUserId} (exclude source token: ${Boolean(excludeDeviceToken)})...`,
           );
 
-          // 2. Delegate to server NotificationService
+          // 2. Delegate to server NotificationService passing user-scoped client for RLS
           const result = await notificationServiceServer.sendToUser(
             targetUserId,
             {
@@ -65,6 +69,7 @@ export const Route = createFileRoute("/api/send-push")({
               excludeDeviceToken: excludeDeviceToken ? String(excludeDeviceToken) : undefined,
               data: data && typeof data === "object" ? data : undefined,
             },
+            userClient || supabaseAdmin,
           );
 
           return Response.json(result, { status: result.success ? 200 : 500 });

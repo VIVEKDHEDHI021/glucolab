@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/db/client.server";
+import { createUserScopedClient, supabaseAdmin } from "@/db/client.server";
 
 export const Route = createFileRoute("/api/device/register")({
   server: {
@@ -16,10 +16,11 @@ export const Route = createFileRoute("/api/device/register")({
           }
 
           const token = authHeader.split(" ")[1];
+          const userClient = createUserScopedClient(token);
           const {
             data: { user },
             error: authError,
-          } = await supabaseAdmin.auth.getUser(token);
+          } = await userClient.auth.getUser();
 
           if (authError || !user) {
             return Response.json(
@@ -42,46 +43,33 @@ export const Route = createFileRoute("/api/device/register")({
           }
 
           const now = new Date().toISOString();
+          const db = userClient || supabaseAdmin;
 
-          // 3. Try to register in user_devices table
-          let registeredInUserDevices = false;
+          // 3. Upsert in user_devices table
           try {
-            const { data: existing } = await supabaseAdmin
-              .from("user_devices")
-              .select("id, user_id, is_active")
-              .eq("device_token", deviceToken)
-              .maybeSingle();
+            const { error: upsertErr } = await db.from("user_devices").upsert(
+              {
+                user_id: user.id,
+                device_token: deviceToken,
+                device_type: deviceType,
+                device_name: deviceName,
+                is_active: true,
+                last_used_at: now,
+                updated_at: now,
+              },
+              { onConflict: "device_token" },
+            );
 
-            if (existing) {
-              await supabaseAdmin
-                .from("user_devices")
-                .update({
-                  user_id: user.id,
-                  device_type: deviceType,
-                  device_name: deviceName,
-                  is_active: true,
-                  last_used_at: now,
-                  updated_at: now,
-                })
-                .eq("id", existing.id);
-            } else {
-              await supabaseAdmin
-                .from("user_devices")
-                .insert({
-                  user_id: user.id,
-                  device_token: deviceToken,
-                  device_type: deviceType,
-                  device_name: deviceName,
-                  is_active: true,
-                  last_used_at: now,
-                });
+            if (upsertErr) {
+              console.warn("[api/device/register] user_devices upsert warning:", upsertErr);
             }
-            registeredInUserDevices = true;
-          } catch (e) {}
+          } catch (e) {
+            console.warn("[api/device/register] user_devices exception:", e);
+          }
 
-          // 4. Also register/upsert in push_tokens table for dual compatibility
+          // 4. Also upsert in push_tokens table for dual compatibility
           try {
-            await supabaseAdmin.from("push_tokens").upsert(
+            await db.from("push_tokens").upsert(
               {
                 user_id: user.id,
                 token: deviceToken,
@@ -93,7 +81,7 @@ export const Route = createFileRoute("/api/device/register")({
             );
           } catch (e) {}
 
-          console.log(`[api/device/register] Device token registered for user ${user.id}`);
+          console.log(`[api/device/register] Device token registered for user ${user.id} (${deviceType})`);
           return Response.json({ success: true, message: "Device registered successfully." });
         } catch (err: any) {
           console.error("[api/device/register] Unexpected error:", err);
