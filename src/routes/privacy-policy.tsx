@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   HelpCircle,
   EyeOff,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/frontend/components/ui/button";
 
@@ -331,6 +332,14 @@ function PrivacyPolicyPage() {
               <li><strong className="text-foreground">Correction:</strong> Edit, update, or re-categorize any historical reading directly inside the History tab.</li>
               <li><strong className="text-foreground">Complete Deletion (Right to be Forgotten):</strong> Request permanent account deletion. Upon verification, all corresponding entries, backup logs, and token associations are permanently purged from our database.</li>
             </ul>
+            <div className="pt-2">
+              <Link to="/delete-account">
+                <Button variant="outline" size="sm" className="rounded-xl text-xs font-semibold gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Account &amp; Data Deletion Portal
+                </Button>
+              </Link>
+            </div>
           </article>
 
           {/* Section 7 */}

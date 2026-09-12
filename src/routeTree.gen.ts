@@ -16,6 +16,7 @@ import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as OtpRouteImport } from './routes/otp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as DeleteAccountRouteImport } from './routes/delete-account'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiSendPushRouteImport } from './routes/api/send-push'
@@ -32,6 +33,7 @@ import { Route as ApiDeviceRegisterRouteImport } from './routes/api/device/regis
 import { Route as ApiDeviceRefreshRouteImport } from './routes/api/device/refresh'
 import { Route as ApiDeviceDeactivateRouteImport } from './routes/api/device/deactivate'
 import { Route as ApiAdminResetPasswordRouteImport } from './routes/api/admin/reset-password'
+import { Route as ApiAccountDeleteRouteImport } from './routes/api/account/delete'
 
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
@@ -66,6 +68,11 @@ const LoginRoute = LoginRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeleteAccountRoute = DeleteAccountRouteImport.update({
+  id: '/delete-account',
+  path: '/delete-account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -147,9 +154,15 @@ const ApiAdminResetPasswordRoute = ApiAdminResetPasswordRouteImport.update({
   path: '/api/admin/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAccountDeleteRoute = ApiAccountDeleteRouteImport.update({
+  id: '/api/account/delete',
+  path: '/api/account/delete',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/otp': typeof OtpRoute
@@ -166,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/scanner': typeof AuthenticatedScannerRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/send-push': typeof ApiSendPushRoute
+  '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
   '/api/device/deactivate': typeof ApiDeviceDeactivateRoute
   '/api/device/refresh': typeof ApiDeviceRefreshRoute
@@ -174,6 +188,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/otp': typeof OtpRoute
@@ -190,6 +205,7 @@ export interface FileRoutesByTo {
   '/scanner': typeof AuthenticatedScannerRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/send-push': typeof ApiSendPushRoute
+  '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
   '/api/device/deactivate': typeof ApiDeviceDeactivateRoute
   '/api/device/refresh': typeof ApiDeviceRefreshRoute
@@ -200,6 +216,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/delete-account': typeof DeleteAccountRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/otp': typeof OtpRoute
@@ -216,6 +233,7 @@ export interface FileRoutesById {
   '/_authenticated/scanner': typeof AuthenticatedScannerRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/api/send-push': typeof ApiSendPushRoute
+  '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
   '/api/device/deactivate': typeof ApiDeviceDeactivateRoute
   '/api/device/refresh': typeof ApiDeviceRefreshRoute
@@ -226,6 +244,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/delete-account'
     | '/forgot-password'
     | '/login'
     | '/otp'
@@ -242,6 +261,7 @@ export interface FileRouteTypes {
     | '/scanner'
     | '/settings'
     | '/api/send-push'
+    | '/api/account/delete'
     | '/api/admin/reset-password'
     | '/api/device/deactivate'
     | '/api/device/refresh'
@@ -250,6 +270,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/delete-account'
     | '/forgot-password'
     | '/login'
     | '/otp'
@@ -266,6 +287,7 @@ export interface FileRouteTypes {
     | '/scanner'
     | '/settings'
     | '/api/send-push'
+    | '/api/account/delete'
     | '/api/admin/reset-password'
     | '/api/device/deactivate'
     | '/api/device/refresh'
@@ -275,6 +297,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/delete-account'
     | '/forgot-password'
     | '/login'
     | '/otp'
@@ -291,6 +314,7 @@ export interface FileRouteTypes {
     | '/_authenticated/scanner'
     | '/_authenticated/settings'
     | '/api/send-push'
+    | '/api/account/delete'
     | '/api/admin/reset-password'
     | '/api/device/deactivate'
     | '/api/device/refresh'
@@ -301,6 +325,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  DeleteAccountRoute: typeof DeleteAccountRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   OtpRoute: typeof OtpRoute
@@ -309,6 +334,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   WelcomeRoute: typeof WelcomeRoute
   ApiSendPushRoute: typeof ApiSendPushRoute
+  ApiAccountDeleteRoute: typeof ApiAccountDeleteRoute
   ApiAdminResetPasswordRoute: typeof ApiAdminResetPasswordRoute
   ApiDeviceDeactivateRoute: typeof ApiDeviceDeactivateRoute
   ApiDeviceRefreshRoute: typeof ApiDeviceRefreshRoute
@@ -365,6 +391,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/delete-account': {
+      id: '/delete-account'
+      path: '/delete-account'
+      fullPath: '/delete-account'
+      preLoaderRoute: typeof DeleteAccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -479,6 +512,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/account/delete': {
+      id: '/api/account/delete'
+      path: '/api/account/delete'
+      fullPath: '/api/account/delete'
+      preLoaderRoute: typeof ApiAccountDeleteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -511,6 +551,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  DeleteAccountRoute: DeleteAccountRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   OtpRoute: OtpRoute,
@@ -519,6 +560,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   WelcomeRoute: WelcomeRoute,
   ApiSendPushRoute: ApiSendPushRoute,
+  ApiAccountDeleteRoute: ApiAccountDeleteRoute,
   ApiAdminResetPasswordRoute: ApiAdminResetPasswordRoute,
   ApiDeviceDeactivateRoute: ApiDeviceDeactivateRoute,
   ApiDeviceRefreshRoute: ApiDeviceRefreshRoute,

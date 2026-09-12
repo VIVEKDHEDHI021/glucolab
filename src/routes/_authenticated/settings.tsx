@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Radio,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/frontend/components/ui/button";
 import { Switch } from "@/frontend/components/ui/switch";
@@ -258,6 +259,29 @@ function SettingsPage() {
           <Button onClick={handleRestore} variant="outline" className="w-full btn-ripple-effect rounded-xl font-bold">
             Restore Backup
           </Button>
+        </div>
+      </div>
+
+      {/* Account & Data Management */}
+      <div className="bg-card border border-destructive/30 rounded-3xl p-5 shadow-soft space-y-3">
+        <h3 className="font-display text-base font-bold text-foreground flex items-center gap-2 text-destructive">
+          <Trash2 className="h-5 w-5" /> Account &amp; Data Deletion
+        </h3>
+        
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Permanently delete your user account, credentials, and all recorded blood glucose, insulin, and weight logs.
+        </p>
+
+        <div className="pt-1">
+          <Link to="/delete-account">
+            <Button
+              variant="outline"
+              className="w-full rounded-xl text-xs font-bold text-destructive hover:bg-destructive/10 border-destructive/30 gap-1.5"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Manage or Delete Account
+            </Button>
+          </Link>
         </div>
       </div>
 
