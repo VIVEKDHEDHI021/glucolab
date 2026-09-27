@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
   User,
@@ -10,6 +10,8 @@ import {
   PhoneCall,
   Pencil,
   LogOut,
+  ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
@@ -253,7 +255,42 @@ function ProfilePage() {
         </div>
       </div>
 
-      {/* 5. Logout */}
+      {/* 5. Account Privacy & Data Governance */}
+      <div className="bg-card border border-border/70 rounded-[18px] p-6 shadow-sm space-y-4">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          Privacy &amp; Data Governance
+        </h3>
+        
+        <div className="space-y-3 pt-1">
+          <Link to="/privacy-policy" className="block">
+            <Button
+              variant="outline"
+              className="w-full justify-between rounded-xl h-11 border-border/60 hover:bg-muted font-medium text-xs sm:text-sm"
+            >
+              <span className="flex items-center gap-2.5">
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                Privacy Policy &amp; Health Data Protection
+              </span>
+              <span className="text-[11px] text-primary font-semibold">View</span>
+            </Button>
+          </Link>
+
+          <Link to="/delete-account" className="block">
+            <Button
+              variant="outline"
+              className="w-full justify-between rounded-xl h-11 border-destructive/30 hover:bg-destructive/10 text-destructive font-medium text-xs sm:text-sm"
+            >
+              <span className="flex items-center gap-2.5">
+                <Trash2 className="h-4 w-4" />
+                Delete Account &amp; Medical Records
+              </span>
+              <span className="text-[11px] font-semibold text-destructive">Manage</span>
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* 6. Logout */}
       <div className="pt-2">
         <Button
           variant="destructive"

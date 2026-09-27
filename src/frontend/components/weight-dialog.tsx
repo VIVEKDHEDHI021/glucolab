@@ -6,7 +6,6 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/db/client";
 import { useAuth } from "@/frontend/lib/auth-context";
-import { notifyWeightAdded } from "../../services/notificationService";
 import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
 import { Label } from "@/frontend/components/ui/label";
@@ -77,9 +76,6 @@ export function WeightDialog({
       if (error) throw error;
       const isUpdate = Boolean(entry);
       toast.success(isUpdate ? "Weight updated" : "Weight saved");
-
-      // Dispatch action notification to all devices logged into the account (both for new and updated entries)
-      notifyWeightAdded(user.id, data.weight_kg, data.entry_date, isUpdate);
 
       onOpenChange(false);
       onSaved?.();

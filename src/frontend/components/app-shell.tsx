@@ -14,6 +14,8 @@ import {
   HelpCircle,
   Info,
   Clock,
+  ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import { useState, type ReactNode, useEffect } from "react";
 import { useAuth } from "@/frontend/lib/auth-context";
@@ -21,7 +23,6 @@ import { useTheme } from "@/frontend/lib/theme";
 import { useHealthData } from "@/frontend/providers/data-context";
 import { Button } from "@/frontend/components/ui/button";
 import { cn } from "@/frontend/lib/utils";
-import { useNotifications } from "@/frontend/hooks/useNotifications";
 import { toast } from "sonner";
 import { Capacitor } from "@capacitor/core";
 import {
@@ -42,7 +43,6 @@ import {
 const NAV = [
   { to: "/dashboard" as const, icon: Home, label: "Dashboard" },
   { to: "/history" as const, icon: History, label: "History" },
-  // { to: "/reminders" as const, icon: Clock, label: "Reminders" }, // Disabled temporarily
   { to: "/reports" as const, icon: BarChart3, label: "Reports" },
   { to: "/export" as const, icon: FileDown, label: "Export" },
 ];
@@ -51,7 +51,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth();
   const { theme, toggle } = useTheme();
   const { profileName } = useHealthData();
-  useNotifications();
 
   const greeting = (() => {
     const h = new Date().getHours();
@@ -232,6 +231,23 @@ export function AppShell({ children }: { children: ReactNode }) {
                       Settings
                     </Link>
 
+                    <Link
+                      to="/privacy-policy"
+                      onClick={() => {
+                        triggerHapticFeedback();
+                        setDrawerOpen(false);
+                      }}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-colors",
+                        path === "/privacy-policy"
+                          ? "bg-primary-soft text-primary"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <ShieldCheck className="h-4 w-4 text-primary" />
+                      Privacy Policy
+                    </Link>
+
                     <button
                       onClick={handleHelpClick}
                       className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -247,6 +263,23 @@ export function AppShell({ children }: { children: ReactNode }) {
                       <Info className="h-4 w-4" />
                       About GlucoLab
                     </button>
+
+                    <div className="border-t border-border/40 my-1.5 pt-1.5" />
+
+                    <Link
+                      to="/delete-account"
+                      onClick={() => {
+                        triggerHapticFeedback();
+                        setDrawerOpen(false);
+                      }}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3.5 py-2 text-xs font-medium transition-colors text-destructive/80 hover:text-destructive hover:bg-destructive/10",
+                        path === "/delete-account" && "bg-destructive/10 text-destructive font-semibold"
+                      )}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      Delete Account &amp; Data
+                    </Link>
                   </div>
                 </div>
 
@@ -476,6 +509,35 @@ export function AppShell({ children }: { children: ReactNode }) {
               <p className="text-[11px] text-muted-foreground leading-relaxed">
                 This software is intended as a logging utility only and does not supply medical diagnosis or treatment options. Always consult your primary physician or certified endocrinologist before making changes to your insulin regimen or diet.
               </p>
+            </div>
+
+            <div className="border-t border-border/60 my-2 pt-3 space-y-2">
+              <Link
+                to="/privacy-policy"
+                onClick={() => setAboutOpen(false)}
+                className="block w-full"
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full rounded-xl text-xs font-semibold gap-2 justify-center"
+                >
+                  <ShieldCheck className="h-4 w-4 text-primary" /> Privacy Policy &amp; Data Protection
+                </Button>
+              </Link>
+              <Link
+                to="/delete-account"
+                onClick={() => setAboutOpen(false)}
+                className="block w-full"
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full rounded-xl text-xs font-medium text-destructive hover:bg-destructive/10 hover:text-destructive gap-2 justify-center"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Account &amp; Data Deletion Portal
+                </Button>
+              </Link>
             </div>
           </div>
         </DialogContent>

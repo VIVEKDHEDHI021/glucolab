@@ -67,8 +67,8 @@ function DeleteAccountPage() {
   const handleBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
       window.history.back();
-    } else if (typeof window !== "undefined") {
-      window.location.href = "/";
+    } else {
+      navigate({ to: user ? "/settings" : "/welcome" });
     }
   };
 
@@ -330,9 +330,6 @@ function DeleteAccountPage() {
               </li>
               <li>
                 <strong className="text-foreground">Prescription &amp; Meter Scans:</strong> Optical character recognition (OCR) scanner logs and metadata.
-              </li>
-              <li>
-                <strong className="text-foreground">Push Notifications &amp; Devices:</strong> Firebase FCM tokens, OneSignal subscription IDs, and multi-device pairings.
               </li>
               <li>
                 <strong className="text-foreground">User Profile:</strong> Full name, registered email address, and encrypted credentials.

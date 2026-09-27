@@ -287,8 +287,6 @@
       </ul>
       <h3>B. Account Identification</h3>
       <p>Your email address, account name, and encrypted credentials to synchronize data across your authorized devices.</p>
-      <h3>C. Push Notification Tokens</h3>
-      <p>Anonymous device tokens for Firebase Cloud Messaging (FCM) and OneSignal to send medication reminders and urgent glucose threshold alerts.</p>
     </div>
 
     <div class="section-card">
@@ -296,7 +294,6 @@
       <ul>
         <li><strong>Camera & Photo Access (Smart Scanner):</strong> Used strictly for OCR text extraction from glucose meters and paper lab slips. Images are processed securely and never shared.</li>
         <li><strong>Biometric Sensor (Fingerprint & Face Unlock):</strong> Managed locally on your device hardware enclave via Capacitor Native Biometrics. Raw biometric templates are never transmitted to any server.</li>
-        <li><strong>Push Notifications:</strong> Sent strictly for critical reminders (e.g. insulin timing, scheduled glucose checks). May be toggled anytime in Settings.</li>
       </ul>
     </div>
 
@@ -316,7 +313,6 @@
       <ul>
         <li><strong>Supabase:</strong> Cloud database, authentication, and secure row-level access.</li>
         <li><strong>Cloudflare Workers:</strong> High-speed edge compute and DDoS defense.</li>
-        <li><strong>Google Firebase & OneSignal:</strong> Encrypted notification delivery gateways.</li>
       </ul>
     </div>
 

@@ -1,7 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/db/client";
 import { localDbService } from "./localDbService";
-import { toast } from "sonner";
 
 const isMobile = Capacitor.isNativePlatform();
 let isSyncing = false;
@@ -40,7 +39,7 @@ export const syncService = {
 
     try {
       console.log("[SYNC] Querying pending records from SQLite...");
-      const { glucose, insulin, weight, profile, scans, reminders, history, reminderSettings } = await localDbService.getPendingSyncRows();
+      const { glucose, insulin, weight, profile, scans } = await localDbService.getPendingSyncRows();
 
       let syncedCount = 0;
 
@@ -121,7 +120,7 @@ export const syncService = {
       }
 
       // 4. Sync Profiles
-      if (profile.length > 0) {
+      if (profile && profile.length > 0) {
         console.log(`[SYNC] Syncing ${profile.length} profiles...`);
         for (const p of profile) {
           const { error } = await supabase.from("profiles").upsert({
@@ -142,9 +141,9 @@ export const syncService = {
         }
       }
 
-      // 5. Sync Smart Scans
-      if (scans.length > 0) {
-        console.log(`[SYNC] Syncing ${scans.length} smart scans...`);
+      // 5. Sync Smart Scan Readings
+      if (scans && scans.length > 0) {
+        console.log(`[SYNC] Syncing ${scans.length} scan readings...`);
         for (const s of scans) {
           const { error } = await supabase.from("smart_scan_readings").insert({
             id: s.id,
@@ -172,102 +171,7 @@ export const syncService = {
         }
       }
 
-      // 6. Sync Reminders
-      if (reminders && reminders.length > 0) {
-        console.log(`[SYNC] Syncing ${reminders.length} reminders...`);
-        for (const r of reminders) {
-          const { error } = await supabase.from("reminders").upsert({
-            id: r.id,
-            user_id: r.user_id,
-            category: r.category,
-            title: r.title,
-            description: r.description,
-            is_enabled: r.is_enabled,
-            schedule_type: r.schedule_type,
-            schedule_data: r.schedule_data,
-            reminder_data: r.reminder_data,
-            sound: r.sound,
-            vibrate: r.vibrate,
-            sync_status: "synced",
-            created_at: r.created_at,
-            updated_at: r.updated_at,
-          });
-
-          if (!error) {
-            await localDbService.runQuery(
-              `UPDATE reminders SET sync_status = 'synced' WHERE id = ?`,
-              [r.id]
-            );
-            syncedCount++;
-          } else {
-            console.error(`[SYNC] Failed to sync reminder ID ${r.id}:`, error);
-          }
-        }
-      }
-
-      // 7. Sync Reminder History
-      if (history && history.length > 0) {
-        console.log(`[SYNC] Syncing ${history.length} reminder logs...`);
-        for (const h of history) {
-          const { error } = await supabase.from("reminder_history").insert({
-            id: h.id,
-            user_id: h.user_id,
-            reminder_id: h.reminder_id,
-            category: h.category,
-            title: h.title,
-            description: h.description,
-            scheduled_time: h.scheduled_time,
-            status: h.status,
-            action_taken: h.action_taken,
-            action_time: h.action_time,
-            notes: h.notes,
-            sync_status: "synced",
-            created_at: h.created_at,
-            updated_at: h.updated_at,
-          });
-
-          if (!error) {
-            await localDbService.runQuery(
-              `UPDATE reminder_history SET sync_status = 'synced' WHERE id = ?`,
-              [h.id]
-            );
-            syncedCount++;
-          } else {
-            console.error(`[SYNC] Failed to sync reminder history ID ${h.id}:`, error);
-          }
-        }
-      }
-
-      // 8. Sync Patient Reminder Settings
-      if (reminderSettings && reminderSettings.length > 0) {
-        console.log(`[SYNC] Syncing ${reminderSettings.length} patient reminder settings...`);
-        for (const s of reminderSettings) {
-          const { error } = await supabase.from("patient_reminder_settings").upsert({
-            id: s.id,
-            user_id: s.user_id,
-            insulin_reminder_enabled: s.insulin_reminder_enabled,
-            insulin_reminder_time: s.insulin_reminder_time,
-            glucose_reminder_enabled: s.glucose_reminder_enabled,
-            glucose_reminder_days: s.glucose_reminder_days,
-            last_insulin_reminder_at: s.last_insulin_reminder_at,
-            last_glucose_reminder_at: s.last_glucose_reminder_at,
-            user_timezone: s.user_timezone,
-            updated_at: s.updated_at,
-          });
-
-          if (!error) {
-            await localDbService.runQuery(
-              `UPDATE patient_reminder_settings SET sync_status = 'synced' WHERE id = ?`,
-              [s.id]
-            );
-            syncedCount++;
-          } else {
-            console.error(`[SYNC] Failed to sync reminder settings ID ${s.id}:`, error);
-          }
-        }
-      }
-
-      // Silent sync complete - no toast message shown to user
+      // Silent sync complete
     } catch (err) {
       console.error("[SYNC] Sync execution failed:", err);
     } finally {

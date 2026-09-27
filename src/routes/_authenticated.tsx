@@ -3,9 +3,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { AppShell } from "@/frontend/components/app-shell";
 import { Activity } from "lucide-react";
-import { oneSignalService } from "@/services/oneSignalService";
-import { pushService } from "@/frontend/lib/push-notifications";
-import { Capacitor } from "@capacitor/core";
+import { PendingInsulinManager } from "@/features/pending-insulin";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -18,9 +16,6 @@ function AuthenticatedLayout() {
   useEffect(() => {
     if (!loading && !user) {
       navigate({ to: "/login" });
-    } else if (user && Capacitor.isNativePlatform()) {
-      oneSignalService.login(user.id);
-      pushService.register(user.id);
     }
   }, [loading, user, navigate]);
 
@@ -35,6 +30,7 @@ function AuthenticatedLayout() {
   return (
     <AppShell>
       <Outlet />
+      <PendingInsulinManager />
     </AppShell>
   );
 }

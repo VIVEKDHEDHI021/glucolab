@@ -9,7 +9,6 @@ import { supabase } from "@/db/client";
 import { healthService } from "@/backend/services/healthService";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { messagingService } from "@/frontend/lib/messaging";
-import { notifyGlucoseAdded } from "../../services/notificationService";
 import { getSuggestedReadingType } from "@/frontend/lib/glucose-suggestions";
 import {
   READING_TYPES,
@@ -148,9 +147,6 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
           console.error("[GLUCOSE_DIALOG] Error fetching profile for alert:", err);
         }
       }
-
-      // Dispatch action notification to all devices logged into the account (both for new and updated entries)
-      notifyGlucoseAdded(user.id, data.glucose, typeLabel, isUpdate);
 
       if (data.glucose < 70) {
         toast.error(`🚨 LOW SUGAR WARNING: ${data.glucose} mg/dL`, {

@@ -19,19 +19,13 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DeleteAccountRouteImport } from './routes/delete-account'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiSendPushRouteImport } from './routes/api/send-push'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedScannerRouteImport } from './routes/_authenticated/scanner'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
-import { Route as AuthenticatedRemindersRouteImport } from './routes/_authenticated/reminders'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as ApiRemindersCheckRouteImport } from './routes/api/reminders/check'
-import { Route as ApiDeviceRegisterRouteImport } from './routes/api/device/register'
-import { Route as ApiDeviceRefreshRouteImport } from './routes/api/device/refresh'
-import { Route as ApiDeviceDeactivateRouteImport } from './routes/api/device/deactivate'
 import { Route as ApiAdminResetPasswordRouteImport } from './routes/api/admin/reset-password'
 import { Route as ApiAccountDeleteRouteImport } from './routes/api/account/delete'
 
@@ -84,11 +78,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSendPushRoute = ApiSendPushRouteImport.update({
-  id: '/api/send-push',
-  path: '/api/send-push',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -102,11 +91,6 @@ const AuthenticatedScannerRoute = AuthenticatedScannerRouteImport.update({
 const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedRemindersRoute = AuthenticatedRemindersRouteImport.update({
-  id: '/reminders',
-  path: '/reminders',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
@@ -128,26 +112,6 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
-} as any)
-const ApiRemindersCheckRoute = ApiRemindersCheckRouteImport.update({
-  id: '/api/reminders/check',
-  path: '/api/reminders/check',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiDeviceRegisterRoute = ApiDeviceRegisterRouteImport.update({
-  id: '/api/device/register',
-  path: '/api/device/register',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiDeviceRefreshRoute = ApiDeviceRefreshRouteImport.update({
-  id: '/api/device/refresh',
-  path: '/api/device/refresh',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiDeviceDeactivateRoute = ApiDeviceDeactivateRouteImport.update({
-  id: '/api/device/deactivate',
-  path: '/api/device/deactivate',
-  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminResetPasswordRoute = ApiAdminResetPasswordRouteImport.update({
   id: '/api/admin/reset-password',
@@ -174,17 +138,11 @@ export interface FileRoutesByFullPath {
   '/export': typeof AuthenticatedExportRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/reminders': typeof AuthenticatedRemindersRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/scanner': typeof AuthenticatedScannerRoute
   '/settings': typeof AuthenticatedSettingsRoute
-  '/api/send-push': typeof ApiSendPushRoute
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
-  '/api/device/deactivate': typeof ApiDeviceDeactivateRoute
-  '/api/device/refresh': typeof ApiDeviceRefreshRoute
-  '/api/device/register': typeof ApiDeviceRegisterRoute
-  '/api/reminders/check': typeof ApiRemindersCheckRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -200,17 +158,11 @@ export interface FileRoutesByTo {
   '/export': typeof AuthenticatedExportRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/reminders': typeof AuthenticatedRemindersRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/scanner': typeof AuthenticatedScannerRoute
   '/settings': typeof AuthenticatedSettingsRoute
-  '/api/send-push': typeof ApiSendPushRoute
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
-  '/api/device/deactivate': typeof ApiDeviceDeactivateRoute
-  '/api/device/refresh': typeof ApiDeviceRefreshRoute
-  '/api/device/register': typeof ApiDeviceRegisterRoute
-  '/api/reminders/check': typeof ApiRemindersCheckRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -228,17 +180,11 @@ export interface FileRoutesById {
   '/_authenticated/export': typeof AuthenticatedExportRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
-  '/_authenticated/reminders': typeof AuthenticatedRemindersRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/scanner': typeof AuthenticatedScannerRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
-  '/api/send-push': typeof ApiSendPushRoute
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
-  '/api/device/deactivate': typeof ApiDeviceDeactivateRoute
-  '/api/device/refresh': typeof ApiDeviceRefreshRoute
-  '/api/device/register': typeof ApiDeviceRegisterRoute
-  '/api/reminders/check': typeof ApiRemindersCheckRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -256,17 +202,11 @@ export interface FileRouteTypes {
     | '/export'
     | '/history'
     | '/profile'
-    | '/reminders'
     | '/reports'
     | '/scanner'
     | '/settings'
-    | '/api/send-push'
     | '/api/account/delete'
     | '/api/admin/reset-password'
-    | '/api/device/deactivate'
-    | '/api/device/refresh'
-    | '/api/device/register'
-    | '/api/reminders/check'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -282,17 +222,11 @@ export interface FileRouteTypes {
     | '/export'
     | '/history'
     | '/profile'
-    | '/reminders'
     | '/reports'
     | '/scanner'
     | '/settings'
-    | '/api/send-push'
     | '/api/account/delete'
     | '/api/admin/reset-password'
-    | '/api/device/deactivate'
-    | '/api/device/refresh'
-    | '/api/device/register'
-    | '/api/reminders/check'
   id:
     | '__root__'
     | '/'
@@ -309,17 +243,11 @@ export interface FileRouteTypes {
     | '/_authenticated/export'
     | '/_authenticated/history'
     | '/_authenticated/profile'
-    | '/_authenticated/reminders'
     | '/_authenticated/reports'
     | '/_authenticated/scanner'
     | '/_authenticated/settings'
-    | '/api/send-push'
     | '/api/account/delete'
     | '/api/admin/reset-password'
-    | '/api/device/deactivate'
-    | '/api/device/refresh'
-    | '/api/device/register'
-    | '/api/reminders/check'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -333,13 +261,8 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   WelcomeRoute: typeof WelcomeRoute
-  ApiSendPushRoute: typeof ApiSendPushRoute
   ApiAccountDeleteRoute: typeof ApiAccountDeleteRoute
   ApiAdminResetPasswordRoute: typeof ApiAdminResetPasswordRoute
-  ApiDeviceDeactivateRoute: typeof ApiDeviceDeactivateRoute
-  ApiDeviceRefreshRoute: typeof ApiDeviceRefreshRoute
-  ApiDeviceRegisterRoute: typeof ApiDeviceRegisterRoute
-  ApiRemindersCheckRoute: typeof ApiRemindersCheckRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -414,13 +337,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/send-push': {
-      id: '/api/send-push'
-      path: '/api/send-push'
-      fullPath: '/api/send-push'
-      preLoaderRoute: typeof ApiSendPushRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
@@ -440,13 +356,6 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/reminders': {
-      id: '/_authenticated/reminders'
-      path: '/reminders'
-      fullPath: '/reminders'
-      preLoaderRoute: typeof AuthenticatedRemindersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/profile': {
@@ -477,34 +386,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/api/reminders/check': {
-      id: '/api/reminders/check'
-      path: '/api/reminders/check'
-      fullPath: '/api/reminders/check'
-      preLoaderRoute: typeof ApiRemindersCheckRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/device/register': {
-      id: '/api/device/register'
-      path: '/api/device/register'
-      fullPath: '/api/device/register'
-      preLoaderRoute: typeof ApiDeviceRegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/device/refresh': {
-      id: '/api/device/refresh'
-      path: '/api/device/refresh'
-      fullPath: '/api/device/refresh'
-      preLoaderRoute: typeof ApiDeviceRefreshRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/device/deactivate': {
-      id: '/api/device/deactivate'
-      path: '/api/device/deactivate'
-      fullPath: '/api/device/deactivate'
-      preLoaderRoute: typeof ApiDeviceDeactivateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/admin/reset-password': {
       id: '/api/admin/reset-password'
       path: '/api/admin/reset-password'
@@ -527,7 +408,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedExportRoute: typeof AuthenticatedExportRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
-  AuthenticatedRemindersRoute: typeof AuthenticatedRemindersRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedScannerRoute: typeof AuthenticatedScannerRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -538,7 +418,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedExportRoute: AuthenticatedExportRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
-  AuthenticatedRemindersRoute: AuthenticatedRemindersRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedScannerRoute: AuthenticatedScannerRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
@@ -559,13 +438,8 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   WelcomeRoute: WelcomeRoute,
-  ApiSendPushRoute: ApiSendPushRoute,
   ApiAccountDeleteRoute: ApiAccountDeleteRoute,
   ApiAdminResetPasswordRoute: ApiAdminResetPasswordRoute,
-  ApiDeviceDeactivateRoute: ApiDeviceDeactivateRoute,
-  ApiDeviceRefreshRoute: ApiDeviceRefreshRoute,
-  ApiDeviceRegisterRoute: ApiDeviceRegisterRoute,
-  ApiRemindersCheckRoute: ApiRemindersCheckRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

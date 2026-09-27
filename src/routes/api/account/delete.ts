@@ -80,20 +80,15 @@ export const Route = createFileRoute("/api/account/delete")({
             "weight_entries",
             "smart_scan_readings",
             "smart_scan_training_samples",
-            "reminders",
-            "reminder_history",
-            "patient_reminder_settings",
-            "user_devices",
-            "push_tokens",
             "profiles",
           ];
 
           for (const table of tables) {
             try {
-              await clientToUse.from(table).delete().eq("user_id", userId);
+              await (clientToUse.from as any)(table).delete().eq("user_id", userId);
             } catch (tblErr) {
               try {
-                await supabaseAdmin.from(table).delete().eq("user_id", userId);
+                await (supabaseAdmin.from as any)(table).delete().eq("user_id", userId);
               } catch (adminErr) {
                 console.error(
                   `[DELETE_ACCOUNT] Failed clearing table ${table} for user ${userId}:`,

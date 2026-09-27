@@ -22,7 +22,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.glucolab.app" />
+                <data android:scheme="com.vioraa.glucolab" />
             </intent-filter>
         </activity>
 
@@ -57,7 +57,7 @@
             android:name=".widgets.QuickInsulinReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.glucolab.app.ACTION_LOG_INSULIN" />
+                <action android:name="com.vioraa.glucolab.ACTION_LOG_INSULIN" />
             </intent-filter>
         </receiver>
 

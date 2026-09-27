@@ -14,7 +14,9 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  CheckCircle2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { format, subDays, isAfter } from "date-fns";
 import {
   LineChart,
@@ -700,25 +702,7 @@ function StatCard({
   );
 }
 
-function ReminderCard({
-  icon,
-  title,
-  body,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  body: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-      <div className="flex items-center gap-2 text-primary">
-        {icon}
-        <div className="text-sm font-semibold text-foreground">{title}</div>
-      </div>
-      <p className="mt-1.5 text-xs text-muted-foreground">{body}</p>
-    </div>
-  );
-}
+
 
 function EmptyHint({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (

@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@/frontend/lib/auth-context";
 import {
   ShieldCheck,
   Lock,
@@ -35,6 +36,9 @@ export const Route = createFileRoute("/privacy-policy")({
 });
 
 function PrivacyPolicyPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
   const handlePrint = () => {
     if (typeof window !== "undefined") {
       window.print();
@@ -44,8 +48,8 @@ function PrivacyPolicyPage() {
   const handleBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
       window.history.back();
-    } else if (typeof window !== "undefined") {
-      window.location.href = "/";
+    } else {
+      navigate({ to: user ? "/settings" : "/welcome" });
     }
   };
 
@@ -80,9 +84,9 @@ function PrivacyPolicyPage() {
               <Printer className="h-3.5 w-3.5" />
               Print Policy
             </Button>
-            <Link to="/login">
+            <Link to={user ? "/dashboard" : "/login"}>
               <Button size="sm" className="gradient-primary text-primary-foreground text-xs font-semibold rounded-xl">
-                Open App
+                {user ? "Dashboard" : "Open App"}
               </Button>
             </Link>
           </div>
@@ -202,12 +206,6 @@ function PrivacyPolicyPage() {
               </p>
             </div>
 
-            <div className="space-y-3 pt-2">
-              <h3 className="font-semibold text-foreground text-sm">C. Device Identifiers & Notification Tokens</h3>
-              <p>
-                With your permission, we register anonymized device push tokens (via Firebase Cloud Messaging and OneSignal) to send essential medication reminders, hyper/hypoglycemia warnings, and multi-device sync alerts.
-              </p>
-            </div>
           </article>
 
           {/* Section 3 */}
@@ -236,16 +234,6 @@ function PrivacyPolicyPage() {
                   <h4 className="font-semibold text-foreground text-xs">Biometric Authentication (Fingerprint & Face Unlock)</h4>
                   <p className="text-xs text-muted-foreground mt-1">
                     Operates through your operating system&apos;s secure enclave (`Capacitor Native Biometric`). GlucoLab never accesses, transmits, or stores your biometric raw images or mathematical templates on any server.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 rounded-2xl bg-muted/40 p-4">
-                <Bell className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-foreground text-xs">Push Notifications</h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Used strictly for timely patient reminders (e.g. insulin schedule, overdue glucose checks) and critical alerts when enabled. You can adjust or revoke notification permissions at any time via Settings.
                   </p>
                 </div>
               </div>
@@ -325,9 +313,6 @@ function PrivacyPolicyPage() {
               </li>
               <li>
                 <strong className="text-foreground">Cloudflare Workers:</strong> High-performance serverless compute and DDoS-protected edge infrastructure.
-              </li>
-              <li>
-                <strong className="text-foreground">Firebase Cloud Messaging & OneSignal:</strong> Encrypted push gateway providers strictly utilized for dispatching real-time notifications and multi-device alerts.
               </li>
             </ul>
           </article>
@@ -410,7 +395,7 @@ function PrivacyPolicyPage() {
         <div className="rounded-3xl border border-border/80 bg-card p-6 sm:p-8 text-center space-y-4 shadow-soft">
           <h3 className="font-display text-lg font-bold text-foreground">Ready to take control of your glycemic health?</h3>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
-            Experience secure, effortless blood sugar tracking with intelligent reminders and doctor-ready reports.
+            Experience secure, effortless blood sugar tracking with clinical charting and doctor-ready reports.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Button

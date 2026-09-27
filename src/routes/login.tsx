@@ -179,6 +179,16 @@ function LoginPage() {
             Create an account
           </Link>
         </p>
+
+        <div className="mt-6 pt-4 border-t border-border/40 flex items-center justify-center gap-3 text-xs text-muted-foreground">
+          <Link to="/privacy-policy" className="hover:text-foreground hover:underline">
+            Privacy Policy
+          </Link>
+          <span>•</span>
+          <Link to="/delete-account" className="hover:text-destructive hover:underline">
+            Delete Account &amp; Data
+          </Link>
+        </div>
       </div>
     </div>
   );

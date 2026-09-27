@@ -2,9 +2,7 @@ import { Outlet, createRootRoute, HeadContent, Scripts, Link, useRouterState } f
 import { Toaster } from "@/frontend/components/ui/sonner";
 import { AuthProvider } from "@/frontend/lib/auth-context";
 import { ThemeProvider } from "@/frontend/lib/theme";
-import { NotificationProvider } from "@/providers/NotificationProvider";
 import { HealthDataProvider } from "@/frontend/providers/data-context";
-import { ReminderProvider } from "@/features/notifications/providers/ReminderProvider";
 import appCss from "../styles.css?url";
 import { useEffect, useState, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
@@ -242,12 +240,8 @@ function RootComponent() {
       <ThemeProvider>
         <AuthProvider>
           <HealthDataProvider>
-            <NotificationProvider>
-              <ReminderProvider>
-                <Outlet />
-                <Toaster richColors position="top-center" />
-              </ReminderProvider>
-            </NotificationProvider>
+            <Outlet />
+            <Toaster richColors position="top-center" />
           </HealthDataProvider>
         </AuthProvider>
       </ThemeProvider>
