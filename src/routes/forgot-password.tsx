@@ -6,6 +6,8 @@ import { authService } from "@/backend/services/authService";
 import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
 import { Label } from "@/frontend/components/ui/label";
+import { Capacitor } from "@capacitor/core";
+import { cn } from "@/frontend/lib/utils";
 
 export const Route = createFileRoute("/forgot-password")({ component: ForgotPage });
 
@@ -35,15 +37,18 @@ function ForgotPage() {
     // Always show generic message to prevent account enumeration
     toast.success("If an account exists for this email, a verification code has been sent.");
 
-    // Navigate to OTP verification page
+    // Navigate to OTP verification page with password_reset purpose
     navigate({
       to: "/otp",
-      search: { email: cleanEmail },
+      search: { email: cleanEmail, purpose: "password_reset" },
     });
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+    <div className={cn(
+      "flex min-h-screen items-center justify-center bg-background px-4 py-10",
+      Capacitor.isNativePlatform() && "pt-[calc(2.5rem+max(env(safe-area-inset-top,0px),44px))] pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]"
+    )}>
       <div className="w-full max-w-md">
         <Link
           to="/login"

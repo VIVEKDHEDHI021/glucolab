@@ -11,6 +11,10 @@ import { Activity, ShieldAlert, KeyRound } from "lucide-react";
 import { localDbService } from "@/services/localDbService";
 import { syncService } from "@/services/syncService";
 import { Button } from "@/frontend/components/ui/button";
+import {
+  StartupSplashAnimation,
+  isStartupSplashCompleted,
+} from "@/frontend/components/StartupSplashAnimation";
 
 function NotFoundComponent() {
   return (
@@ -85,6 +89,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  const [splashActive, setSplashActive] = useState(() => !isStartupSplashCompleted());
   const [dbInitialized, setDbInitialized] = useState(false);
   const [biometricRequired, setBiometricRequired] = useState(false);
   const [biometricAuthenticated, setBiometricAuthenticated] = useState(false);
@@ -97,12 +102,31 @@ function RootComponent() {
     currentPathRef.current = currentPath;
   }, [currentPath]);
 
+  const handleSplashComplete = async () => {
+    setSplashActive(false);
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { StatusBar, Style } = await import("@capacitor/status-bar");
+        const isDark = document.documentElement.classList.contains("dark");
+        await StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light });
+        await StatusBar.setBackgroundColor({ color: isDark ? "#090d16" : "#ffffff" });
+      } catch (err) {
+        console.warn("StatusBar update after splash failed:", err);
+      }
+    }
+  };
+
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
     let lastTime = 0;
     const backButtonListener = import("@capacitor/app").then(({ App }) => {
       return App.addListener("backButton", (event) => {
+        // If startup splash animation is still playing, consume the back press
+        if (!isStartupSplashCompleted()) {
+          return;
+        }
+
         // If any dialog, sheet, drawer or custom fullscreen overlay is open, close it first and consume the back press
         const openDialog = document.querySelector('[role="dialog"]');
         const openTrend = document.querySelector('.fullscreen-trend-modal');
@@ -143,6 +167,15 @@ function RootComponent() {
   useEffect(() => {
     async function initMobile() {
       if (Capacitor.isNativePlatform()) {
+        // 0. Configure Native Status Bar to seamlessly match the white startup splash
+        try {
+          const { StatusBar, Style } = await import("@capacitor/status-bar");
+          await StatusBar.setStyle({ style: Style.Light });
+          await StatusBar.setBackgroundColor({ color: "#ffffff" });
+        } catch (err) {
+          console.warn("Root StatusBar setup error:", err);
+        }
+
         // 1. Initialize SQLite Database
         await localDbService.initDb();
         setDbInitialized(true);
@@ -201,8 +234,8 @@ function RootComponent() {
     }
   };
 
-  // While SQLite is initializing on mobile, show a loading splash
-  if (Capacitor.isNativePlatform() && !dbInitialized) {
+  // While SQLite is initializing on mobile, show fallback ONLY after the splash animation finishes
+  if (Capacitor.isNativePlatform() && !dbInitialized && !splashActive) {
     return (
       <RootShell>
         <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 text-white space-y-4">
@@ -213,8 +246,8 @@ function RootComponent() {
     );
   }
 
-  // If biometric verification is required but not authenticated, block with a locked screen
-  if (biometricRequired && !biometricAuthenticated) {
+  // If biometric verification is required but not authenticated, block with a locked screen (after splash)
+  if (biometricRequired && !biometricAuthenticated && !splashActive) {
     return (
       <RootShell>
         <ThemeProvider>
@@ -237,6 +270,9 @@ function RootComponent() {
 
   return (
     <RootShell>
+      {splashActive && (
+        <StartupSplashAnimation onComplete={handleSplashComplete} />
+      )}
       <ThemeProvider>
         <AuthProvider>
           <HealthDataProvider>

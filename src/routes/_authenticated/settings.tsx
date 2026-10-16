@@ -6,6 +6,8 @@ import {
   ShieldCheck,
   Zap,
   Trash2,
+  Bell,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/frontend/components/ui/button";
 import { Switch } from "@/frontend/components/ui/switch";
@@ -48,6 +50,40 @@ function SettingsPage() {
       <div className="space-y-1">
         <h1 className="font-display text-3xl font-bold">Settings</h1>
         <p className="text-sm text-muted-foreground">Manage your application preferences and data options.</p>
+      </div>
+
+      {/* Reminders & Notifications Central Hub */}
+      <div className="bg-card border border-border/80 rounded-3xl p-5 shadow-soft space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+              <Bell className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-display text-base font-bold text-foreground">
+                Reminders &amp; Notifications
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Manage 5 configurable categories, quiet hours &amp; alarm diagnostics
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Schedule blood glucose alerts, medication confirmations, meals, hydration, and automated health summaries.
+        </p>
+
+        <div className="pt-1">
+          <Link to="/notifications">
+            <Button
+              className="w-full rounded-xl text-xs font-bold gap-2 bg-primary text-primary-foreground shadow-sm hover:opacity-90"
+            >
+              Configure Notification Center
+              <ChevronRight className="h-4 w-4 ml-auto" />
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Preferences & Security */}

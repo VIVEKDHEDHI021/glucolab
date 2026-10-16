@@ -22,6 +22,10 @@ allprojects {
         google()
         mavenCentral()
     }
+    tasks.withType(JavaCompile).configureEach {
+        options.compilerArgs += ['-Xlint:-deprecation', '-Xlint:-unchecked', '-nowarn']
+        options.warnings = false
+    }
     afterEvaluate { project ->
         if (project.hasProperty("android")) {
             project.android {

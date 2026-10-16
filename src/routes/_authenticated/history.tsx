@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
 import { format } from "date-fns";
-import { Pencil, Trash2, Search, Droplet, Syringe, Utensils, MessageSquare, Clock, Scale } from "lucide-react";
+import { Pencil, Trash2, Search, Droplet, Syringe, Utensils, MessageSquare, Clock, Scale, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/db/client";
 import { useAuth } from "@/frontend/lib/auth-context";
@@ -11,10 +11,12 @@ import { Input } from "@/frontend/components/ui/input";
 import { Button } from "@/frontend/components/ui/button";
 import { Badge } from "@/frontend/components/ui/badge";
 import { GlucoseDialog } from "@/frontend/components/glucose-dialog";
+import { InsulinDialog } from "@/frontend/components/insulin-dialog";
 import { WeightDialog } from "@/frontend/components/weight-dialog";
 import { READING_LABELS, glucoseStatus, type GlucoseEntry, type InsulinEntry, type WeightEntry } from "@/frontend/lib/types";
 import { cn } from "@/frontend/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/frontend/components/ui/tabs";
+import { CoolDateRangePicker } from "@/frontend/components/CoolDateRangePicker";
 
 export const Route = createFileRoute("/_authenticated/history")({
   component: HistoryPage,
@@ -25,12 +27,14 @@ function HistoryPage() {
   const { user } = useAuth();
   const todayStr = format(new Date(), "yyyy-MM-dd");
   const { glucose, insulin, weight, refreshData } = useHealthData();
-  const [activeTab, setActiveTab] = useState<"glucose" | "weight">("glucose");
+  const [activeTab, setActiveTab] = useState<"glucose" | "insulin" | "weight">("glucose");
   const [search, setSearch] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [editing, setEditing] = useState<GlucoseEntry | null>(null);
   const [open, setOpen] = useState(false);
+  const [editingInsulinDate, setEditingInsulinDate] = useState<string | null>(null);
+  const [insulinOpen, setInsulinOpen] = useState(false);
   const [editingWeight, setEditingWeight] = useState<WeightEntry | null>(null);
   const [weightOpen, setWeightOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -95,6 +99,25 @@ function HistoryPage() {
     );
   });
 
+  const filteredInsulin = useMemo(() => {
+    let result = insulinEntries;
+    if (from) {
+      result = result.filter((i) => i.entry_date >= from);
+    }
+    if (to) {
+      result = result.filter((i) => i.entry_date <= to);
+    }
+    if (search) {
+      const s = search.toLowerCase();
+      result = result.filter(
+        (i) =>
+          (i.notes ?? "").toLowerCase().includes(s) ||
+          i.entry_date.includes(s)
+      );
+    }
+    return result;
+  }, [insulinEntries, from, to, search]);
+
   const filteredWeight = useMemo(() => {
     let result = weightEntries;
     if (from) {
@@ -110,7 +133,12 @@ function HistoryPage() {
     return result;
   }, [weightEntries, from, to, search]);
 
-  const currentFilteredList = activeTab === "glucose" ? filtered : filteredWeight;
+  const currentFilteredList =
+    activeTab === "glucose"
+      ? filtered
+      : activeTab === "insulin"
+      ? filteredInsulin
+      : filteredWeight;
   const totalPages = Math.ceil(currentFilteredList.length / PAGE_SIZE);
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const endIndex = Math.min(startIndex + PAGE_SIZE, currentFilteredList.length);
@@ -135,6 +163,28 @@ function HistoryPage() {
       return;
     }
     toast.success("Deleted");
+    load();
+  };
+
+  const handleDeleteInsulin = async (id: string) => {
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser();
+    if (!currentUser) {
+      toast.error("Not authenticated");
+      return;
+    }
+    if (!confirm("Delete this insulin entry?")) return;
+    const { error } = await supabase
+      .from("insulin_entries")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", currentUser.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Insulin entry deleted");
     load();
   };
 
@@ -165,62 +215,94 @@ function HistoryPage() {
         <div>
           <h1 className="font-display text-3xl font-bold">History</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {activeTab === "glucose" ? "All your glucose readings." : "All your logged weights."}
+            {activeTab === "glucose"
+              ? "All your glucose readings."
+              : activeTab === "insulin"
+              ? "All your logged insulin doses and schedules."
+              : "All your logged weights."}
           </p>
         </div>
         <Tabs
           value={activeTab}
-          onValueChange={(val) => setActiveTab(val as "glucose" | "weight")}
+          onValueChange={(val) => setActiveTab(val as "glucose" | "insulin" | "weight")}
           className="w-full sm:w-auto"
         >
-          <TabsList className="grid w-full grid-cols-2 sm:w-[260px] rounded-xl">
+          <TabsList className="grid w-full grid-cols-3 sm:w-[360px] rounded-xl">
             <TabsTrigger value="glucose" className="text-xs font-semibold rounded-lg">Glucose</TabsTrigger>
+            <TabsTrigger value="insulin" className="text-xs font-semibold rounded-lg">Insulin</TabsTrigger>
             <TabsTrigger value="weight" className="text-xs font-semibold rounded-lg">Weight</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="relative sm:col-span-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <div className="space-y-3">
+        {/* Sleek Search Bar */}
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/70" />
           <Input
-            placeholder={activeTab === "glucose" ? "Search notes, food..." : "Search notes..."}
+            placeholder={
+              activeTab === "glucose"
+                ? "Search notes, food, meal type..."
+                : activeTab === "insulin"
+                ? "Search notes, date..."
+                : "Search notes..."
+            }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-10 pr-9 rounded-xl border-border/80 bg-card/60 shadow-xs focus-visible:ring-primary/20"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-full hover:bg-muted"
+              title="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
-        <Input
-          type={from ? "date" : "text"}
-          placeholder="From date"
-          value={from}
-          max={to || todayStr}
-          onFocus={(e) => (e.target.type = "date")}
-          onBlur={(e) => {
-            if (!e.target.value) e.target.type = "text";
-          }}
-          onChange={(e) => handleFromChange(e.target.value)}
-          aria-label="From date"
+
+        {/* Cool, Attractive Date Range Picker */}
+        <CoolDateRangePicker
+          from={from}
+          to={to}
+          onFromChange={handleFromChange}
+          onToChange={handleToChange}
+          maxDate={todayStr}
         />
-        <Input
-          type={to ? "date" : "text"}
-          placeholder="To date"
-          value={to}
-          min={from}
-          max={todayStr}
-          onFocus={(e) => (e.target.type = "date")}
-          onBlur={(e) => {
-            if (!e.target.value) e.target.type = "text";
-          }}
-          onChange={(e) => handleToChange(e.target.value)}
-          aria-label="To date"
-        />
+
+        {/* Active Filter Summary Strip */}
+        {(search || from || to) && (
+          <div className="flex items-center justify-between text-xs px-1 text-muted-foreground pt-0.5">
+            <span>
+              Showing <strong className="text-foreground">{currentFilteredList.length}</strong> {activeTab} {currentFilteredList.length === 1 ? "entry" : "entries"}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setFrom("");
+                setTo("");
+              }}
+              className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+            >
+              Clear all filters
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
         {currentFilteredList.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
-            {activeTab === "glucose" ? <Droplet className="h-8 w-8" /> : <Scale className="h-8 w-8" />}
+            {activeTab === "glucose" ? (
+              <Droplet className="h-8 w-8" />
+            ) : activeTab === "insulin" ? (
+              <Syringe className="h-8 w-8" />
+            ) : (
+              <Scale className="h-8 w-8" />
+            )}
             <p className="text-sm">No entries match your filters.</p>
           </div>
         ) : (
@@ -341,6 +423,98 @@ function HistoryPage() {
                           size="icon"
                           onClick={() => handleDelete(e.id)}
                           aria-label="Delete"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : activeTab === "insulin" ? (
+              <ul className="divide-y divide-border">
+                {(paginated as InsulinEntry[]).map((ins) => {
+                  const m = Number(ins.morning) || 0;
+                  const l = Number(ins.lunch) || 0;
+                  const a = Number(ins.afternoon) || 0;
+                  const e = Number(ins.evening) || 0;
+                  const n = Number(ins.night) || 0;
+                  const total = m + l + a + e + n;
+
+                  return (
+                    <li key={ins.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 hover:bg-muted/30 transition-all duration-200">
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl font-display font-bold shadow-sm border border-primary/20 bg-primary/10 text-primary transition-transform duration-200 hover:scale-105">
+                          <div className="text-base leading-none">{total}</div>
+                          <div className="text-[10px] font-semibold opacity-80 mt-0.5">units</div>
+                        </div>
+
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-foreground">
+                              Daily Insulin Schedule
+                            </span>
+                            <Badge variant="outline" className="text-[10px] font-bold text-primary border-primary/30 bg-primary/5">
+                              {a > 0 ? `${m}-${l}-${a}-${e}-${n}` : `${m}-${l}-${e}-${n}`}
+                            </Badge>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5" />
+                            <span>{format(new Date(ins.entry_date + "T12:00:00"), "EEEE, MMM d, yyyy")}</span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                            <span className="px-2 py-0.5 rounded-md bg-muted text-[11px] font-medium text-foreground">
+                              M: <strong className="text-primary">{m}u</strong>
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md bg-muted text-[11px] font-medium text-foreground">
+                              L: <strong className="text-primary">{l}u</strong>
+                            </span>
+                            {a > 0 && (
+                              <span className="px-2 py-0.5 rounded-md bg-muted text-[11px] font-medium text-foreground">
+                                A: <strong className="text-primary">{a}u</strong>
+                              </span>
+                            )}
+                            <span className="px-2 py-0.5 rounded-md bg-muted text-[11px] font-medium text-foreground">
+                              E: <strong className="text-primary">{e}u</strong>
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md bg-muted text-[11px] font-medium text-foreground">
+                              N: <strong className="text-primary">{n}u</strong>
+                            </span>
+                          </div>
+
+                          {ins.notes && (
+                            <div className="flex items-start gap-2 text-xs text-muted-foreground mt-1">
+                              <MessageSquare className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground/80" />
+                              <p className="italic font-normal text-muted-foreground leading-relaxed break-words line-clamp-2">
+                                &ldquo;{ins.notes}&rdquo;
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 self-end sm:self-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setEditingInsulinDate(ins.entry_date);
+                            setInsulinOpen(true);
+                          }}
+                          aria-label="Edit insulin"
+                          title="Edit dose"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteInsulin(ins.id)}
+                          aria-label="Delete insulin"
+                          title="Delete entry"
                           className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -471,6 +645,16 @@ function HistoryPage() {
           if (!o) setEditing(null);
         }}
         entry={editing}
+        onSaved={load}
+      />
+
+      <InsulinDialog
+        open={insulinOpen}
+        onOpenChange={(o) => {
+          setInsulinOpen(o);
+          if (!o) setEditingInsulinDate(null);
+        }}
+        initialDate={editingInsulinDate || undefined}
         onSaved={load}
       />
 

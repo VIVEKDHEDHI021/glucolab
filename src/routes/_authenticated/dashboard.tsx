@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, subDays, isAfter } from "date-fns";
@@ -99,8 +100,11 @@ function DashboardPage() {
   const { user } = useAuth();
   const { glucose, insulin, weight, profileName, refreshData } = useHealthData();
   const [glucoseOpen, setGlucoseOpen] = useState(false);
+  const [editingGlucose, setEditingGlucose] = useState<GlucoseEntry | null>(null);
   const [insulinOpen, setInsulinOpen] = useState(false);
+  const [editingInsulinDate, setEditingInsulinDate] = useState<string | null>(null);
   const [weightOpen, setWeightOpen] = useState(false);
+  const [editingWeight, setEditingWeight] = useState<WeightEntry | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [days, setDays] = useState<7 | 30 | 90>(7);
   const [fabOpen, setFabOpen] = useState(false);
@@ -120,15 +124,40 @@ function DashboardPage() {
     const handleOpenDialog = (e: any) => {
       const target = e.detail?.dialog;
       if (target === "insulin") {
+        setEditingInsulinDate(null);
         setInsulinOpen(true);
       } else if (target === "glucose") {
+        setEditingGlucose(null);
         setGlucoseOpen(true);
       }
     };
 
+    const handleNotificationAction = () => {
+      setEditingGlucose(null);
+      setGlucoseOpen(true);
+    };
+
+    const handleDoseRecorded = () => {
+      refreshData();
+    };
+
+    // Check cold-boot pending notification action
+    try {
+      const pending = sessionStorage.getItem("glucolab_pending_action");
+      if (pending) {
+        sessionStorage.removeItem("glucolab_pending_action");
+        setEditingGlucose(null);
+        setGlucoseOpen(true);
+      }
+    } catch {}
+
     window.addEventListener("glucolab-open-dialog", handleOpenDialog);
+    window.addEventListener("glucolab:open_glucose_dialog", handleNotificationAction);
+    window.addEventListener("glucolab:dose_recorded", handleDoseRecorded);
     return () => {
       window.removeEventListener("glucolab-open-dialog", handleOpenDialog);
+      window.removeEventListener("glucolab:open_glucose_dialog", handleNotificationAction);
+      window.removeEventListener("glucolab:dose_recorded", handleDoseRecorded);
     };
   }, []);
 
@@ -238,6 +267,18 @@ function DashboardPage() {
               : "No reading yet"
           }
           accent={latest ? glucoseStatus(Number(latest.glucose), latest.reading_type) : "normal"}
+          onEdit={latest ? () => {
+            setEditingGlucose(latest);
+            setGlucoseOpen(true);
+          } : undefined}
+          onClick={() => {
+            if (latest) {
+              setEditingGlucose(latest);
+            } else {
+              setEditingGlucose(null);
+            }
+            setGlucoseOpen(true);
+          }}
         />
         <StatCard
           icon={<TrendingUp className="h-5 w-5" />}
@@ -245,6 +286,9 @@ function DashboardPage() {
           value={avgWeek ? `${avgWeek}` : "—"}
           unit={avgWeek ? "mg/dL" : ""}
           sub={`${weekReadings.length} readings`}
+          onClick={() => {
+            navigate({ to: "/history" });
+          }}
         />
         <StatCard
           icon={<Syringe className="h-5 w-5" />}
@@ -256,6 +300,18 @@ function DashboardPage() {
               ? `Total: ${insulinTotal} units · ${format(new Date(latestInsulin.entry_date), "MMM d")}`
               : "No data"
           }
+          onEdit={latestInsulin ? () => {
+            setEditingInsulinDate(latestInsulin.entry_date.split("T")[0]);
+            setInsulinOpen(true);
+          } : undefined}
+          onClick={() => {
+            if (latestInsulin) {
+              setEditingInsulinDate(latestInsulin.entry_date.split("T")[0]);
+            } else {
+              setEditingInsulinDate(null);
+            }
+            setInsulinOpen(true);
+          }}
         />
         <StatCard
           icon={<Scale className="h-5 w-5" />}
@@ -263,6 +319,18 @@ function DashboardPage() {
           value={latestWeight ? `${Number(latestWeight.weight_kg).toFixed(1)}` : "—"}
           unit={latestWeight ? "kg" : ""}
           sub={latestWeight ? format(new Date(latestWeight.entry_date), "MMM d") : "No data"}
+          onEdit={latestWeight ? () => {
+            setEditingWeight(latestWeight);
+            setWeightOpen(true);
+          } : undefined}
+          onClick={() => {
+            if (latestWeight) {
+              setEditingWeight(latestWeight);
+            } else {
+              setEditingWeight(null);
+            }
+            setWeightOpen(true);
+          }}
         />
       </div>
 
@@ -364,9 +432,33 @@ function DashboardPage() {
       </div>
 
 
-      <GlucoseDialog open={glucoseOpen} onOpenChange={setGlucoseOpen} onSaved={load} />
-      <InsulinDialog open={insulinOpen} onOpenChange={setInsulinOpen} onSaved={load} />
-      <WeightDialog open={weightOpen} onOpenChange={setWeightOpen} onSaved={load} />
+      <GlucoseDialog
+        open={glucoseOpen}
+        onOpenChange={(o) => {
+          setGlucoseOpen(o);
+          if (!o) setEditingGlucose(null);
+        }}
+        entry={editingGlucose}
+        onSaved={load}
+      />
+      <InsulinDialog
+        open={insulinOpen}
+        onOpenChange={(o) => {
+          setInsulinOpen(o);
+          if (!o) setEditingInsulinDate(null);
+        }}
+        initialDate={editingInsulinDate || undefined}
+        onSaved={load}
+      />
+      <WeightDialog
+        open={weightOpen}
+        onOpenChange={(o) => {
+          setWeightOpen(o);
+          if (!o) setEditingWeight(null);
+        }}
+        entry={editingWeight}
+        onSaved={load}
+      />
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} onSaved={load} />
 
       {/* Expandable FAB Speed Dial */}
@@ -393,6 +485,7 @@ function DashboardPage() {
             </span>
             <Button
               onClick={() => {
+                setEditingGlucose(null);
                 setFabOpen(false);
                 setTimeout(() => setGlucoseOpen(true), 150);
               }}
@@ -411,6 +504,7 @@ function DashboardPage() {
             </span>
             <Button
               onClick={() => {
+                setEditingInsulinDate(null);
                 setFabOpen(false);
                 setTimeout(() => setInsulinOpen(true), 150);
               }}
@@ -429,6 +523,7 @@ function DashboardPage() {
             </span>
             <Button
               onClick={() => {
+                setEditingWeight(null);
                 setFabOpen(false);
                 setTimeout(() => setWeightOpen(true), 150);
               }}
@@ -457,7 +552,7 @@ function DashboardPage() {
       {isFullscreen && (
         <div className={cn(
           "fullscreen-trend-modal fixed inset-0 z-[100] flex flex-col bg-background p-4 md:p-6 overflow-hidden animate-fade-in",
-          Capacitor.isNativePlatform() ? "pt-[calc(max(env(safe-area-inset-top),28px))]" : ""
+          Capacitor.isNativePlatform() ? "pt-[calc(max(env(safe-area-inset-top,0px),44px))]" : ""
         )}>
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
@@ -649,6 +744,43 @@ function DashboardPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Quick actions for selected reading / date's insulin */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50">
+                  <span className="text-xs text-muted-foreground">
+                    Reading actions:
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs font-semibold flex items-center gap-1.5 hover:border-primary hover:text-primary transition-colors"
+                      onClick={() => {
+                        const fullEntry = glucose.find((g) => g.id === selectedPoint.id);
+                        if (fullEntry) {
+                          setEditingGlucose(fullEntry);
+                          setGlucoseOpen(true);
+                        }
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit Reading
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs font-semibold flex items-center gap-1.5 hover:border-primary hover:text-primary transition-colors"
+                      onClick={() => {
+                        const targetDate = selectedPoint.date_time.split("T")[0];
+                        setEditingInsulinDate(targetDate);
+                        setInsulinOpen(true);
+                      }}
+                    >
+                      <Syringe className="h-3.5 w-3.5" />
+                      {matchingInsulin ? "Edit Day's Insulin" : "Log Insulin for Date"}
+                    </Button>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground py-4">
@@ -669,6 +801,8 @@ function StatCard({
   unit,
   sub,
   accent = "normal",
+  onEdit,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -676,17 +810,41 @@ function StatCard({
   unit: string;
   sub: string;
   accent?: "low" | "normal" | "high";
+  onEdit?: () => void;
+  onClick?: () => void;
 }) {
   const accentClass =
     accent === "low" ? "text-warning" : accent === "high" ? "text-destructive" : "text-foreground";
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-soft sm:p-5">
+    <div
+      onClick={onClick}
+      className={cn(
+        "group relative rounded-2xl border border-border bg-card p-4 shadow-soft sm:p-5 transition-all duration-200",
+        onClick && "cursor-pointer hover:border-primary/40 hover:shadow-md active:scale-[0.99]"
+      )}
+    >
       <div className="flex items-center justify-between">
         <div className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {label}
         </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-soft text-primary">
-          {icon}
+        <div className="flex items-center gap-1.5">
+          {onEdit && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary-soft hover:text-primary transition-colors"
+              title={`Edit ${label}`}
+              aria-label={`Edit ${label}`}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-soft text-primary">
+            {icon}
+          </div>
         </div>
       </div>
       <div className="mt-3 flex items-baseline gap-1">
@@ -697,7 +855,14 @@ function StatCard({
         </div>
         {unit && <div className="text-sm font-medium text-muted-foreground">{unit}</div>}
       </div>
-      <div className="mt-1 truncate text-xs text-muted-foreground">{sub}</div>
+      <div className="mt-1 flex items-center justify-between gap-1">
+        <div className="truncate text-xs text-muted-foreground">{sub}</div>
+        {onEdit && (
+          <span className="text-[10px] font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline-block">
+            Edit
+          </span>
+        )}
+      </div>
     </div>
   );
 }

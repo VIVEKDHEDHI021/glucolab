@@ -20,6 +20,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/frontend/components/ui/button";
+import { Capacitor } from "@capacitor/core";
+import { cn } from "@/frontend/lib/utils";
 
 export const Route = createFileRoute("/privacy-policy")({
   head: () => ({
@@ -56,7 +58,10 @@ function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
       {/* Top sticky header */}
-      <header className="sticky top-0 z-30 border-b border-border/80 bg-background/90 backdrop-blur-md">
+      <header className={cn(
+        "sticky top-0 z-30 border-b border-border/80 bg-background/90 backdrop-blur-md",
+        Capacitor.isNativePlatform() && "pt-[calc(max(env(safe-area-inset-top,0px),44px))]"
+      )}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button

@@ -39,3 +39,10 @@ dist-ssr
 check_db.mjs
 test_auth.mjs
 admin-reset-password.mjs
+
+# Temporary directories & personal assets
+reference/
+supabase/.temp/
+assets/*.pdf
+assets/*.docx
+assets/*.pptx

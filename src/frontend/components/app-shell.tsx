@@ -95,12 +95,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       if (Capacitor.isNativePlatform()) {
         try {
           const { StatusBar, Style } = await import("@capacitor/status-bar");
+          await StatusBar.setOverlaysWebView({ overlay: false });
           await StatusBar.setStyle({
             style: theme === "dark" ? Style.Dark : Style.Light,
           });
-          // Make status bar transparent and overlay the webview so the app blends with it
-          await StatusBar.setOverlaysWebView({ overlay: true });
-          await StatusBar.setBackgroundColor({ color: "#00000000" });
+          await StatusBar.setBackgroundColor({
+            color: theme === "dark" ? "#090d16" : "#ffffff",
+          });
         } catch (err) {
           console.warn("Native StatusBar styling failed:", err);
         }
@@ -142,7 +143,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Top bar */}
       <header className={cn(
         "fixed top-0 left-0 right-0 z-40 border-b border-border bg-card/80 backdrop-blur-xl shrink-0 theme-transition",
-        isMobile ? "pt-[calc(max(env(safe-area-inset-top),28px))]" : ""
+        isMobile ? "pt-[calc(max(env(safe-area-inset-top,0px),44px))]" : ""
       )}>
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
@@ -404,7 +405,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className={cn(
         "mx-auto max-w-7xl px-4 flex-grow w-full theme-transition",
         isMobile 
-          ? "pt-[calc(4.5rem+max(env(safe-area-inset-top),28px))] pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))]" 
+          ? "pt-[calc(4.5rem+max(env(safe-area-inset-top,0px),44px))] pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))]" 
           : "pt-24 pb-24 md:pb-8"
       )}>
         {children}

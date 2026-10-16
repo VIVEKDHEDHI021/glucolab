@@ -6,6 +6,8 @@ import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
 import { Label } from "@/frontend/components/ui/label";
 import { AlertCircle, ArrowLeft, KeyRound, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
+import { cn } from "@/frontend/lib/utils";
 
 export const Route = createFileRoute("/reset-password")({ component: ResetPage });
 
@@ -76,7 +78,10 @@ function ResetPage() {
 
   if (checkingAuth) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+      <div className={cn(
+        "flex min-h-screen items-center justify-center bg-background px-4 py-10",
+        Capacitor.isNativePlatform() && "pt-[calc(2.5rem+max(env(safe-area-inset-top,0px),44px))] pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]"
+      )}>
         <div className="flex flex-col items-center gap-3 text-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Verifying security session...</p>
@@ -87,7 +92,10 @@ function ResetPage() {
 
   if (!isVerified && !isSuccess) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 animate-fade-in">
+      <div className={cn(
+        "flex min-h-screen items-center justify-center bg-background px-4 py-10 animate-fade-in",
+        Capacitor.isNativePlatform() && "pt-[calc(2.5rem+max(env(safe-area-inset-top,0px),44px))] pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]"
+      )}>
         <div className="w-full max-w-md text-center bg-card border border-border rounded-3xl p-8 shadow-elevated">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
             <AlertCircle className="h-7 w-7" />
@@ -115,7 +123,10 @@ function ResetPage() {
 
   if (isSuccess) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 animate-fade-in">
+      <div className={cn(
+        "flex min-h-screen items-center justify-center bg-background px-4 py-10 animate-fade-in",
+        Capacitor.isNativePlatform() && "pt-[calc(2.5rem+max(env(safe-area-inset-top,0px),44px))] pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]"
+      )}>
         <div className="w-full max-w-md bg-card border border-border rounded-3xl p-8 shadow-elevated text-center space-y-4">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-success/10 text-success">
             <CheckCircle2 className="h-9 w-9" />
@@ -143,7 +154,10 @@ function ResetPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 animate-fade-in">
+    <div className={cn(
+      "flex min-h-screen items-center justify-center bg-background px-4 py-10 animate-fade-in",
+      Capacitor.isNativePlatform() && "pt-[calc(2.5rem+max(env(safe-area-inset-top,0px),44px))] pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]"
+    )}>
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-soft">

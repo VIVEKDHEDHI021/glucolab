@@ -22,6 +22,8 @@ import { useAuth } from "@/frontend/lib/auth-context";
 import { supabase } from "@/db/client";
 import { localDbService } from "@/services/localDbService";
 import { toast } from "sonner";
+import { Capacitor } from "@capacitor/core";
+import { cn } from "@/frontend/lib/utils";
 
 export const Route = createFileRoute("/delete-account")({
   head: () => ({
@@ -72,6 +74,49 @@ function DeleteAccountPage() {
     }
   };
 
+  // Comprehensive client state purge: SQLite, Capacitor Preferences, localStorage, sessionStorage, Supabase Auth
+  const purgeLocalClientState = async () => {
+    // 1. Clear local SQLite caches
+    try {
+      await localDbService.clearAllCaches();
+    } catch (cacheErr) {
+      console.warn("Cache clearing non-critical error:", cacheErr);
+    }
+
+    // 2. Clear Capacitor native Preferences
+    try {
+      const { Preferences } = await import("@capacitor/preferences");
+      await Preferences.clear();
+    } catch (prefErr) {
+      console.warn("Preferences clearing non-critical error:", prefErr);
+    }
+
+    // 3. Clear browser localStorage
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.clear();
+      }
+    } catch (lsErr) {
+      console.warn("localStorage clearing non-critical error:", lsErr);
+    }
+
+    // 4. Clear browser sessionStorage
+    try {
+      if (typeof window !== "undefined") {
+        sessionStorage.clear();
+      }
+    } catch (ssErr) {
+      console.warn("sessionStorage clearing non-critical error:", ssErr);
+    }
+
+    // 5. Sign out auth session globally
+    try {
+      await supabase.auth.signOut({ scope: "global" });
+    } catch (signOutErr) {
+      console.warn("Sign out non-critical error:", signOutErr);
+    }
+  };
+
   // Handle deletion for logged-in user
   const handleAuthenticatedDelete = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,23 +145,11 @@ function DeleteAccountPage() {
       });
 
       const data = await res.json();
-      if (!res.ok || data.error) {
+      if (!res.ok || !data.success || data.error) {
         throw new Error(data.error || "Failed to complete account deletion.");
       }
 
-      // 1. Clear local caches if in mobile or local storage
-      try {
-        await localDbService.clearAllCaches();
-      } catch (cacheErr) {
-        console.warn("Cache clearing non-critical error:", cacheErr);
-      }
-
-      // 2. Sign out auth session
-      try {
-        await supabase.auth.signOut();
-      } catch (signOutErr) {
-        console.warn("Sign out non-critical error:", signOutErr);
-      }
+      await purgeLocalClientState();
 
       setIsDeletedSuccessfully(true);
       setDeletionSummary(data.message || "Account successfully purged.");
@@ -158,9 +191,11 @@ function DeleteAccountPage() {
       });
 
       const data = await res.json();
-      if (!res.ok || data.error) {
+      if (!res.ok || !data.success || data.error) {
         throw new Error(data.error || "Authentication failed or error processing deletion.");
       }
+
+      await purgeLocalClientState();
 
       setIsDeletedSuccessfully(true);
       setDeletionSummary(data.message || "Account and records successfully deleted.");
@@ -254,7 +289,10 @@ function DeleteAccountPage() {
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-destructive/20">
       {/* Navigation Header */}
-      <header className="sticky top-0 z-30 border-b border-border/80 bg-background/90 backdrop-blur-md">
+      <header className={cn(
+        "sticky top-0 z-30 border-b border-border/80 bg-background/90 backdrop-blur-md",
+        Capacitor.isNativePlatform() && "pt-[calc(max(env(safe-area-inset-top,0px),44px))]"
+      )}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button

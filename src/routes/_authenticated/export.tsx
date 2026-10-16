@@ -12,6 +12,7 @@ import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
 import { Label } from "@/frontend/components/ui/label";
 import { Capacitor } from "@capacitor/core";
+import { CoolDateRangePicker } from "@/frontend/components/CoolDateRangePicker";
 import {
   READING_TYPES,
   type GlucoseEntry,
@@ -345,28 +346,17 @@ function ExportPage() {
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-5 shadow-soft sm:p-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="from">From</Label>
-            <Input
-              id="from"
-              type="date"
-              value={from}
-              max={to || todayStr}
-              onChange={(e) => handleFromChange(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="to">To</Label>
-            <Input
-              id="to"
-              type="date"
-              value={to}
-              min={from}
-              max={todayStr}
-              onChange={(e) => handleToChange(e.target.value)}
-            />
-          </div>
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Export Date Range
+          </Label>
+          <CoolDateRangePicker
+            from={from}
+            to={to}
+            onFromChange={handleFromChange}
+            onToChange={handleToChange}
+            maxDate={todayStr}
+          />
         </div>
       </div>
 

@@ -67,15 +67,16 @@ const SheetContent = React.forwardRef<
         ref={ref}
         className={cn(
           sheetVariants({ side }),
-          isMobile && (side === "left" || side === "right" || side === "top") && "pt-[calc(max(env(safe-area-inset-top),24px))]",
-          className
+          className,
+          isMobile && (side === "left" || side === "right" || side === "top") && "pt-[calc(max(env(safe-area-inset-top,0px),48px)+14px)]",
+          isMobile && (side === "left" || side === "right" || side === "bottom") && "pb-[calc(max(env(safe-area-inset-bottom,0px),16px))]"
         )}
         {...props}
       >
         <SheetPrimitive.Close
           className={cn(
-            "absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary",
-            isMobile && "top-[calc(max(env(safe-area-inset-top),16px))]"
+            "absolute right-4 rounded-full p-1.5 opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary border border-border/60 hover:bg-muted",
+            isMobile ? "top-[calc(max(env(safe-area-inset-top,0px),48px)+14px)]" : "top-4"
           )}
         >
           <X className="h-4 w-4" />

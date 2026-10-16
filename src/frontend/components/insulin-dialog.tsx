@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { format, subDays, addDays } from "date-fns";
 import { toast } from "sonner";
-import { Syringe, Disc, Keyboard, Plus, Trash2 } from "lucide-react";
+import { Syringe, Disc, Keyboard, Plus, Trash2, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase, getLocalDbService } from "@/db/client";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { Button } from "@/frontend/components/ui/button";
@@ -23,15 +23,18 @@ export function InsulinDialog({
   open,
   onOpenChange,
   onSaved,
+  initialDate,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onSaved?: () => void;
+  initialDate?: string;
 }) {
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [showAfternoon, setShowAfternoon] = useState(false);
-  const [entryDate, setEntryDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [entryDate, setEntryDate] = useState(initialDate || format(new Date(), "yyyy-MM-dd"));
+  const [hasExistingRecord, setHasExistingRecord] = useState(false);
   const [activeSlot, setActiveSlot] = useState<SlotKey>("morning");
   const [inputMode, setInputMode] = useState<"wheel" | "keypad">("wheel");
 
@@ -42,6 +45,12 @@ export function InsulinDialog({
     evening: 0,
     night: 0,
   });
+
+  useEffect(() => {
+    if (open) {
+      setEntryDate(initialDate || format(new Date(), "yyyy-MM-dd"));
+    }
+  }, [open, initialDate]);
 
   // Load existing data when opening or when entryDate changes
   useEffect(() => {
@@ -57,6 +66,7 @@ export function InsulinDialog({
 
       if (active) {
         if (data) {
+          setHasExistingRecord(true);
           setDoses({
             morning: Number(data.morning) || 0,
             lunch: Number(data.lunch) || 0,
@@ -70,6 +80,7 @@ export function InsulinDialog({
             setShowAfternoon(false);
           }
         } else {
+          setHasExistingRecord(false);
           setDoses({
             morning: 0,
             lunch: 0,
@@ -162,17 +173,21 @@ export function InsulinDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-md p-4 sm:p-6 rounded-3xl">
-        <DialogHeader className="flex flex-row items-center justify-between pb-2 border-b border-border/60">
-          <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-              <Syringe className="h-5 w-5" />
+      <DialogContent className="w-[95vw] max-w-[420px] max-h-[96dvh] p-3 sm:p-4 rounded-3xl flex flex-col gap-2 overflow-hidden [@media(max-height:550px)]:overflow-y-auto">
+        <DialogHeader className="flex flex-row items-center justify-between pb-1.5 border-b border-border/60 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <Syringe className="h-4 w-4" />
             </div>
             <div>
-              <DialogTitle className="text-base sm:text-lg font-bold font-display text-foreground">
-                Insulin Schedule
+              <DialogTitle className="text-sm sm:text-base font-bold font-display text-foreground leading-tight">
+                {hasExistingRecord ? "Update Insulin Doses" : "Insulin Schedule"}
               </DialogTitle>
-              <p className="text-xs text-muted-foreground">Select slots and adjust doses with the wheel</p>
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight line-clamp-1">
+                {hasExistingRecord
+                  ? `Editing doses for ${format(new Date(entryDate + "T12:00:00"), "MMM d, yyyy")}`
+                  : "Select slots and adjust doses with the wheel"}
+              </p>
             </div>
           </div>
 
@@ -180,104 +195,156 @@ export function InsulinDialog({
           <button
             type="button"
             onClick={() => setInputMode((prev) => (prev === "wheel" ? "keypad" : "wheel"))}
-            className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground bg-muted/60 hover:bg-muted px-2.5 py-1 rounded-xl transition-all border border-border/70"
+            className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-muted-foreground hover:text-foreground bg-muted/60 hover:bg-muted px-2 py-1 rounded-xl transition-all border border-border/70 shrink-0"
             title={inputMode === "wheel" ? "Switch to manual keypad" : "Switch to circular wheel"}
           >
             {inputMode === "wheel" ? (
               <>
-                <Keyboard className="h-3.5 w-3.5" />
+                <Keyboard className="h-3 w-3" />
                 <span>Keypad</span>
               </>
             ) : (
               <>
-                <Disc className="h-3.5 w-3.5 text-primary" />
+                <Disc className="h-3 w-3 text-primary" />
                 <span>Wheel</span>
               </>
             )}
           </button>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="space-y-4 pt-1">
-          {/* Date Selector */}
-          <div className="space-y-1">
-            <Label htmlFor="entry_date" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Date
-            </Label>
-            <Input
-              id="entry_date"
-              type="date"
-              max={format(new Date(), "yyyy-MM-dd")}
-              value={entryDate}
-              onChange={(e) => setEntryDate(e.target.value)}
-              className="h-9 text-xs rounded-xl bg-muted/40 border-border/80"
-            />
+        <form onSubmit={onSubmit} className="flex-1 flex flex-col justify-between min-h-0 space-y-2">
+          {/* Enhanced Accessible Date Selector */}
+          <div className="bg-muted/40 p-2.5 sm:p-3 rounded-2xl border border-border/80 shadow-xs space-y-1.5 shrink-0">
+            <div className="flex items-center justify-between">
+              <Label
+                htmlFor="entry_date"
+                className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+              >
+                <Calendar className="h-4 w-4 text-primary" />
+                <span>Select Date</span>
+              </Label>
+              <div className="flex items-center gap-1.5">
+                {hasExistingRecord && (
+                  <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    Existing Record (Edit)
+                  </span>
+                )}
+                {entryDate !== format(new Date(), "yyyy-MM-dd") && (
+                  <button
+                    type="button"
+                    onClick={() => setEntryDate(format(new Date(), "yyyy-MM-dd"))}
+                    className="text-xs font-bold text-primary hover:bg-primary/10 px-2 py-0.5 rounded-lg transition-colors"
+                  >
+                    Today
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 shrink-0 rounded-xl border-border/80 bg-background hover:bg-muted active:scale-95 shadow-xs transition-all"
+                onClick={() => {
+                  const prev = subDays(new Date(entryDate + "T12:00:00"), 1);
+                  setEntryDate(format(prev, "yyyy-MM-dd"));
+                }}
+                title="Previous day"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+
+              <Input
+                id="entry_date"
+                type="date"
+                max={format(new Date(), "yyyy-MM-dd")}
+                value={entryDate}
+                onChange={(e) => setEntryDate(e.target.value)}
+                className="h-10 text-sm font-bold rounded-xl bg-background border-border/80 text-center shadow-xs cursor-pointer hover:border-primary/50 transition-colors flex-1"
+              />
+
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 shrink-0 rounded-xl border-border/80 bg-background hover:bg-muted active:scale-95 shadow-xs transition-all disabled:opacity-25"
+                disabled={entryDate >= format(new Date(), "yyyy-MM-dd")}
+                onClick={() => {
+                  const next = addDays(new Date(entryDate + "T12:00:00"), 1);
+                  setEntryDate(format(next, "yyyy-MM-dd"));
+                }}
+                title="Next day"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
 
           {inputMode === "wheel" ? (
             /* ============================================================ */
             /* WHEEL MODE: Slot Pills + Circular Number Wheel (NO KEYBOARD) */
             /* ============================================================ */
-            <div className="space-y-3">
+            <div className="space-y-1.5 shrink-0">
               {/* Slot Selection Pills */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Select Dose Slot
-                  </span>
-                  {!showAfternoon && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Select Dose Slot
+                </span>
+                {!showAfternoon && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAfternoon(true);
+                      setActiveSlot("afternoon");
+                    }}
+                    className="text-[10px] font-semibold text-primary hover:underline flex items-center gap-0.5"
+                  >
+                    <Plus className="h-2.5 w-2.5" />
+                    <span>Add afternoon</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-1">
+                {visibleSlots.map((slot) => {
+                  const isActive = activeSlot === slot.id;
+                  const doseVal = doses[slot.id] || 0;
+
+                  return (
                     <button
+                      key={slot.id}
                       type="button"
-                      onClick={() => {
-                        setShowAfternoon(true);
-                        setActiveSlot("afternoon");
-                      }}
-                      className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
+                      onClick={() => setActiveSlot(slot.id)}
+                      className={cn(
+                        "flex flex-col items-center justify-center py-1 px-1 rounded-xl border transition-all select-none",
+                        isActive
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs scale-[1.02]"
+                          : "bg-muted/30 border-border/70 text-foreground hover:bg-muted/60 hover:border-primary/40",
+                      )}
                     >
-                      <Plus className="h-3 w-3" />
-                      <span>Add afternoon</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5">
-                  {visibleSlots.map((slot) => {
-                    const isActive = activeSlot === slot.id;
-                    const doseVal = doses[slot.id] || 0;
-
-                    return (
-                      <button
-                        key={slot.id}
-                        type="button"
-                        onClick={() => setActiveSlot(slot.id)}
+                      <span className="text-[10px] font-bold">{slot.label}</span>
+                      <span
                         className={cn(
-                          "flex flex-col items-center justify-center p-2 rounded-2xl border transition-all select-none",
-                          isActive
-                            ? "bg-primary text-primary-foreground border-primary shadow-sm scale-102"
-                            : "bg-muted/30 border-border/70 text-foreground hover:bg-muted/60 hover:border-primary/40",
+                          "text-xs font-black mt-0.5",
+                          isActive ? "text-primary-foreground" : "text-primary",
                         )}
                       >
-                        <span className="text-[11px] font-bold">{slot.label}</span>
-                        <span
-                          className={cn(
-                            "text-xs font-extrabold mt-0.5",
-                            isActive ? "text-primary-foreground" : "text-primary",
-                          )}
-                        >
-                          {doseVal}u
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                        {doseVal}u
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Active Slot Header & Remove Afternoon if applicable */}
-              <div className="flex items-center justify-between px-1 pt-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-foreground capitalize">
+              <div className="flex items-center justify-between px-0.5 pt-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-foreground capitalize">
                     {activeSlot} Dose:
                   </span>
-                  <span className="text-xs font-extrabold text-primary">
+                  <span className="text-[11px] font-black text-primary">
                     {doses[activeSlot]} units
                   </span>
                 </div>
@@ -289,21 +356,23 @@ export function InsulinDialog({
                       updateDose("afternoon", 0);
                       setActiveSlot("morning");
                     }}
-                    className="text-[11px] text-destructive hover:underline flex items-center gap-1"
+                    className="text-[10px] text-destructive hover:underline flex items-center gap-0.5"
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-2.5 w-2.5" />
                     <span>Remove</span>
                   </button>
                 )}
               </div>
 
-              {/* Circular Dose Wheel */}
-              <div className="py-1">
+              {/* Circular Dose Wheel - Compact & Static */}
+              <div className="flex justify-center py-0.5">
                 <InsulinDoseWheel
                   value={doses[activeSlot] || 0}
                   onChange={(val) => updateDose(activeSlot, val)}
                   min={0}
                   max={50}
+                  size={200}
+                  sensitivity={0.65}
                   disabled={saving}
                 />
               </div>
@@ -312,11 +381,11 @@ export function InsulinDialog({
             /* ============================================================ */
             /* KEYPAD MODE: Fallback Inputs                                */
             /* ============================================================ */
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2 py-1 shrink-0">
+              <div className="grid grid-cols-2 gap-2">
                 {visibleSlots.map((slot) => (
-                  <div key={slot.id} className="space-y-1.5">
-                    <Label htmlFor={slot.id} className="capitalize flex items-center justify-between text-xs">
+                  <div key={slot.id} className="space-y-1">
+                    <Label htmlFor={slot.id} className="capitalize flex items-center justify-between text-[11px]">
                       <span>{slot.label} (units)</span>
                       {slot.id === "afternoon" && (
                         <button
@@ -340,7 +409,7 @@ export function InsulinDialog({
                       step="0.5"
                       value={doses[slot.id] || 0}
                       onChange={(e) => updateDose(slot.id, parseFloat(e.target.value) || 0)}
-                      className="h-9 text-xs rounded-xl"
+                      className="h-8 text-xs rounded-xl"
                     />
                   </div>
                 ))}
@@ -353,7 +422,7 @@ export function InsulinDialog({
                     variant="outline"
                     size="sm"
                     onClick={() => setShowAfternoon(true)}
-                    className="text-xs gap-1 h-8 rounded-xl border-dashed border-primary/40 hover:border-primary text-primary hover:bg-primary/5 transition-all"
+                    className="text-xs gap-1 h-7 rounded-xl border-dashed border-primary/40 hover:border-primary text-primary hover:bg-primary/5 transition-all"
                   >
                     + Add afternoon dose
                   </Button>
@@ -362,34 +431,41 @@ export function InsulinDialog({
             </div>
           )}
 
-          {/* Schedule Summary Card */}
-          <div className="rounded-2xl border border-border/80 bg-muted/40 p-3.5 text-center shadow-xs">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Schedule Preview
+          {/* Schedule Summary Card - Compact Bar */}
+          <div className="rounded-xl border border-border/80 bg-muted/40 px-3 py-1.5 flex items-center justify-between shadow-xs shrink-0">
+            <div>
+              <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                Schedule Preview
+              </div>
+              <div className="font-display text-base font-black tracking-wider text-primary leading-tight">
+                {formatted}
+              </div>
             </div>
-            <div className="mt-1 font-display text-2xl font-black tracking-wider text-primary">
-              {formatted}
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground font-medium">
-              Total: <span className="font-bold text-foreground">{total} units</span>
+            <div className="text-right">
+              <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                Total
+              </div>
+              <div className="font-display text-xs font-black text-foreground leading-tight">
+                {total} <span className="text-[10px] font-medium text-muted-foreground">units</span>
+              </div>
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0 pt-1">
+          <DialogFooter className="flex flex-row gap-2 pt-0.5 shrink-0">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="rounded-xl text-xs h-10 border-border/80"
+              className="flex-1 rounded-xl text-xs h-9 border-border/80"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={saving}
-              className="rounded-xl text-xs font-bold h-10 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
+              className="flex-1 rounded-xl text-xs font-bold h-9 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
             >
-              {saving ? "Saving..." : "Save Schedule"}
+              {saving ? "Saving..." : hasExistingRecord ? "Update Doses" : "Save Schedule"}
             </Button>
           </DialogFooter>
         </form>

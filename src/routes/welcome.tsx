@@ -2,6 +2,8 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { Activity, ShieldCheck, Heart, Sparkles, Fingerprint } from "lucide-react";
 import { Button } from "@/frontend/components/ui/button";
 import { toast } from "sonner";
+import { Capacitor } from "@capacitor/core";
+import { cn } from "@/frontend/lib/utils";
 
 export const Route = createFileRoute("/welcome")({
   component: WelcomePage,
@@ -25,7 +27,10 @@ function WelcomePage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground animate-fade-in">
+    <div className={cn(
+      "flex min-h-screen flex-col bg-background text-foreground animate-fade-in",
+      Capacitor.isNativePlatform() && "pt-[calc(1.5rem+max(env(safe-area-inset-top,0px),44px))] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
+    )}>
       {/* Hero section */}
       <div className="flex-grow flex flex-col items-center justify-center px-6 py-12 max-w-md mx-auto text-center space-y-8">
         <div className="flex h-20 w-20 animate-pulse-scale items-center justify-center rounded-3xl gradient-primary text-white shadow-elevated">

@@ -178,12 +178,14 @@ export function PendingInsulinModal({
               </div>
 
               {/* 5. Circular Dose Wheel & 6. Quick Select Buttons */}
-              <div className="py-1">
+              <div className="flex justify-center py-0.5">
                 <InsulinDoseWheel
                   value={doseUnits}
                   onChange={setDoseUnits}
                   min={0}
                   max={50}
+                  size={200}
+                  sensitivity={0.65}
                   disabled={isSaving}
                 />
               </div>

@@ -5,25 +5,33 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
+export function getServiceRoleKey(): string | null {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) return null;
+  // A publishable anon key is NOT a service role key
+  if (key.startsWith("sb_publishable_")) return null;
+  return key;
+}
+
+export function hasServiceRoleKey(): boolean {
+  return getServiceRoleKey() !== null;
+}
+
 function createSupabaseAdminClient() {
   const SUPABASE_URL =
     process.env.SUPABASE_URL ||
     process.env.VITE_SUPABASE_URL ||
     "https://yhvnfwyeippnrqtttxac.supabase.co";
 
-  const SUPABASE_SERVICE_ROLE_KEY =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_PUBLISHABLE_KEY ||
-    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-    "sb_publishable_dR2EoURRwH6sHIEQd8-3dQ_daz0Qn-j";
+  const key = getServiceRoleKey();
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  if (!SUPABASE_URL || !key) {
     throw new Error(
-      "Missing Supabase server environment variables. Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.",
+      "Missing or invalid SUPABASE_SERVICE_ROLE_KEY. Server-side Supabase Admin operations require a valid service_role secret key.",
     );
   }
 
-  return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient<Database>(SUPABASE_URL, key, {
     auth: {
       storage: undefined,
       persistSession: false,

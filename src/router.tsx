@@ -2,7 +2,7 @@ import { createRouter, useRouter, createHashHistory } from "@tanstack/react-rout
 import { Capacitor } from "@capacitor/core";
 import { routeTree } from "./routeTree.gen";
 
-function DefaultErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function DefaultErrorComponent({ error, reset }: { error: any; reset: () => void }) {
   const router = useRouter();
 
   return (

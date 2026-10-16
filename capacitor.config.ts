@@ -9,7 +9,17 @@ const config: CapacitorConfig = {
   },
   plugins: {
     StatusBar: {
-      overlaysWebView: true,
+      overlaysWebView: false,
+      style: "LIGHT",
+      backgroundColor: "#ffffff",
+    },
+    SplashScreen: {
+      launchShowDuration: 0,
+      launchAutoHide: true,
+      backgroundColor: "#ffffff",
+      showSpinner: false,
+      splashImmersive: false,
+      splashFullScreen: false,
     },
   },
 };

@@ -4,7 +4,9 @@ import { ArrowLeft, CheckCircle2, ShieldCheck, AlertCircle, RefreshCw } from "lu
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/frontend/components/ui/input-otp";
 import { Button } from "@/frontend/components/ui/button";
 import { toast } from "sonner";
-import { authService } from "@/backend/services/authService";
+import { authService, type OtpPurpose } from "@/backend/services/authService";
+import { Capacitor } from "@capacitor/core";
+import { cn } from "@/frontend/lib/utils";
 
 function maskEmail(email: string): string {
   if (!email || !email.includes("@")) return email || "your registered email";
@@ -16,9 +18,8 @@ function maskEmail(email: string): string {
 }
 
 function getFriendlyOtpErrorMessage(err: unknown): string {
-  if (!err || typeof err !== "object") {
-    return "Unable to verify the code. Please try again.";
-  }
+  if (!err) return "Unable to verify the code. Please try again.";
+  if (typeof err === "string") return err;
   const errorObj = err as { message?: string; code?: string; status?: number };
   const msg = (errorObj.message || "").toLowerCase();
   const code = (errorObj.code || "").toLowerCase();
@@ -28,9 +29,10 @@ function getFriendlyOtpErrorMessage(err: unknown): string {
     status === 429 ||
     msg.includes("rate limit") ||
     msg.includes("too many requests") ||
+    msg.includes("maximum verification attempts") ||
     code.includes("over_email_send_rate_limit")
   ) {
-    return "Too many attempts. Please try again later.";
+    return "Too many attempts. Please request a new code or try again later.";
   }
   if (
     msg.includes("expired") ||
@@ -40,13 +42,20 @@ function getFriendlyOtpErrorMessage(err: unknown): string {
     return "This verification code has expired. Please request a new code.";
   }
   if (
+    msg.includes("already been used") ||
+    msg.includes("consumed") ||
+    msg.includes("already used")
+  ) {
+    return "This verification code has already been used. Please request a new code.";
+  }
+  if (
     msg.includes("invalid") ||
     msg.includes("token is invalid") ||
     msg.includes("otp") ||
     code.includes("otp_disabled") ||
     msg.includes("incorrect")
   ) {
-    return "Invalid verification code.";
+    return "Invalid verification code. Please check and re-enter.";
   }
   if (
     msg.includes("fetch") ||
@@ -54,20 +63,21 @@ function getFriendlyOtpErrorMessage(err: unknown): string {
     msg.includes("connection") ||
     msg.includes("failed to fetch")
   ) {
-    return "Unable to verify the code. Please check your connection and try again.";
+    return "Connection error. Please check your network and try again.";
   }
-  return "Unable to verify the code. Please try again.";
+  return (errorObj.message as string) || "Unable to verify the code. Please try again.";
 }
 
 export const Route = createFileRoute("/otp")({
   validateSearch: (search: Record<string, unknown>) => ({
     email: (search.email as string) || "",
+    purpose: ((search.purpose as string) || "password_reset") as OtpPurpose,
   }),
   component: OTPVerificationPage,
 });
 
 function OTPVerificationPage() {
-  const { email } = Route.useSearch();
+  const { email, purpose } = Route.useSearch();
   const navigate = useNavigate();
   const [code, setCode] = useState("");
   const [timer, setTimer] = useState(60);
@@ -90,22 +100,27 @@ function OTPVerificationPage() {
     setErrorMsg(null);
     try {
       if (email) {
-        await authService.requestPasswordResetOtp(email.trim().toLowerCase());
+        const res = await authService.sendOtp(email.trim().toLowerCase(), purpose);
+        if (!res.success && res.error) {
+          toast.error(res.error);
+        } else {
+          setTimer(60);
+          toast.success(res.message || "A new 8-digit verification code has been sent.");
+        }
       }
-      setTimer(60);
-      toast.success("If an account exists for this email, a verification code has been sent.");
     } catch (err) {
       console.warn("Resend OTP error:", err);
       toast.error("Unable to resend code right now. Please try again later.");
     } finally {
       setResending(false);
     }
-  }, [email, timer, resending]);
+  }, [email, purpose, timer, resending]);
 
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (code.length < 8 || !/^[0-9]{8}$/.test(code) || verifying) {
-      toast.error("Please enter the 8-digit verification code.");
+  const handleVerify = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanCode = code.trim();
+    if (cleanCode.length !== 8 || !/^[0-9]{8}$/.test(cleanCode) || verifying) {
+      toast.error("Please enter the complete 8-digit verification code.");
       return;
     }
 
@@ -114,10 +129,10 @@ function OTPVerificationPage() {
 
     try {
       const cleanEmail = email.trim().toLowerCase();
-      const { data, error } = await authService.verifyPasswordResetOtp(cleanEmail, code.trim());
+      const result = await authService.verifyOtp(cleanEmail, purpose, cleanCode);
 
-      if (error) {
-        const friendlyMsg = getFriendlyOtpErrorMessage(error);
+      if (!result.success) {
+        const friendlyMsg = getFriendlyOtpErrorMessage(result.error);
         setErrorMsg(friendlyMsg);
         toast.error(friendlyMsg);
         setCode("");
@@ -126,11 +141,31 @@ function OTPVerificationPage() {
       }
 
       setSuccess(true);
-      toast.success("Code verified successfully.");
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("login_otp_pending");
+        sessionStorage.removeItem("pending_otp_verification");
+        sessionStorage.removeItem("pending_otp_purpose");
+      }
 
-      // Navigate to reset password page with active recovery session
-      setTimeout(() => {
-        navigate({ to: "/reset-password" });
+      toast.success(
+        purpose === "password_reset"
+          ? "Code verified! Proceeding to set new password..."
+          : "Verification successful! Welcome to GlucoLab.",
+      );
+
+      // Destination based on purpose
+      setTimeout(async () => {
+        if (purpose === "password_reset") {
+          navigate({ to: "/reset-password" });
+        } else {
+          // Verify active session before routing to dashboard
+          const { data } = await authService.getSession();
+          if (data?.session?.user) {
+            navigate({ to: "/dashboard" });
+          } else {
+            navigate({ to: "/login" });
+          }
+        }
       }, 1000);
     } catch (err) {
       console.warn("OTP verification exception:", err);
@@ -144,11 +179,36 @@ function OTPVerificationPage() {
 
   const isComplete = code.length === 8 && /^[0-9]{8}$/.test(code);
 
+  const getBackLink = () => {
+    if (purpose === "email_verification") return "/signup";
+    if (purpose === "password_reset") return "/forgot-password";
+    return "/login";
+  };
+
+  const getPageTitle = () => {
+    if (purpose === "email_verification") return "Verify your email";
+    if (purpose === "login_verification") return "Confirm email ownership";
+    return "Verify password reset";
+  };
+
+  const getPageSubtitle = () => {
+    if (purpose === "email_verification") {
+      return "Enter the 8-digit verification code sent to your email to activate your account.";
+    }
+    if (purpose === "login_verification") {
+      return "Enter the 8-digit code sent to your email to verify your identity and access your account.";
+    }
+    return "Enter the 8-digit code sent to your email to reset your password.";
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 animate-fade-in">
+    <div className={cn(
+      "flex min-h-screen items-center justify-center bg-background px-4 py-10 animate-fade-in",
+      Capacitor.isNativePlatform() && "pt-[calc(2.5rem+max(env(safe-area-inset-top,0px),44px))] pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]"
+    )}>
       <div className="w-full max-w-md space-y-6">
         <Link
-          to="/forgot-password"
+          to={getBackLink()}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-4 w-4" /> Back
@@ -160,18 +220,14 @@ function OTPVerificationPage() {
               <ShieldCheck className="h-5 w-5" />
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-              Verify your email
+              {getPageTitle()}
             </h1>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Enter the 8-digit verification code sent to your email.
-          </p>
+          <p className="text-sm text-muted-foreground">{getPageSubtitle()}</p>
           {email && (
             <p className="text-xs text-muted-foreground pt-0.5">
               Code sent to:{" "}
-              <strong className="text-foreground font-semibold">
-                {maskEmail(email)}
-              </strong>
+              <strong className="text-foreground font-semibold">{maskEmail(email)}</strong>
             </p>
           )}
         </div>
@@ -180,7 +236,11 @@ function OTPVerificationPage() {
           <div className="flex flex-col items-center justify-center p-8 bg-success/10 border border-success/30 rounded-3xl text-center space-y-3 animate-fade-in">
             <CheckCircle2 className="h-12 w-12 text-success" />
             <h3 className="font-display text-lg font-bold text-foreground">Code Verified!</h3>
-            <p className="text-xs text-muted-foreground">Proceeding to set your new password...</p>
+            <p className="text-xs text-muted-foreground">
+              {purpose === "password_reset"
+                ? "Proceeding to set your new password..."
+                : "Your account is activated. Redirecting..."}
+            </p>
           </div>
         ) : (
           <form
@@ -188,12 +248,16 @@ function OTPVerificationPage() {
             className="space-y-6 bg-card border border-border rounded-3xl p-5 sm:p-8 shadow-elevated"
           >
             <div className="space-y-4">
-              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider text-center">
+              <label
+                htmlFor="otp-code-input"
+                className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider text-center"
+              >
                 Enter 8-digit verification code
               </label>
 
               <div className="flex justify-center items-center py-2 px-1">
                 <InputOTP
+                  id="otp-code-input"
                   maxLength={8}
                   value={code}
                   onChange={(val) => {
@@ -204,11 +268,14 @@ function OTPVerificationPage() {
                   disabled={verifying}
                   autoFocus
                 >
-                  <InputOTPGroup className="gap-1.5 sm:gap-2">
+                  <InputOTPGroup className="gap-1 sm:gap-2">
                     <InputOTPSlot index={0} />
                     <InputOTPSlot index={1} />
                     <InputOTPSlot index={2} />
                     <InputOTPSlot index={3} />
+                  </InputOTPGroup>
+                  <div className="text-muted-foreground font-bold px-1 sm:px-2 select-none">-</div>
+                  <InputOTPGroup className="gap-1 sm:gap-2">
                     <InputOTPSlot index={4} />
                     <InputOTPSlot index={5} />
                     <InputOTPSlot index={6} />
@@ -218,7 +285,7 @@ function OTPVerificationPage() {
               </div>
 
               {errorMsg && (
-                <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-destructive animate-fade-in pt-1">
+                <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-destructive animate-fade-in pt-1 text-center">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   <span>{errorMsg}</span>
                 </div>

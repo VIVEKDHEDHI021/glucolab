@@ -177,6 +177,11 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
           <DialogTitle className="text-xl">
             {entry ? "Edit Glucose Reading" : "Add Glucose Reading"}
           </DialogTitle>
+          {entry && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Editing reading from {format(new Date(entry.date_time), "MMM d, yyyy · HH:mm")}
+            </p>
+          )}
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -229,7 +234,16 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="date_time">Date & time</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="date_time">Date & time</Label>
+              <button
+                type="button"
+                onClick={() => form.setValue("date_time", format(new Date(), "yyyy-MM-dd'T'HH:mm"))}
+                className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+              >
+                Set to Now
+              </button>
+            </div>
             <Input
               id="date_time"
               type="datetime-local"
