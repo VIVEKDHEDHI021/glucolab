@@ -150,6 +150,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      food_entries: {
+        Row: {
+          id: string;
+          user_id: string;
+          food_categories: string[];
+          portion_category: string | null;
+          meal_period: string | null;
+          date_time: string;
+          notes: string | null;
+          is_uncertain: boolean;
+          glucose_entry_id: string | null;
+          sync_status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          food_categories: string[];
+          portion_category?: string | null;
+          meal_period?: string | null;
+          date_time?: string;
+          notes?: string | null;
+          is_uncertain?: boolean;
+          glucose_entry_id?: string | null;
+          sync_status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          food_categories?: string[];
+          portion_category?: string | null;
+          meal_period?: string | null;
+          date_time?: string;
+          notes?: string | null;
+          is_uncertain?: boolean;
+          glucose_entry_id?: string | null;
+          sync_status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       smart_scan_readings: {
         Row: {
           id: string;

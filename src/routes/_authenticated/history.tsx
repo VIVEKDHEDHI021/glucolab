@@ -13,7 +13,16 @@ import { Badge } from "@/frontend/components/ui/badge";
 import { GlucoseDialog } from "@/frontend/components/glucose-dialog";
 import { InsulinDialog } from "@/frontend/components/insulin-dialog";
 import { WeightDialog } from "@/frontend/components/weight-dialog";
-import { READING_LABELS, glucoseStatus, type GlucoseEntry, type InsulinEntry, type WeightEntry } from "@/frontend/lib/types";
+import { FoodDialog } from "@/frontend/components/food-dialog";
+import {
+  READING_LABELS,
+  PORTION_LABELS,
+  glucoseStatus,
+  type GlucoseEntry,
+  type InsulinEntry,
+  type WeightEntry,
+  type FoodEntry,
+} from "@/frontend/lib/types";
 import { cn } from "@/frontend/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/frontend/components/ui/tabs";
 import { CoolDateRangePicker } from "@/frontend/components/CoolDateRangePicker";
@@ -26,8 +35,8 @@ export const Route = createFileRoute("/_authenticated/history")({
 function HistoryPage() {
   const { user } = useAuth();
   const todayStr = format(new Date(), "yyyy-MM-dd");
-  const { glucose, insulin, weight, refreshData } = useHealthData();
-  const [activeTab, setActiveTab] = useState<"glucose" | "insulin" | "weight">("glucose");
+  const { glucose, insulin, weight, food, refreshData } = useHealthData();
+  const [activeTab, setActiveTab] = useState<"glucose" | "insulin" | "weight" | "food">("glucose");
   const [search, setSearch] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -37,6 +46,8 @@ function HistoryPage() {
   const [insulinOpen, setInsulinOpen] = useState(false);
   const [editingWeight, setEditingWeight] = useState<WeightEntry | null>(null);
   const [weightOpen, setWeightOpen] = useState(false);
+  const [editingFood, setEditingFood] = useState<FoodEntry | null>(null);
+  const [foodOpen, setFoodOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 10;
 
@@ -133,12 +144,34 @@ function HistoryPage() {
     return result;
   }, [weightEntries, from, to, search]);
 
+  const filteredFood = useMemo(() => {
+    let result = food;
+    if (from) {
+      result = result.filter((f) => f.date_time.slice(0, 10) >= from);
+    }
+    if (to) {
+      result = result.filter((f) => f.date_time.slice(0, 10) <= to);
+    }
+    if (search) {
+      const s = search.toLowerCase();
+      result = result.filter(
+        (f) =>
+          (f.notes ?? "").toLowerCase().includes(s) ||
+          f.meal_period.toLowerCase().includes(s) ||
+          (f.food_categories || []).some((c) => c.toLowerCase().includes(s))
+      );
+    }
+    return result;
+  }, [food, from, to, search]);
+
   const currentFilteredList =
     activeTab === "glucose"
       ? filtered
       : activeTab === "insulin"
       ? filteredInsulin
-      : filteredWeight;
+      : activeTab === "weight"
+      ? filteredWeight
+      : filteredFood;
   const totalPages = Math.ceil(currentFilteredList.length / PAGE_SIZE);
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const endIndex = Math.min(startIndex + PAGE_SIZE, currentFilteredList.length);
@@ -188,7 +221,7 @@ function HistoryPage() {
     load();
   };
 
-  const handleDeleteWeight = async (id: string) => {
+  const handleDeleteFood = async (id: string) => {
     const {
       data: { user: currentUser },
     } = await supabase.auth.getUser();
@@ -196,16 +229,17 @@ function HistoryPage() {
       toast.error("Not authenticated");
       return;
     }
-    if (!confirm("Delete this weight entry?")) return;
+    if (!confirm("Delete this food entry?")) return;
     const { error } = await supabase
-      .from("weight_entries")
+      .from("food_entries")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", currentUser.id);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success("Deleted");
+    toast.success("Food entry deleted");
     load();
   };
 
@@ -217,6 +251,8 @@ function HistoryPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             {activeTab === "glucose"
               ? "All your glucose readings."
+              : activeTab === "food"
+              ? "All your logged foods, meals, and special food context."
               : activeTab === "insulin"
               ? "All your logged insulin doses and schedules."
               : "All your logged weights."}
@@ -224,11 +260,12 @@ function HistoryPage() {
         </div>
         <Tabs
           value={activeTab}
-          onValueChange={(val) => setActiveTab(val as "glucose" | "insulin" | "weight")}
+          onValueChange={(val) => setActiveTab(val as "glucose" | "insulin" | "weight" | "food")}
           className="w-full sm:w-auto"
         >
-          <TabsList className="grid w-full grid-cols-3 sm:w-[360px] rounded-xl">
+          <TabsList className="grid w-full grid-cols-4 sm:w-[440px] rounded-xl">
             <TabsTrigger value="glucose" className="text-xs font-semibold rounded-lg">Glucose</TabsTrigger>
+            <TabsTrigger value="food" className="text-xs font-semibold rounded-lg">Food</TabsTrigger>
             <TabsTrigger value="insulin" className="text-xs font-semibold rounded-lg">Insulin</TabsTrigger>
             <TabsTrigger value="weight" className="text-xs font-semibold rounded-lg">Weight</TabsTrigger>
           </TabsList>
@@ -243,6 +280,8 @@ function HistoryPage() {
             placeholder={
               activeTab === "glucose"
                 ? "Search notes, food, meal type..."
+                : activeTab === "food"
+                ? "Search foods, meals, notes..."
                 : activeTab === "insulin"
                 ? "Search notes, date..."
                 : "Search notes..."
@@ -298,6 +337,8 @@ function HistoryPage() {
           <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
             {activeTab === "glucose" ? (
               <Droplet className="h-8 w-8" />
+            ) : activeTab === "food" ? (
+              <Utensils className="h-8 w-8" />
             ) : activeTab === "insulin" ? (
               <Syringe className="h-8 w-8" />
             ) : (
@@ -423,6 +464,93 @@ function HistoryPage() {
                           size="icon"
                           onClick={() => handleDelete(e.id)}
                           aria-label="Delete"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : activeTab === "food" ? (
+              <ul className="divide-y divide-border">
+                {(paginated as FoodEntry[]).map((f) => {
+                  const portionLabel = PORTION_LABELS[f.portion_category] || f.portion_category;
+                  return (
+                    <li
+                      key={f.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 hover:bg-muted/30 transition-all duration-200"
+                    >
+                      <div className="flex items-start sm:items-center gap-4 flex-1 min-w-0">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20">
+                          <Utensils className="h-5 w-5" />
+                        </div>
+
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-bold text-foreground">
+                              {f.meal_period}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+                              {portionLabel}
+                            </span>
+                            {f.is_uncertain && (
+                              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                                Approximate
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Category Badges */}
+                          {f.food_categories && f.food_categories.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {f.food_categories.map((cat, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-2 py-0.5 rounded-md bg-muted text-[11px] font-medium text-foreground"
+                                >
+                                  {cat}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5" />
+                            <span>{format(new Date(f.date_time), "HH:mm · EEEE, MMM d, yyyy")}</span>
+                          </div>
+
+                          {f.notes && (
+                            <div className="flex items-start gap-2 text-xs text-muted-foreground mt-1">
+                              <MessageSquare className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground/80" />
+                              <p className="italic font-normal text-muted-foreground leading-relaxed break-words line-clamp-2">
+                                &ldquo;{f.notes}&rdquo;
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 self-end sm:self-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setEditingFood(f);
+                            setFoodOpen(true);
+                          }}
+                          aria-label="Edit food log"
+                          title="Edit food log"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteFood(f.id)}
+                          aria-label="Delete food log"
+                          title="Delete entry"
                           className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -665,6 +793,16 @@ function HistoryPage() {
           if (!o) setEditingWeight(null);
         }}
         entry={editingWeight}
+        onSaved={load}
+      />
+
+      <FoodDialog
+        open={foodOpen}
+        onOpenChange={(o) => {
+          setFoodOpen(o);
+          if (!o) setEditingFood(null);
+        }}
+        entry={editingFood}
         onSaved={load}
       />
     </div>

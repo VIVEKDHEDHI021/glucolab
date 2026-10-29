@@ -4,18 +4,18 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "dev:mobile": "vite dev --host",
-    "build": "vite build",
+    "dev": "node node_modules/vite/bin/vite.js dev",
+    "dev:mobile": "node node_modules/vite/bin/vite.js dev --host",
+    "build": "node node_modules/vite/bin/vite.js build",
     "postbuild": "node generate-index.mjs",
-    "build:dev": "vite build --mode development",
+    "build:dev": "node node_modules/vite/bin/vite.js build --mode development",
     "build:mobile": "vite build && node generate-index.mjs",
     "sync:mobile": "npm run build && npx cap sync android",
-    "preview": "vite preview",
+    "preview": "node node_modules/vite/bin/vite.js preview",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test:auth": "node test-auth-otp-v2.mjs && node test-e2e-signup-otp-fix.mjs",
-    "test": "node test-auth-otp-v2.mjs && node test-e2e-signup-otp-fix.mjs && node test-glucose-suggestions.mjs && node test-pending-insulin.mjs && node test-pending-insulin-wheel.mjs && node test-notifications-system.mjs"
+    "test": "node test-auth-otp-v2.mjs && node test-e2e-signup-otp-fix.mjs && node test-glucose-suggestions.mjs && node test-pending-insulin.mjs && node test-pending-insulin-wheel.mjs && node test-notifications-system.mjs && node test-food-glucose-analysis.mjs"
   },
   "dependencies": {
     "@capacitor-community/image-to-text": "^8.0.0",

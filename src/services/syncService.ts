@@ -39,7 +39,7 @@ export const syncService = {
 
     try {
       console.log("[SYNC] Querying pending records from SQLite...");
-      const { glucose, insulin, weight, profile, scans } = await localDbService.getPendingSyncRows();
+      const { glucose, insulin, weight, food, profile, scans } = await localDbService.getPendingSyncRows();
 
       let syncedCount = 0;
 
@@ -119,7 +119,35 @@ export const syncService = {
         }
       }
 
-      // 4. Sync Profiles
+      // 4. Sync Food Entries
+      if (food && food.length > 0) {
+        console.log(`[SYNC] Syncing ${food.length} food entries...`);
+        for (const f of food) {
+          const { error } = await supabase.from("food_entries").insert({
+            id: f.id,
+            user_id: f.user_id,
+            food_categories: f.food_categories,
+            portion_category: f.portion_category,
+            meal_period: f.meal_period,
+            date_time: f.date_time,
+            notes: f.notes || null,
+            is_uncertain: Boolean(f.is_uncertain),
+            glucose_entry_id: f.glucose_entry_id || null,
+          });
+
+          if (!error) {
+            await localDbService.runQuery(
+              `UPDATE food_entries SET sync_status = 'synced' WHERE id = ?`,
+              [f.id]
+            );
+            syncedCount++;
+          } else {
+            console.error(`[SYNC] Failed to sync food ID ${f.id}:`, error);
+          }
+        }
+      }
+
+      // 5. Sync Profiles
       if (profile && profile.length > 0) {
         console.log(`[SYNC] Syncing ${profile.length} profiles...`);
         for (const p of profile) {

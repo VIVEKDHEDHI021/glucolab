@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { supabase, getLocalDbService } from "@/db/client";
-import type { GlucoseEntry, InsulinEntry, WeightEntry } from "@/frontend/lib/types";
+import type { GlucoseEntry, InsulinEntry, WeightEntry, FoodEntry } from "@/frontend/lib/types";
 import { Capacitor } from "@capacitor/core";
 import { Activity } from "lucide-react";
 
@@ -9,6 +9,7 @@ interface HealthDataContextValue {
   glucose: GlucoseEntry[];
   insulin: InsulinEntry[];
   weight: WeightEntry[];
+  food: FoodEntry[];
   profileName: string;
   loading: boolean;
   initialized: boolean;
@@ -16,6 +17,7 @@ interface HealthDataContextValue {
   setGlucose: React.Dispatch<React.SetStateAction<GlucoseEntry[]>>;
   setInsulin: React.Dispatch<React.SetStateAction<InsulinEntry[]>>;
   setWeight: React.Dispatch<React.SetStateAction<WeightEntry[]>>;
+  setFood: React.Dispatch<React.SetStateAction<FoodEntry[]>>;
   setProfileName: React.Dispatch<React.SetStateAction<string>>;
 }
 
@@ -26,6 +28,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
   const [glucose, setGlucose] = useState<GlucoseEntry[]>([]);
   const [insulin, setInsulin] = useState<InsulinEntry[]>([]);
   const [weight, setWeight] = useState<WeightEntry[]>([]);
+  const [food, setFood] = useState<FoodEntry[]>([]);
   const [profileName, setProfileName] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -43,15 +46,17 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
     if (isMobile) {
       try {
         const localDb = await getLocalDbService();
-        const [localG, localI, localW, localP] = await Promise.all([
+        const [localG, localI, localW, localF, localP] = await Promise.all([
           localDb.getGlucose(user.id),
           localDb.getInsulin(user.id),
           localDb.getWeight(user.id),
+          localDb.getFood(user.id),
           localDb.getProfile(user.id),
         ]);
         if (localG) setGlucose(localG as GlucoseEntry[]);
         if (localI) setInsulin(localI as InsulinEntry[]);
         if (localW) setWeight(localW as WeightEntry[]);
+        if (localF) setFood(localF as FoodEntry[]);
         if (localP?.name) setProfileName(localP.name);
         setInitialized(true);
       } catch (err) {
@@ -61,7 +66,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     try {
-      const [g, i, w, p] = await Promise.all([
+      const [g, i, w, f, p] = await Promise.all([
         supabase
           .from("glucose_entries")
           .select("*")
@@ -77,12 +82,18 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
           .select("*")
           .eq("user_id", user.id)
           .order("entry_date", { ascending: false }),
+        supabase
+          .from("food_entries")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("date_time", { ascending: false }),
         supabase.from("profiles").select("name").eq("user_id", user.id).maybeSingle(),
       ]);
 
       if (g.data) setGlucose(g.data as GlucoseEntry[]);
       if (i.data) setInsulin(i.data as InsulinEntry[]);
       if (w.data) setWeight(w.data as WeightEntry[]);
+      if (f.data) setFood(f.data as FoodEntry[]);
       if (p.data?.name) setProfileName(p.data.name);
 
       setInitialized(true);
@@ -98,6 +109,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
       setGlucose([]);
       setInsulin([]);
       setWeight([]);
+      setFood([]);
       setProfileName("");
       setInitialized(false);
       return;
@@ -175,6 +187,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
         glucose,
         insulin,
         weight,
+        food,
         profileName,
         loading,
         initialized,
@@ -182,6 +195,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
         setGlucose,
         setInsulin,
         setWeight,
+        setFood,
         setProfileName,
       }}
     >

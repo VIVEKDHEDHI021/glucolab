@@ -13,9 +13,14 @@ import { getSuggestedReadingType } from "@/frontend/lib/glucose-suggestions";
 import {
   READING_TYPES,
   READING_LABELS,
+  QUICK_FOOD_OPTIONS,
+  type QuickFoodOptionId,
   type ReadingType,
   type GlucoseEntry,
 } from "@/frontend/lib/types";
+import { FoodContextSelector } from "@/frontend/components/food-context-selector";
+import { getLocalDbService } from "@/db/client";
+import { Capacitor } from "@capacitor/core";
 import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
 import { Label } from "@/frontend/components/ui/label";
@@ -62,6 +67,7 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [isSuggested, setIsSuggested] = useState(false);
+  const [foodOptions, setFoodOptions] = useState<QuickFoodOptionId[]>([]);
 
   const form = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(schema),
@@ -79,6 +85,20 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
     if (open) {
       if (entry) {
         setIsSuggested(false);
+        // Pre-populate any existing quick food options matched in food field
+        const existingOptions: QuickFoodOptionId[] = [];
+        if (entry.food) {
+          for (const opt of QUICK_FOOD_OPTIONS) {
+            if (
+              entry.food.includes(opt.label) ||
+              entry.food.toLowerCase().includes(opt.id.replace(/_/g, " "))
+            ) {
+              existingOptions.push(opt.id);
+            }
+          }
+        }
+        setFoodOptions(existingOptions);
+
         form.reset({
           glucose: entry.glucose,
           reading_type: entry.reading_type,
@@ -90,6 +110,7 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
       } else {
         const suggestedType = getSuggestedReadingType(new Date());
         setIsSuggested(true);
+        setFoodOptions([]);
         form.reset({
           glucose: "" as unknown as number,
           reading_type: suggestedType,
@@ -106,23 +127,88 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
     if (!user) return;
     setSaving(true);
     try {
+      // Build food string combining quick chips and custom food text
+      let foodString = data.food ? data.food.trim() : "";
+      const selectedCategoryLabels = foodOptions
+        .map((id) => QUICK_FOOD_OPTIONS.find((o) => o.id === id)?.label)
+        .filter(Boolean) as string[];
+
+      if (selectedCategoryLabels.length > 0) {
+        const categoriesJoined = selectedCategoryLabels.join("; ");
+        foodString = foodString ? `${categoriesJoined} · ${foodString}` : categoriesJoined;
+      }
+
       const payload = {
         user_id: user.id,
         glucose: data.glucose,
         reading_type: data.reading_type,
         date_time: new Date(data.date_time).toISOString(),
-        food: data.food || null,
+        food: foodString || null,
         notes: data.notes || null,
         symptoms: data.insulin_all_day || null,
       };
+
       const res = entry
         ? await supabase
             .from("glucose_entries")
             .update(payload)
             .eq("id", entry.id)
             .eq("user_id", user.id)
-        : await supabase.from("glucose_entries").insert(payload);
+            .select()
+        : await supabase.from("glucose_entries").insert(payload).select();
       if (res.error) throw res.error;
+
+      // Link food context record into food_entries if food categories were logged
+      const readingId = entry ? entry.id : res.data?.[0]?.id;
+      const hasFoodItems = foodOptions.some((id) => id !== "no_unusual_food");
+      if (hasFoodItems && selectedCategoryLabels.length > 0) {
+        const isUncertain = foodOptions.includes("not_sure");
+        const foodPayload = {
+          user_id: user.id,
+          food_categories: selectedCategoryLabels,
+          portion_category: "unspecified",
+          meal_period: data.reading_type,
+          date_time: new Date(data.date_time).toISOString(),
+          notes: data.food || null,
+          is_uncertain: isUncertain,
+          glucose_entry_id: readingId || null,
+        };
+
+        try {
+          if (entry) {
+            await supabase
+              .from("food_entries")
+              .delete()
+              .eq("glucose_entry_id", entry.id)
+              .eq("user_id", user.id);
+          }
+          await supabase.from("food_entries").insert(foodPayload);
+
+          if (Capacitor.isNativePlatform()) {
+            const localDb = await getLocalDbService();
+            await localDb.cacheFood([
+              {
+                id: "food_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
+                ...foodPayload,
+                sync_status: "synced",
+              },
+            ]);
+          }
+        } catch (err) {
+          console.warn("[GLUCOSE_DIALOG] Failed to sync food entry:", err);
+        }
+      } else if (foodOptions.includes("no_unusual_food") && entry) {
+        // If user changed food context to "no_unusual_food", clean up any previously linked food entry
+        try {
+          await supabase
+            .from("food_entries")
+            .delete()
+            .eq("glucose_entry_id", entry.id)
+            .eq("user_id", user.id);
+        } catch {}
+      }
+
+      window.dispatchEvent(new Event("health-data-updated"));
 
       const isUpdate = Boolean(entry);
       const typeLabel = READING_LABELS[data.reading_type] || data.reading_type;
@@ -255,9 +341,11 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
             )}
           </div>
 
+          <FoodContextSelector selected={foodOptions} onChange={setFoodOptions} />
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="food">Food eaten</Label>
+              <Label htmlFor="food">Additional food notes</Label>
               <Input id="food" placeholder="e.g. Oatmeal, fruit" {...form.register("food")} />
             </div>
             <div className="space-y-1.5">

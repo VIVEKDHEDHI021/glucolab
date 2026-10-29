@@ -46,3 +46,7 @@ supabase/.temp/
 assets/*.pdf
 assets/*.docx
 assets/*.pptx
+
+.agents/
+brag-output/
+skills-lock.json

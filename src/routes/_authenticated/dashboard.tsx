@@ -16,6 +16,9 @@ import {
   ChevronRight,
   CheckCircle2,
   Pencil,
+  Utensils,
+  Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, subDays, isAfter } from "date-fns";
@@ -36,6 +39,7 @@ import { Button } from "@/frontend/components/ui/button";
 import { GlucoseDialog } from "@/frontend/components/glucose-dialog";
 import { InsulinDialog } from "@/frontend/components/insulin-dialog";
 import { WeightDialog } from "@/frontend/components/weight-dialog";
+import { FoodDialog } from "@/frontend/components/food-dialog";
 import { ProfileDialog } from "@/frontend/components/profile-dialog";
 import {
   READING_LABELS,
@@ -43,8 +47,15 @@ import {
   type GlucoseEntry,
   type InsulinEntry,
   type WeightEntry,
+  type FoodEntry,
   type ReadingType,
 } from "@/frontend/lib/types";
+import {
+  calculatePeriodStats,
+  calculatePairedMealDeltas,
+  analyzeFoodGlucoseCorrelations,
+  generatePatientInsights,
+} from "@/frontend/lib/food-glucose-analysis";
 import { cn } from "@/frontend/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/frontend/components/ui/tabs";
 
@@ -98,19 +109,35 @@ const CustomDot = (props: any) => {
 function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { glucose, insulin, weight, profileName, refreshData } = useHealthData();
+  const { glucose, insulin, weight, food, profileName, refreshData } = useHealthData();
   const [glucoseOpen, setGlucoseOpen] = useState(false);
   const [editingGlucose, setEditingGlucose] = useState<GlucoseEntry | null>(null);
   const [insulinOpen, setInsulinOpen] = useState(false);
   const [editingInsulinDate, setEditingInsulinDate] = useState<string | null>(null);
   const [weightOpen, setWeightOpen] = useState(false);
   const [editingWeight, setEditingWeight] = useState<WeightEntry | null>(null);
+  const [foodOpen, setFoodOpen] = useState(false);
+  const [editingFood, setEditingFood] = useState<FoodEntry | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [days, setDays] = useState<7 | 30 | 90>(7);
   const [fabOpen, setFabOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState<any>(null);
   const [zoom, setZoom] = useState<number>(1);
+
+  // Compute patient insights dynamically
+  const patientInsights = useMemo(() => {
+    const periodStats = calculatePeriodStats(glucose);
+    const pairedDeltas = calculatePairedMealDeltas(glucose);
+    const foodCorrelations = analyzeFoodGlucoseCorrelations(food, glucose);
+    return generatePatientInsights({
+      periodStats,
+      pairedDeltas,
+      foodCorrelations,
+      insulinEntries: insulin,
+      glucoseReadings: glucose,
+    });
+  }, [glucose, food, insulin]);
 
   const load = async () => {
     await refreshData(true);
@@ -429,8 +456,84 @@ function DashboardPage() {
         )}
       </div>
       {/* End of animated content wrapper to prevent stacking context constraints */}
-      </div>
 
+      {/* Personalized Food & Glucose Insights Card */}
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-soft space-y-3.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="font-display text-sm font-bold">Personalized Pattern Insights</h3>
+              <p className="text-[11px] text-muted-foreground">
+                Observed correlations across meals, food logs, and glucose readings
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate({ to: "/reports" })}
+            className="text-xs text-primary font-medium hover:underline"
+          >
+            View analytics
+          </Button>
+        </div>
+
+        {patientInsights.length > 0 ? (
+          <div className="space-y-2">
+            {patientInsights.slice(0, 3).map((insight) => (
+              <div
+                key={insight.id}
+                className={cn(
+                  "rounded-xl border p-3 text-xs space-y-1 transition-colors",
+                  insight.severity === "alert"
+                    ? "border-destructive/30 bg-destructive/5 text-foreground"
+                    : insight.severity === "warning"
+                    ? "border-amber-500/30 bg-amber-500/5 text-foreground"
+                    : "border-border/60 bg-background/50 text-foreground"
+                )}
+              >
+                <div className="flex items-center justify-between font-semibold">
+                  <div className="flex items-center gap-1.5">
+                    {insight.severity === "alert" ? (
+                      <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                    )}
+                    <span>{insight.title}</span>
+                  </div>
+                  {insight.supportingObservations > 0 && (
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      {insight.supportingObservations} record{insight.supportingObservations > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+                <p className="text-muted-foreground leading-relaxed">{insight.message}</p>
+                {insight.safetyNote && (
+                  <p className="text-[10px] text-muted-foreground/80 font-medium italic pt-0.5">
+                    Note: {insight.safetyNote}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-border/70 p-4 text-center text-xs text-muted-foreground">
+            Log food along with your glucose readings to identify personalized recurring patterns.
+          </div>
+        )}
+
+        {/* Safety Disclaimer Banner */}
+        <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-[10px] text-muted-foreground">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
+          <span>
+            Informational correlation analysis only. Not medical advice. Never adjust insulin dosages without consulting your clinician.
+          </span>
+        </div>
+      </div>
+      </div>
 
       <GlucoseDialog
         open={glucoseOpen}
@@ -439,6 +542,15 @@ function DashboardPage() {
           if (!o) setEditingGlucose(null);
         }}
         entry={editingGlucose}
+        onSaved={load}
+      />
+      <FoodDialog
+        open={foodOpen}
+        onOpenChange={(o) => {
+          setFoodOpen(o);
+          if (!o) setEditingFood(null);
+        }}
+        entry={editingFood}
         onSaved={load}
       />
       <InsulinDialog
@@ -478,6 +590,25 @@ function DashboardPage() {
           "flex flex-col items-end gap-3 transition-all duration-300 origin-bottom",
           fabOpen ? "scale-100 opacity-100 translate-y-0" : "scale-75 opacity-0 translate-y-4 pointer-events-none"
         )}>
+          {/* Action: Special Food */}
+          <div className="flex items-center gap-2">
+            <span className="rounded-lg bg-zinc-900 border border-zinc-800 px-2 py-1 text-xs font-semibold text-zinc-100 shadow-soft">
+              Special Food
+            </span>
+            <Button
+              onClick={() => {
+                setEditingFood(null);
+                setFabOpen(false);
+                setTimeout(() => setFoodOpen(true), 150);
+              }}
+              variant="secondary"
+              size="icon"
+              className="h-12 w-12 rounded-full border border-border bg-card shadow-soft hover:bg-muted/50 transition-all hover:scale-105 active:scale-95"
+            >
+              <Utensils className="h-5 w-5 text-primary" />
+            </Button>
+          </div>
+
           {/* Action: Glucose */}
           <div className="flex items-center gap-2">
             <span className="rounded-lg bg-zinc-900 border border-zinc-800 px-2 py-1 text-xs font-semibold text-zinc-100 shadow-soft">

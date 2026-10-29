@@ -84,6 +84,18 @@ export const localDbService = {
           data TEXT,
           sync_status TEXT DEFAULT 'synced'
         );
+        CREATE TABLE IF NOT EXISTS food_entries (
+          id TEXT PRIMARY KEY,
+          user_id TEXT,
+          food_categories TEXT,
+          portion_category TEXT,
+          meal_period TEXT,
+          date_time TEXT,
+          notes TEXT,
+          is_uncertain INTEGER DEFAULT 0,
+          glucose_entry_id TEXT,
+          sync_status TEXT DEFAULT 'synced'
+        );
       `;
       
       await database.execute(tablesSchema);
@@ -255,11 +267,70 @@ export const localDbService = {
     }));
   },
 
+  // Cache food entries
+  async cacheFood(entries: any[]) {
+    if (!isMobile || !database) return;
+    try {
+      for (const f of entries) {
+        const catStr = Array.isArray(f.food_categories)
+          ? JSON.stringify(f.food_categories)
+          : typeof f.food_categories === "string"
+          ? f.food_categories
+          : "[]";
+        await database.run(
+          `INSERT OR REPLACE INTO food_entries (id, user_id, food_categories, portion_category, meal_period, date_time, notes, is_uncertain, glucose_entry_id, sync_status) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            f.id,
+            f.user_id,
+            catStr,
+            f.portion_category || "unspecified",
+            f.meal_period || "Other time",
+            f.date_time,
+            f.notes || "",
+            f.is_uncertain ? 1 : 0,
+            f.glucose_entry_id || null,
+            f.sync_status || "synced",
+          ]
+        );
+      }
+    } catch (err) {
+      console.error("[SQLITE] Error caching food:", err);
+    }
+  },
+
+  // Get food entries
+  async getFood(userId: string) {
+    const rows = await this.selectQuery(
+      `SELECT * FROM food_entries WHERE user_id = ? ORDER BY date_time DESC`,
+      [userId]
+    );
+    return rows.map((r: any) => {
+      let cats: string[] = [];
+      try {
+        cats = typeof r.food_categories === "string" ? JSON.parse(r.food_categories) : r.food_categories || [];
+      } catch {
+        cats = r.food_categories ? [r.food_categories] : [];
+      }
+      return {
+        ...r,
+        food_categories: cats,
+        is_uncertain: Boolean(r.is_uncertain),
+      };
+    });
+  },
+
+  // Delete food entry
+  async deleteFood(id: string) {
+    return this.runQuery(`DELETE FROM food_entries WHERE id = ?`, [id]);
+  },
+
   // Fetch all pending sync rows across all health tables
   async getPendingSyncRows() {
     const pendingGlucose = await this.selectQuery(`SELECT * FROM glucose_entries WHERE sync_status = 'pending_sync'`);
     const pendingInsulin = await this.selectQuery(`SELECT * FROM insulin_entries WHERE sync_status = 'pending_sync'`);
     const pendingWeight = await this.selectQuery(`SELECT * FROM weight_entries WHERE sync_status = 'pending_sync'`);
+    const pendingFood = await this.selectQuery(`SELECT * FROM food_entries WHERE sync_status = 'pending_sync'`);
     const pendingProfile = await this.selectQuery(`SELECT * FROM profiles WHERE sync_status = 'pending_sync'`);
     const pendingScans = await this.selectQuery(`SELECT * FROM smart_scan_readings WHERE sync_status = 'pending_sync'`);
 
@@ -267,6 +338,19 @@ export const localDbService = {
       glucose: pendingGlucose,
       insulin: pendingInsulin,
       weight: pendingWeight,
+      food: pendingFood.map((f: any) => {
+        let cats: string[] = [];
+        try {
+          cats = typeof f.food_categories === "string" ? JSON.parse(f.food_categories) : f.food_categories || [];
+        } catch {
+          cats = f.food_categories ? [f.food_categories] : [];
+        }
+        return {
+          ...f,
+          food_categories: cats,
+          is_uncertain: Boolean(f.is_uncertain),
+        };
+      }),
       profile: pendingProfile,
       scans: pendingScans.map((r: any) => ({
         ...r,
@@ -283,6 +367,7 @@ export const localDbService = {
         DELETE FROM glucose_entries;
         DELETE FROM insulin_entries;
         DELETE FROM weight_entries;
+        DELETE FROM food_entries;
         DELETE FROM profiles;
         DELETE FROM smart_scan_readings;
       `);

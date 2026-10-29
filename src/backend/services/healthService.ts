@@ -51,6 +51,26 @@ export const healthService = {
     return supabase.from("glucose_entries").delete().eq("id", id).eq("user_id", user.id);
   },
 
+  async getFoodHistory() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+    return supabase
+      .from("food_entries")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("date_time", { ascending: false });
+  },
+
+  async deleteFoodEntry(id: string) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+    return supabase.from("food_entries").delete().eq("id", id).eq("user_id", user.id);
+  },
+
   async getExportData(fromIso: string, toIso: string, from: string, to: string) {
     const {
       data: { user },
