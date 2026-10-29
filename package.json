@@ -17,7 +17,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test:auth": "node test-auth-otp-v2.mjs && node test-e2e-signup-otp-fix.mjs",
-    "test": "node test-auth-otp-v2.mjs && node test-e2e-signup-otp-fix.mjs && node test-glucose-suggestions.mjs && node test-pending-insulin.mjs && node test-pending-insulin-wheel.mjs && node test-notifications-system.mjs && node test-food-glucose-analysis.mjs"
+    "test": "node test-auth-otp-v2.mjs && node test-e2e-signup-otp-fix.mjs && node test-glucose-suggestions.mjs && node test-pending-insulin.mjs && node test-pending-insulin-wheel.mjs && node test-notifications-system.mjs && node test-food-glucose-analysis.mjs && node test-insulin-dose-wheel.mjs"
   },
   "dependencies": {
     "@capacitor-community/image-to-text": "^8.0.0",

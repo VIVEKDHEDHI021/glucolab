@@ -104,7 +104,7 @@ export function PendingInsulinModal({
               <p className="text-xs text-muted-foreground mt-0.5">
                 {viewMode === "slot-selector"
                   ? "Choose which pending slot to record"
-                  : "Rotate the wheel to select your prescribed dose"}
+                  : "Select the number of insulin units you recorded."}
               </p>
             </div>
           </div>
@@ -177,15 +177,14 @@ export function PendingInsulinModal({
                 </p>
               </div>
 
-              {/* 5. Circular Dose Wheel & 6. Quick Select Buttons */}
+              {/* 5. Classic iOS Vertical Number Wheel */}
               <div className="flex justify-center py-0.5">
                 <InsulinDoseWheel
                   value={doseUnits}
                   onChange={setDoseUnits}
                   min={0}
                   max={50}
-                  size={200}
-                  sensitivity={0.65}
+                  height={200}
                   disabled={isSaving}
                 />
               </div>

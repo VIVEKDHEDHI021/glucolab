@@ -1,44 +1,144 @@
-import React, { useRef, useCallback } from "react";
-import { Plus, Minus } from "lucide-react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { Capacitor } from "@capacitor/core";
+import { ChevronUp, ChevronDown, Check, X } from "lucide-react";
 import { cn } from "@/frontend/lib/utils";
+import { Button } from "@/frontend/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/frontend/components/ui/dialog";
 
 export interface InsulinDoseWheelProps {
-  value: number;
-  onChange: (val: number) => void;
+  /** Controlled value (whole-number integer) */
+  value?: number;
+  /** Callback fired when the wheel selects a new integer */
+  onChange?: (val: number) => void;
+
+  /** Initial value when used in uncontrolled / modal mode */
+  initialValue?: number;
+
+  /** Minimum selectable integer (default: 0) */
   min?: number;
+  minValue?: number;
+
+  /** Maximum selectable integer (default: 50) */
   max?: number;
-  size?: number;
-  sensitivity?: number;
+  maxValue?: number;
+
+  /** Whether the wheel is disabled */
   disabled?: boolean;
+
+  /** Modal mode: controls visibility if used as a standalone dialog */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+
+  /** Callback when user confirms selection */
+  onConfirm?: (val: number) => void;
+
+  /** Callback when user cancels/dismisses */
+  onCancel?: () => void;
+
+  /** Title displayed in modal or header (default: "Select Insulin Dose") */
+  title?: string;
+
+  /** Description/subtitle text (default: "Select the number of insulin units you recorded.") */
+  description?: string;
+
+  /** Label for units (default: "Units") */
+  unitLabel?: string;
+
+  /** Singular unit label (default: "Unit") */
+  unitSingular?: string;
+
+  /** Custom text for confirm button (e.g. "Confirm 5 Units") */
+  confirmButtonText?: string;
+
+  /** Whether to render confirm button in inline mode */
+  showConfirmButton?: boolean;
+
+  /** Whether to show quick-select preset chips (default: true) */
+  showQuickPills?: boolean;
+
+  /** Custom quick preset integers */
+  quickPresets?: number[];
+
+  /** Additional container CSS classes */
+  className?: string;
+
+  /** Height of the wheel container in pixels (default: 220) */
+  size?: number;
+  height?: number;
+
+  /** Legacy prop for backward compatibility */
+  sensitivity?: number;
 }
 
-const QUICK_SELECT_VALUES = [1, 2, 4, 6, 8, 10];
+const ITEM_HEIGHT = 44; // standard touch-target row height
+const VISIBLE_ITEMS = 5;
+const DEFAULT_HEIGHT = 220; // 5 * 44px
+const DEFAULT_QUICK_PRESETS = [0, 2, 4, 6, 8, 10, 12, 16, 20];
 
 export function InsulinDoseWheel({
   value,
   onChange,
-  min = 0,
-  max = 50,
-  size = 206,
-  sensitivity = 0.65,
+  initialValue,
+  min,
+  minValue,
+  max,
+  maxValue,
   disabled = false,
+  open,
+  onOpenChange,
+  onConfirm,
+  onCancel,
+  title = "Select Insulin Dose",
+  description = "Select the number of insulin units you recorded.",
+  unitLabel = "Units",
+  unitSingular = "Unit",
+  confirmButtonText,
+  showConfirmButton = false,
+  showQuickPills = true,
+  quickPresets = DEFAULT_QUICK_PRESETS,
+  className,
+  size,
+  height,
 }: InsulinDoseWheelProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const isDraggingRef = useRef(false);
-  const startPosRef = useRef<{ x: number; y: number } | null>(null);
-  const startValueRef = useRef<number>(0);
-  const lastAngleRef = useRef<number>(0);
-  const accumulatedAngleRef = useRef<number>(0);
-  const hasMovedRef = useRef<boolean>(false);
+  // Resolve effective bounds (strictly integer)
+  const effectiveMin = Math.max(0, Math.round(minValue ?? min ?? 0));
+  const effectiveMax = Math.max(effectiveMin, Math.round(maxValue ?? max ?? 50));
+  const effectiveHeight = height ?? (size && size > 100 ? size : DEFAULT_HEIGHT);
+  const spacerHeight = Math.max(0, Math.round((effectiveHeight - ITEM_HEIGHT) / 2));
 
-  // Responsive Wheel Geometry based on size
-  const cx = size / 2;
-  const cy = size / 2;
-  const rTrack = Math.round(size * 0.385);
-  const rTicks = Math.round(size * 0.335);
-  const rNumbers = Math.round(size * 0.258);
+  // Determine initial selected integer
+  const resolveInitial = useCallback((): number => {
+    const candidate = value ?? initialValue ?? effectiveMin;
+    if (typeof candidate === "number" && Number.isFinite(candidate)) {
+      return Math.max(effectiveMin, Math.min(effectiveMax, Math.round(candidate)));
+    }
+    return effectiveMin;
+  }, [value, initialValue, effectiveMin, effectiveMax]);
+
+  const [selectedVal, setSelectedVal] = useState<number>(resolveInitial);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isProgrammaticScrollRef = useRef(false);
+  const isInitialMountRef = useRef(true);
+  const scrollDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastHapticValRef = useRef<number>(selectedVal);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Build array of valid consecutive whole-number integers
+  const items = React.useMemo(() => {
+    const list: number[] = [];
+    for (let i = effectiveMin; i <= effectiveMax; i++) {
+      list.push(i);
+    }
+    return list;
+  }, [effectiveMin, effectiveMax]);
 
   const triggerHaptic = useCallback(() => {
     if (Capacitor.isNativePlatform()) {
@@ -46,351 +146,390 @@ export function InsulinDoseWheel({
     }
   }, []);
 
-  // Convert current value (0-max) to angle in degrees (0-360, 0 at 12 o'clock)
-  const angleDeg = (Math.max(min, Math.min(max, value)) / max) * 360;
+  // Programmatic scroll helper
+  const scrollToValue = useCallback(
+    (targetVal: number, smooth = true) => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      const clamped = Math.max(effectiveMin, Math.min(effectiveMax, Math.round(targetVal)));
+      const targetScroll = (clamped - effectiveMin) * ITEM_HEIGHT;
 
-  // Convert angle (0-360) to coordinates on wheel
-  const getCoordinatesForAngle = (angle: number, r: number) => {
-    const rad = ((angle - 90) * Math.PI) / 180;
-    return {
-      x: cx + r * Math.cos(rad),
-      y: cy + r * Math.sin(rad),
-    };
-  };
+      isProgrammaticScrollRef.current = true;
+      if (smooth) {
+        container.scrollTo({ top: targetScroll, behavior: "smooth" });
+      } else {
+        container.scrollTop = targetScroll;
+      }
 
-  const thumbPos = getCoordinatesForAngle(angleDeg, rTrack);
+      // Clear programmatic flag shortly after
+      setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+      }, smooth ? 250 : 20);
+    },
+    [effectiveMin, effectiveMax],
+  );
 
-  const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (disabled || !svgRef.current) return;
-
-    const rect = svgRef.current.getBoundingClientRect();
-    const dx = e.clientX - (rect.left + rect.width / 2);
-    const dy = e.clientY - (rect.top + rect.height / 2);
-    const dist = Math.hypot(dx, dy);
-
-    // Deadzone check: Center controls are reserved for +/- buttons and readout
-    // Touches too close to center (< size * 0.22) or far outside (> size * 0.58) are ignored
-    if (dist < size * 0.22 || dist > size * 0.58) {
-      return;
+  // Sync with external controlled value
+  useEffect(() => {
+    if (value !== undefined && Number.isFinite(value)) {
+      const clamped = Math.max(effectiveMin, Math.min(effectiveMax, Math.round(value)));
+      if (clamped !== selectedVal) {
+        setSelectedVal(clamped);
+        scrollToValue(clamped, !isInitialMountRef.current);
+      }
     }
+  }, [value, effectiveMin, effectiveMax, selectedVal, scrollToValue]);
 
-    isDraggingRef.current = true;
-    hasMovedRef.current = false;
-    startPosRef.current = { x: e.clientX, y: e.clientY };
+  // Initial mount scroll
+  useEffect(() => {
+    const initial = resolveInitial();
+    setSelectedVal(initial);
+    // Instant scroll on mount to avoid visual animation jump
+    const timer = setTimeout(() => {
+      scrollToValue(initial, false);
+      isInitialMountRef.current = false;
+    }, 10);
+    return () => clearTimeout(timer);
+  }, [resolveInitial, scrollToValue]);
 
-    let deg = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
-    if (deg < 0) deg += 360;
+  // Handle scroll events with snapping & bounds checks
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-    lastAngleRef.current = deg;
-    startValueRef.current = value;
-    accumulatedAngleRef.current = 0;
+    const scrollTop = container.scrollTop;
+    const rawIndex = Math.round(scrollTop / ITEM_HEIGHT);
+    const clampedVal = Math.max(effectiveMin, Math.min(effectiveMax, effectiveMin + rawIndex));
 
-    try {
-      (e.target as Element).setPointerCapture?.(e.pointerId);
-    } catch {}
-  };
-
-  const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!isDraggingRef.current || disabled || !svgRef.current) return;
-    const startPos = startPosRef.current;
-    if (!startPos) return;
-
-    const distMoved = Math.hypot(e.clientX - startPos.x, e.clientY - startPos.y);
-    if (!hasMovedRef.current && distMoved < 6) {
-      // Jitter tolerance threshold before initiating drag
-      return;
-    }
-    hasMovedRef.current = true;
-
-    const rect = svgRef.current.getBoundingClientRect();
-    const dx = e.clientX - (rect.left + rect.width / 2);
-    const dy = e.clientY - (rect.top + rect.height / 2);
-
-    let deg = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
-    if (deg < 0) deg += 360;
-
-    // Shortest angular distance between successive pointer moves
-    let delta = deg - lastAngleRef.current;
-    if (delta > 180) delta -= 360;
-    if (delta < -180) delta += 360;
-    lastAngleRef.current = deg;
-
-    // Calibrated sensitivity dampening:
-    // With sensitivity ~0.65, each unit requires ~11° rotation instead of 7.2°,
-    // providing precise, stable control without jumping or jitter.
-    const sens = Math.max(0.1, Math.min(1.0, sensitivity));
-    accumulatedAngleRef.current += delta * sens;
-
-    const degPerUnit = 360 / max;
-    const deltaUnits = Math.round(accumulatedAngleRef.current / degPerUnit);
-    const nextVal = Math.max(min, Math.min(max, startValueRef.current + deltaUnits));
-
-    // Clamp accumulated angle when hitting boundaries for instantaneous reverse response
-    if (nextVal <= min) {
-      accumulatedAngleRef.current = Math.max(
-        accumulatedAngleRef.current,
-        ((min - startValueRef.current) * degPerUnit) / sens,
-      );
-    } else if (nextVal >= max) {
-      accumulatedAngleRef.current = Math.min(
-        accumulatedAngleRef.current,
-        ((max - startValueRef.current) * degPerUnit) / sens,
-      );
-    }
-
-    if (nextVal !== value) {
-      onChange(nextVal);
-      triggerHaptic();
-    }
-  };
-
-  const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-
-    try {
-      (e.target as Element).releasePointerCapture?.(e.pointerId);
-    } catch {}
-
-    // Tap selection: if user tapped on a track/number without dragging
-    if (!hasMovedRef.current && svgRef.current && !disabled) {
-      const rect = svgRef.current.getBoundingClientRect();
-      const dx = e.clientX - (rect.left + rect.width / 2);
-      const dy = e.clientY - (rect.top + rect.height / 2);
-      const dist = Math.hypot(dx, dy);
-
-      if (dist >= size * 0.22 && dist <= size * 0.58) {
-        let deg = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
-        if (deg < 0) deg += 360;
-        const rawVal = Math.round((deg / 360) * max);
-        const tapped = Math.max(min, Math.min(max, rawVal));
-        if (tapped !== value) {
-          onChange(tapped);
+    if (clampedVal !== selectedVal) {
+      setSelectedVal(clampedVal);
+      if (!isProgrammaticScrollRef.current) {
+        onChangeRef.current?.(clampedVal);
+        if (lastHapticValRef.current !== clampedVal) {
+          lastHapticValRef.current = clampedVal;
           triggerHaptic();
         }
       }
     }
 
-    startPosRef.current = null;
-  };
-
-  // Generate SVG path for active progress arc
-  const getArcPath = () => {
-    if (value <= 0) return "";
-    if (value >= max) {
-      return `M ${cx} ${cy - rTrack} A ${rTrack} ${rTrack} 0 1 1 ${cx - 0.01} ${cy - rTrack}`;
+    // Debounced check to finalize clean snap on scroll end
+    if (scrollDebounceTimerRef.current) {
+      clearTimeout(scrollDebounceTimerRef.current);
     }
-    const largeArc = angleDeg > 180 ? 1 : 0;
-    return `M ${cx} ${cy - rTrack} A ${rTrack} ${rTrack} 0 ${largeArc} 1 ${thumbPos.x} ${thumbPos.y}`;
-  };
+    scrollDebounceTimerRef.current = setTimeout(() => {
+      if (!isProgrammaticScrollRef.current && container) {
+        const finalTop = (clampedVal - effectiveMin) * ITEM_HEIGHT;
+        if (Math.abs(container.scrollTop - finalTop) > 1) {
+          container.scrollTo({ top: finalTop, behavior: "smooth" });
+        }
+      }
+    }, 120);
+  }, [effectiveMin, effectiveMax, selectedVal, triggerHaptic]);
 
-  // Stepper adjustments (+ / -)
-  const adjustValue = (delta: number) => {
-    if (disabled) return;
-    const next = Math.max(min, Math.min(max, value + delta));
-    if (next !== value) {
-      onChange(next);
+  // Handle direct item click
+  const handleItemClick = useCallback(
+    (itemVal: number) => {
+      if (disabled) return;
+      setSelectedVal(itemVal);
+      onChangeRef.current?.(itemVal);
+      scrollToValue(itemVal, true);
       triggerHaptic();
+    },
+    [disabled, scrollToValue, triggerHaptic],
+  );
+
+  // Keyboard accessibility
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (disabled) return;
+    let nextVal = selectedVal;
+
+    switch (e.key) {
+      case "ArrowUp":
+      case "ArrowLeft":
+        nextVal = Math.max(effectiveMin, selectedVal - 1);
+        e.preventDefault();
+        break;
+      case "ArrowDown":
+      case "ArrowRight":
+        nextVal = Math.min(effectiveMax, selectedVal + 1);
+        e.preventDefault();
+        break;
+      case "PageUp":
+        nextVal = Math.max(effectiveMin, selectedVal - 5);
+        e.preventDefault();
+        break;
+      case "PageDown":
+        nextVal = Math.min(effectiveMax, selectedVal + 5);
+        e.preventDefault();
+        break;
+      case "Home":
+        nextVal = effectiveMin;
+        e.preventDefault();
+        break;
+      case "End":
+        nextVal = effectiveMax;
+        e.preventDefault();
+        break;
+      case "Enter":
+      case " ":
+        if (onConfirm) {
+          onConfirm(selectedVal);
+          e.preventDefault();
+        }
+        return;
+      default:
+        return;
+    }
+
+    if (nextVal !== selectedVal) {
+      handleItemClick(nextVal);
     }
   };
 
-  // Numeric labels at multiples of 5 (omit 50 to prevent 0 and 50 overlap at 12 o'clock)
-  const numberSteps = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45];
+  // Confirmation & Cancel handlers
+  const handleConfirm = () => {
+    onConfirm?.(selectedVal);
+    onOpenChange?.(false);
+  };
 
-  return (
+  const handleCancel = () => {
+    onCancel?.();
+    onOpenChange?.(false);
+  };
+
+  // Render the core vertical wheel component
+  const renderWheelCore = () => (
     <div
-      className="flex flex-col items-center select-none"
-      style={{ touchAction: "none" }}
+      className={cn(
+        "relative w-full max-w-[280px] mx-auto bg-card rounded-2xl border border-border/70 p-2 shadow-xs select-none flex flex-col items-center",
+        className,
+      )}
     >
-      {/* Wheel with Outside Stepper Buttons (- and +) */}
-      <div className="flex items-center justify-center gap-2 sm:gap-3 w-full">
-        {/* External Minus Button */}
-        <button
-          type="button"
-          onClick={() => adjustValue(-1)}
-          disabled={value <= min || disabled}
-          className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full flex items-center justify-center bg-muted/70 text-foreground hover:bg-muted hover:text-primary active:scale-90 disabled:opacity-25 disabled:pointer-events-none transition-all border border-border/80 shadow-xs"
-          aria-label="Decrease 1 unit"
-          title="Decrease 1 unit"
-        >
-          <Minus className="h-4 w-4" />
-        </button>
+      {/* Top subtle nudge control */}
+      <button
+        type="button"
+        onClick={() => handleItemClick(Math.max(effectiveMin, selectedVal - 1))}
+        disabled={disabled || selectedVal <= effectiveMin}
+        className="w-full py-0.5 flex items-center justify-center text-muted-foreground/60 hover:text-primary active:scale-90 disabled:opacity-20 transition-all cursor-pointer"
+        aria-label="Decrease dose by 1 unit"
+      >
+        <ChevronUp className="h-4 w-4" />
+      </button>
 
-        {/* Interactive Circular Wheel */}
+      {/* Main Wheel Viewport */}
+      <div className="relative w-full overflow-hidden" style={{ height: effectiveHeight }}>
+        {/* iOS Selection Lens: Center highlighted bar with subtle primary tint */}
         <div
-          className="relative flex items-center justify-center shrink-0"
-          style={{ width: size, height: size, touchAction: "none" }}
+          className="absolute inset-x-2 rounded-xl bg-primary/10 dark:bg-primary/20 border-y border-primary/25 pointer-events-none flex items-center justify-between px-3 transition-colors z-0"
+          style={{
+            top: spacerHeight,
+            height: ITEM_HEIGHT,
+          }}
+          aria-hidden="true"
         >
-          <svg
-            ref={svgRef}
-            width={size}
-            height={size}
-            viewBox={`0 0 ${size} ${size}`}
-            className="cursor-pointer select-none"
-            style={{ touchAction: "none" }}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-          >
-            {/* Subtle Outer Dial Background Glow */}
-            <circle
-              cx={cx}
-              cy={cy}
-              r={rTrack + 10}
-              fill="none"
-              className="stroke-primary/5 dark:stroke-primary/10"
-              strokeWidth="20"
-            />
-
-            {/* Background Track */}
-            <circle
-              cx={cx}
-              cy={cy}
-              r={rTrack}
-              fill="none"
-              className="stroke-border/70 dark:stroke-zinc-800"
-              strokeWidth="5.5"
-            />
-
-            {/* Radial Ticks */}
-            {Array.from({ length: 51 }).map((_, i) => {
-              const isMajor = i % 5 === 0;
-              const tAngle = (i / max) * 360;
-              const pOuter = getCoordinatesForAngle(tAngle, rTicks);
-              const pInner = getCoordinatesForAngle(tAngle, rTicks - (isMajor ? 5 : 3));
-              const isPassed = i <= value;
-
-              return (
-                <line
-                  key={i}
-                  x1={pOuter.x}
-                  y1={pOuter.y}
-                  x2={pInner.x}
-                  y2={pInner.y}
-                  className={cn(
-                    "transition-colors duration-150",
-                    isMajor
-                      ? isPassed
-                        ? "stroke-primary/80 stroke-[1.8px]"
-                        : "stroke-muted-foreground/50 stroke-[1.4px]"
-                      : isPassed
-                      ? "stroke-primary/40 stroke-[1px]"
-                      : "stroke-muted-foreground/25 stroke-[1px]",
-                  )}
-                />
-              );
-            })}
-
-            {/* Digits Around the Wheel */}
-            {numberSteps.map((step) => {
-              const numAngle = (step / max) * 360;
-              const pos = getCoordinatesForAngle(numAngle, rNumbers);
-              const isSelected =
-                step === 0 ? value === 0 || value === max : Math.abs(value - step) <= 1;
-              const labelText = step === 0 && value === max ? max : step;
-
-              return (
-                <text
-                  key={step}
-                  x={pos.x}
-                  y={pos.y}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  className={cn(
-                    "font-sans transition-all duration-150 select-none pointer-events-none",
-                    isSelected
-                      ? "fill-primary font-bold text-[11px] scale-110"
-                      : "fill-muted-foreground/75 font-medium text-[9.5px]",
-                  )}
-                >
-                  {labelText}
-                </text>
-              );
-            })}
-
-            {/* Active Progress Arc */}
-            {value > 0 && (
-              <path
-                d={getArcPath()}
-                fill="none"
-                className="stroke-primary drop-shadow-[0_0_8px_rgba(59,130,246,0.35)]"
-                strokeWidth="6"
-                strokeLinecap="round"
-              />
-            )}
-
-            {/* Draggable Indicator Thumb */}
-            <circle
-              cx={thumbPos.x}
-              cy={thumbPos.y}
-              r="9.5"
-              fill="white"
-              className="stroke-primary cursor-grab active:cursor-grabbing drop-shadow-md"
-              strokeWidth="3"
-            />
-            <circle
-              cx={thumbPos.x}
-              cy={thumbPos.y}
-              r="3.5"
-              className="fill-primary"
-            />
-          </svg>
-
-          {/* Center Display: Clean Readout Only */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
-            <span className="font-display text-4xl sm:text-5xl font-black text-foreground tracking-tight leading-none">
-              {value}
-            </span>
-            <span className="text-[10px] font-bold text-primary uppercase tracking-widest mt-1">
-              units
-            </span>
-          </div>
+          <span className="text-[10px] font-bold text-primary/70 uppercase tracking-wider">
+            Dose
+          </span>
+          <span className="text-xs font-black text-primary tracking-wide uppercase">
+            {selectedVal === 1 ? unitSingular : unitLabel}
+          </span>
         </div>
 
-        {/* External Plus Button */}
-        <button
-          type="button"
-          onClick={() => adjustValue(1)}
-          disabled={value >= max || disabled}
-          className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full flex items-center justify-center bg-muted/70 text-foreground hover:bg-muted hover:text-primary active:scale-90 disabled:opacity-25 disabled:pointer-events-none transition-all border border-border/80 shadow-xs"
-          aria-label="Increase 1 unit"
-          title="Increase 1 unit"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
-      </div>
+        {/* Top iOS Cylindrical Fade Mask */}
+        <div
+          className="absolute inset-x-0 top-0 pointer-events-none z-10 bg-gradient-to-b from-card via-card/75 to-transparent"
+          style={{ height: spacerHeight }}
+          aria-hidden="true"
+        />
 
-      {/* Quick-Select Buttons */}
-      <div className="w-full mt-1.5">
-        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center mb-1">
-          Quick Select
-        </div>
-        <div className="grid grid-cols-6 gap-1 w-full max-w-[260px] mx-auto">
-          {QUICK_SELECT_VALUES.map((qVal) => {
-            const isQuickActive = value === qVal;
+        {/* Bottom iOS Cylindrical Fade Mask */}
+        <div
+          className="absolute inset-x-0 bottom-0 pointer-events-none z-10 bg-gradient-to-t from-card via-card/75 to-transparent"
+          style={{ height: spacerHeight }}
+          aria-hidden="true"
+        />
+
+        {/* Scrollable Container with Native CSS Snap */}
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          onKeyDown={handleKeyDown}
+          tabIndex={disabled ? -1 : 0}
+          role="spinbutton"
+          aria-label="Insulin dose in units"
+          aria-valuenow={selectedVal}
+          aria-valuemin={effectiveMin}
+          aria-valuemax={effectiveMax}
+          aria-valuetext={`${selectedVal} ${selectedVal === 1 ? unitSingular : unitLabel}`}
+          className={cn(
+            "relative w-full h-full overflow-y-auto snap-y snap-mandatory overscroll-contain select-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40 rounded-xl",
+            disabled && "opacity-50 pointer-events-none",
+          )}
+          style={{
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+            WebkitOverflowScrolling: "touch",
+            touchAction: "pan-y",
+          }}
+        >
+          {/* Top Spacer allowing item 0 to align in exact center */}
+          <div style={{ height: spacerHeight }} aria-hidden="true" />
+
+          {/* Number Items (Integers only) */}
+          {items.map((num) => {
+            const dist = Math.abs(num - selectedVal);
+            const isSelected = num === selectedVal;
+
             return (
-              <button
-                key={qVal}
-                type="button"
-                onClick={() => {
-                  onChange(qVal);
-                  triggerHaptic();
-                }}
-                disabled={disabled}
+              <div
+                key={num}
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => handleItemClick(num)}
                 className={cn(
-                  "py-1 rounded-lg text-xs font-bold transition-all border",
-                  isQuickActive
-                    ? "bg-primary text-primary-foreground border-primary shadow-xs scale-102"
-                    : "bg-muted/40 text-foreground border-border/70 hover:bg-muted hover:border-border",
+                  "h-[44px] flex items-center justify-center snap-center cursor-pointer select-none transition-all duration-150 z-5",
+                  isSelected
+                    ? "text-3xl sm:text-4xl font-extrabold text-foreground scale-110 drop-shadow-xs"
+                    : dist === 1
+                      ? "text-xl sm:text-2xl font-bold text-muted-foreground/75 scale-95"
+                      : dist === 2
+                        ? "text-base sm:text-lg font-medium text-muted-foreground/45 scale-85"
+                        : "text-sm font-normal text-muted-foreground/20 scale-75",
                 )}
               >
-                {qVal}
-              </button>
+                <span className="tabular-nums leading-none tracking-tight">
+                  {num}
+                </span>
+              </div>
             );
           })}
+
+          {/* Bottom Spacer allowing max item to align in exact center */}
+          <div style={{ height: spacerHeight }} aria-hidden="true" />
         </div>
       </div>
+
+      {/* Bottom subtle nudge control */}
+      <button
+        type="button"
+        onClick={() => handleItemClick(Math.min(effectiveMax, selectedVal + 1))}
+        disabled={disabled || selectedVal >= effectiveMax}
+        className="w-full py-0.5 flex items-center justify-center text-muted-foreground/60 hover:text-primary active:scale-90 disabled:opacity-20 transition-all cursor-pointer"
+        aria-label="Increase dose by 1 unit"
+      >
+        <ChevronDown className="h-4 w-4" />
+      </button>
+
+      {/* Quick Select Preset Pills */}
+      {showQuickPills && (
+        <div className="w-full pt-1.5 border-t border-border/50 mt-1">
+          <div className="flex items-center justify-between px-1 mb-1">
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+              Quick Select
+            </span>
+            <span className="text-[10px] font-bold text-primary tabular-nums">
+              {selectedVal} {selectedVal === 1 ? unitSingular : unitLabel}
+            </span>
+          </div>
+          <div className="flex items-center justify-center gap-1 flex-wrap">
+            {quickPresets
+              .filter((p) => p >= effectiveMin && p <= effectiveMax)
+              .map((preset) => {
+                const isActive = selectedVal === preset;
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => handleItemClick(preset)}
+                    disabled={disabled}
+                    className={cn(
+                      "px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all border select-none active:scale-95",
+                      isActive
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs scale-105"
+                        : "bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted border-border/70",
+                    )}
+                  >
+                    {preset}u
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* Optional Inline Confirmation Button */}
+      {(showConfirmButton || onConfirm) && open === undefined && (
+        <div className="w-full pt-3">
+          <Button
+            type="button"
+            onClick={handleConfirm}
+            disabled={disabled}
+            className="w-full h-11 rounded-2xl bg-primary text-primary-foreground font-bold text-sm shadow-md hover:bg-primary/90 active:scale-98 transition-all flex items-center justify-center gap-1.5"
+          >
+            <Check className="h-4 w-4" />
+            <span>
+              {confirmButtonText ||
+                `Confirm ${selectedVal} ${selectedVal === 1 ? unitSingular : unitLabel}`}
+            </span>
+          </Button>
+        </div>
+      )}
     </div>
   );
+
+  // If used as a standalone modal dialog
+  if (open !== undefined) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="w-[92vw] max-w-[360px] p-4 sm:p-5 rounded-3xl bg-card border border-border/80 shadow-2xl overflow-hidden flex flex-col gap-3">
+          {/* Drag Handle for Bottom Sheet / Modal Affordance */}
+          <div
+            className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto -mt-1 mb-1"
+            aria-hidden="true"
+          />
+
+          <DialogHeader className="text-center space-y-1">
+            <DialogTitle className="text-base sm:text-lg font-bold font-display text-foreground text-center">
+              {title}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground text-center">
+              {description}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Vertical Number Wheel */}
+          <div className="py-1">{renderWheelCore()}</div>
+
+          {/* Primary Action Buttons */}
+          <div className="flex flex-col gap-2 pt-1">
+            <Button
+              type="button"
+              onClick={handleConfirm}
+              disabled={disabled}
+              className="w-full h-11 rounded-2xl bg-primary text-primary-foreground font-bold text-sm shadow-md hover:bg-primary/90 active:scale-98 transition-all flex items-center justify-center gap-1.5"
+            >
+              <Check className="h-4 w-4" />
+              <span>
+                {confirmButtonText ||
+                  `Confirm ${selectedVal} ${selectedVal === 1 ? unitSingular : unitLabel}`}
+              </span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleCancel}
+              disabled={disabled}
+              className="w-full h-9 rounded-xl text-xs text-muted-foreground hover:text-foreground active:scale-98 transition-all"
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Inline mode
+  return renderWheelCore();
 }

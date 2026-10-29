@@ -99,9 +99,10 @@ export function InsulinDialog({
   }, [entryDate, user, open]);
 
   const updateDose = (slot: SlotKey, value: number) => {
+    const intVal = Number.isFinite(value) ? Math.round(value) : 0;
     setDoses((prev) => ({
       ...prev,
-      [slot]: Math.max(0, Math.min(200, value)),
+      [slot]: Math.max(0, Math.min(200, intVal)),
     }));
   };
 
@@ -364,15 +365,14 @@ export function InsulinDialog({
                 )}
               </div>
 
-              {/* Circular Dose Wheel - Compact & Static */}
+              {/* Classic iOS Vertical Dose Wheel */}
               <div className="flex justify-center py-0.5">
                 <InsulinDoseWheel
                   value={doses[activeSlot] || 0}
                   onChange={(val) => updateDose(activeSlot, val)}
                   min={0}
                   max={50}
-                  size={200}
-                  sensitivity={0.65}
+                  height={200}
                   disabled={saving}
                 />
               </div>
@@ -406,9 +406,9 @@ export function InsulinDialog({
                       inputMode="numeric"
                       min="0"
                       max="200"
-                      step="0.5"
+                      step="1"
                       value={doses[slot.id] || 0}
-                      onChange={(e) => updateDose(slot.id, parseFloat(e.target.value) || 0)}
+                      onChange={(e) => updateDose(slot.id, parseInt(e.target.value, 10) || 0)}
                       className="h-8 text-xs rounded-xl"
                     />
                   </div>
