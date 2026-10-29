@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import { format } from "date-fns";
 import { Pencil, Trash2, Search, Droplet, Syringe, Utensils, MessageSquare, Clock, Scale, X } from "lucide-react";
 import { toast } from "sonner";
+import { getUserFriendlyError, getSuccessMessage, logDiagnostic } from "@/frontend/lib/user-messages";
 import { supabase } from "@/db/client";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { useHealthData } from "@/frontend/providers/data-context";
@@ -182,20 +183,21 @@ function HistoryPage() {
       data: { user: currentUser },
     } = await supabase.auth.getUser();
     if (!currentUser) {
-      toast.error("Not authenticated");
+      toast.error(getUserFriendlyError("not authenticated", "glucose"));
       return;
     }
-    if (!confirm("Delete this entry?")) return;
+    if (!confirm("Are you sure you want to delete this glucose reading?")) return;
     const { error } = await supabase
       .from("glucose_entries")
       .delete()
       .eq("id", id)
       .eq("user_id", currentUser.id);
     if (error) {
-      toast.error(error.message);
+      logDiagnostic("history:delete-glucose", error);
+      toast.error(getUserFriendlyError(error, "glucose"));
       return;
     }
-    toast.success("Deleted");
+    toast.success(getSuccessMessage("glucose_deleted"));
     load();
   };
 
@@ -204,20 +206,21 @@ function HistoryPage() {
       data: { user: currentUser },
     } = await supabase.auth.getUser();
     if (!currentUser) {
-      toast.error("Not authenticated");
+      toast.error(getUserFriendlyError("not authenticated", "insulin"));
       return;
     }
-    if (!confirm("Delete this insulin entry?")) return;
+    if (!confirm("Are you sure you want to delete this insulin entry?")) return;
     const { error } = await supabase
       .from("insulin_entries")
       .delete()
       .eq("id", id)
       .eq("user_id", currentUser.id);
     if (error) {
-      toast.error(error.message);
+      logDiagnostic("history:delete-insulin", error);
+      toast.error(getUserFriendlyError(error, "insulin"));
       return;
     }
-    toast.success("Insulin entry deleted");
+    toast.success(getSuccessMessage("insulin_deleted"));
     load();
   };
 
@@ -226,20 +229,21 @@ function HistoryPage() {
       data: { user: currentUser },
     } = await supabase.auth.getUser();
     if (!currentUser) {
-      toast.error("Not authenticated");
+      toast.error(getUserFriendlyError("not authenticated", "food"));
       return;
     }
-    if (!confirm("Delete this food entry?")) return;
+    if (!confirm("Are you sure you want to delete this food log?")) return;
     const { error } = await supabase
       .from("food_entries")
       .delete()
       .eq("id", id)
       .eq("user_id", currentUser.id);
     if (error) {
-      toast.error(error.message);
+      logDiagnostic("history:delete-food", error);
+      toast.error(getUserFriendlyError(error, "food"));
       return;
     }
-    toast.success("Food entry deleted");
+    toast.success(getSuccessMessage("food_deleted"));
     load();
   };
 

@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { getUserFriendlyError, getSuccessMessage, logDiagnostic } from "@/frontend/lib/user-messages";
 import { supabase } from "@/db/client";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { Button } from "@/frontend/components/ui/button";
@@ -75,12 +76,13 @@ export function WeightDialog({
       );
       if (error) throw error;
       const isUpdate = Boolean(entry);
-      toast.success(isUpdate ? "Weight updated" : "Weight saved");
+      toast.success(getSuccessMessage(isUpdate ? "weight_updated" : "weight_saved"));
 
       onOpenChange(false);
       onSaved?.();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
+      logDiagnostic("weight-dialog", e);
+      toast.error(getUserFriendlyError(e, "weight"));
     } finally {
       setSaving(false);
     }

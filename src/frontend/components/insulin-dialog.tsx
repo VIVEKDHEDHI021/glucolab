@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { format, subDays, addDays } from "date-fns";
 import { toast } from "sonner";
+import { getUserFriendlyError, getSuccessMessage, logDiagnostic } from "@/frontend/lib/user-messages";
 import { Syringe, Disc, Keyboard, Plus, Trash2, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase, getLocalDbService } from "@/db/client";
 import { useAuth } from "@/frontend/lib/auth-context";
@@ -144,7 +145,7 @@ export function InsulinDialog({
         await localDb.cacheInsulin([payload]);
       } catch {}
 
-      toast.success("Insulin schedule saved");
+      toast.success(getSuccessMessage("insulin_saved"));
 
       const displayFormat = showAfternoon
         ? `${payload.morning}-${payload.lunch}-${payload.afternoon}-${payload.evening}-${payload.night}`
@@ -158,7 +159,8 @@ export function InsulinDialog({
       onOpenChange(false);
       onSaved?.();
     } catch (err: any) {
-      toast.error(err instanceof Error ? err.message : "Failed to save insulin entries");
+      logDiagnostic("insulin-dialog", err);
+      toast.error(getUserFriendlyError(err, "insulin"));
     } finally {
       setSaving(false);
     }

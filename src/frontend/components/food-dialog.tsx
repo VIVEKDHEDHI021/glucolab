@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { getUserFriendlyError, getSuccessMessage, logDiagnostic } from "@/frontend/lib/user-messages";
 import {
   Utensils,
   Clock,
@@ -119,7 +120,7 @@ export function FoodDialog({ open, onOpenChange, entry, onSaved }: Props) {
     if (!user) return;
 
     if (selectedCategories.length === 0 && !notes.trim()) {
-      toast.error("Please select at least one food category or add a note.");
+      toast.error("Please select a food category or add a short note.");
       return;
     }
 
@@ -158,11 +159,12 @@ export function FoodDialog({ open, onOpenChange, entry, onSaved }: Props) {
       }
 
       window.dispatchEvent(new Event("health-data-updated"));
-      toast.success(entry ? "Food log updated" : "Food logged successfully");
+      toast.success(getSuccessMessage(entry ? "food_updated" : "food_saved"));
       onOpenChange(false);
       onSaved?.();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to save food log");
+      logDiagnostic("food-dialog:save", err);
+      toast.error(getUserFriendlyError(err, "food"));
     } finally {
       setSaving(false);
     }
@@ -187,11 +189,12 @@ export function FoodDialog({ open, onOpenChange, entry, onSaved }: Props) {
       }
 
       window.dispatchEvent(new Event("health-data-updated"));
-      toast.success("Food log deleted");
+      toast.success(getSuccessMessage("food_deleted"));
       onOpenChange(false);
       onSaved?.();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete food log");
+      logDiagnostic("food-dialog:delete", err);
+      toast.error(getUserFriendlyError(err, "food"));
     } finally {
       setSaving(false);
     }

@@ -19,6 +19,7 @@ import {
   type GlucoseEntry,
 } from "@/frontend/lib/types";
 import { FoodContextSelector } from "@/frontend/components/food-context-selector";
+import { getUserFriendlyError, getSuccessMessage, logDiagnostic } from "@/frontend/lib/user-messages";
 import { getLocalDbService } from "@/db/client";
 import { Capacitor } from "@capacitor/core";
 import { Button } from "@/frontend/components/ui/button";
@@ -252,12 +253,13 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
           duration: 15000,
         });
       } else {
-        toast.success(isUpdate ? "Reading updated" : "Reading saved");
+        toast.success(getSuccessMessage(isUpdate ? "glucose_updated" : "glucose_saved"));
       }
       onOpenChange(false);
       onSaved?.();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to save");
+      logDiagnostic("glucose-dialog", e);
+      toast.error(getUserFriendlyError(e, "glucose"));
     } finally {
       setSaving(false);
     }
