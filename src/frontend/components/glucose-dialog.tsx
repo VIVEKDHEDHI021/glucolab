@@ -138,7 +138,14 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
         foodString = foodString ? `${categoriesJoined} · ${foodString}` : categoriesJoined;
       }
 
+      const readingId =
+        entry?.id ||
+        (typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : "glucose_" + Date.now());
+
       const payload = {
+        ...(entry ? {} : { id: readingId }),
         user_id: user.id,
         glucose: data.glucose,
         reading_type: data.reading_type,
@@ -154,12 +161,12 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
             .update(payload)
             .eq("id", entry.id)
             .eq("user_id", user.id)
-            .select()
-        : await supabase.from("glucose_entries").insert(payload).select();
+
+        : await supabase.from("glucose_entries").insert(payload);
       if (res.error) throw res.error;
 
       // Link food context record into food_entries if food categories were logged
-      const readingId = entry ? entry.id : res.data?.[0]?.id;
+
       const hasFoodItems = foodOptions.some((id) => id !== "no_unusual_food");
       if (hasFoodItems && selectedCategoryLabels.length > 0) {
         const isUncertain = foodOptions.includes("not_sure");

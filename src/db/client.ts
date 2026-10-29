@@ -27,20 +27,20 @@ function createSupabaseClient() {
     ? {
         getItem: (key: string) =>
           import("@capacitor/preferences").then(({ Preferences }) =>
-            Preferences.get({ key }).then(({ value }) => value)
+            Preferences.get({ key }).then(({ value }) => value),
           ),
         setItem: (key: string, value: string) =>
           import("@capacitor/preferences").then(({ Preferences }) =>
-            Preferences.set({ key, value }).then(() => {})
+            Preferences.set({ key, value }).then(() => {}),
           ),
         removeItem: (key: string) =>
           import("@capacitor/preferences").then(({ Preferences }) =>
-            Preferences.remove({ key }).then(() => {})
+            Preferences.remove({ key }).then(() => {}),
           ),
       }
     : typeof window !== "undefined"
-    ? localStorage
-    : undefined;
+      ? localStorage
+      : undefined;
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
@@ -119,7 +119,7 @@ class MobileQueryBuilder {
       if (!res.error && res.data) {
         const localDb = await getLocalDbService();
         const dataArray = Array.isArray(res.data) ? res.data : [res.data];
-        
+
         if (this.tableName === "glucose_entries") {
           await localDb.cacheGlucose(dataArray);
         } else if (this.tableName === "insulin_entries") {
@@ -127,12 +127,16 @@ class MobileQueryBuilder {
         } else if (this.tableName === "weight_entries") {
           await localDb.cacheWeight(dataArray);
         } else if (this.tableName === "profiles") {
-          const { data: { user } } = await _supabase!.auth.getUser();
+          const {
+            data: { user },
+          } = await _supabase!.auth.getUser();
           if (user) {
             await localDb.cacheProfile(user.id, res.data);
           }
         } else if (this.tableName === "smart_scan_readings") {
           await localDb.cacheScanReadings(dataArray);
+        } else if (this.tableName === "food_entries") {
+          await localDb.cacheFood(dataArray);
         }
       }
       return onfulfilled ? onfulfilled(res) : res;
@@ -145,12 +149,14 @@ class MobileQueryBuilder {
   }
 
   private async executeLocalQuery() {
-    const { data: { user } } = await _supabase!.auth.getUser();
+    const {
+      data: { user },
+    } = await _supabase!.auth.getUser();
     if (!user) return [];
 
     const localDb = await getLocalDbService();
     let data: any[] = [];
-    
+
     if (this.tableName === "glucose_entries") {
       data = await localDb.getGlucose(user.id);
     } else if (this.tableName === "insulin_entries") {
@@ -162,6 +168,8 @@ class MobileQueryBuilder {
       data = p ? [p] : [];
     } else if (this.tableName === "smart_scan_readings") {
       data = await localDb.getScanReadings(user.id);
+    } else if (this.tableName === "food_entries") {
+      data = await localDb.getFood(user.id);
     }
 
     // Apply basic filter matching
@@ -202,6 +210,7 @@ class MobileMutationBuilder {
   private payload?: any;
   private realBuilder: any;
   private filters: Array<{ column: string; value: any }> = [];
+  private selectColumns?: string;
 
   constructor(tableName: string, method: "update" | "delete", realBuilder: any, payload?: any) {
     this.tableName = tableName;
@@ -215,55 +224,72 @@ class MobileMutationBuilder {
     return this;
   }
 
+  select(columns?: string) {
+    this.selectColumns = columns || "*";
+    return this;
+  }
+
   async then(onfulfilled?: (value: any) => any, onrejected?: (reason: any) => any) {
     try {
       const localDb = await getLocalDbService();
 
       if (this.method === "update") {
-        if (this.tableName === "profiles" && this.filters.some(f => f.column === "user_id")) {
-          const userIdFilter = this.filters.find(f => f.column === "user_id");
+        if (this.tableName === "profiles" && this.filters.some((f) => f.column === "user_id")) {
+          const userIdFilter = this.filters.find((f) => f.column === "user_id");
           await localDb.runQuery(
             `UPDATE profiles SET name = ?, phone = ?, sync_status = 'pending_sync' WHERE user_id = ?`,
-            [this.payload.name, this.payload.phone, userIdFilter!.value]
+            [this.payload.name, this.payload.phone, userIdFilter!.value],
           );
         } else {
-          const cols = Object.keys(this.payload).map(k => `${k} = ?`).join(", ");
+          const cols = Object.keys(this.payload)
+            .map((k) => `${k} = ?`)
+            .join(", ");
           const vals = Object.values(this.payload);
-          const whereClause = this.filters.map(f => `${f.column} = ?`).join(" AND ");
-          const filterVals = this.filters.map(f => f.value);
+          const whereClause = this.filters.map((f) => `${f.column} = ?`).join(" AND ");
+          const filterVals = this.filters.map((f) => f.value);
           await localDb.runQuery(
             `UPDATE ${this.tableName} SET ${cols}, sync_status = 'pending_sync' WHERE ${whereClause}`,
-            [...vals, ...filterVals]
+            [...vals, ...filterVals],
           );
         }
       } else if (this.method === "delete") {
-        const whereClause = this.filters.map(f => `${f.column} = ?`).join(" AND ");
-        const filterVals = this.filters.map(f => f.value);
+        const whereClause = this.filters.map((f) => `${f.column} = ?`).join(" AND ");
+        const filterVals = this.filters.map((f) => f.value);
         await localDb.runQuery(
           `DELETE FROM ${this.tableName} WHERE ${whereClause}`,
-          filterVals
+          filterVals,
         );
       }
 
       // Try online query
-      let onlineQuery = this.method === "update"
-        ? this.realBuilder.update(this.payload)
-        : this.realBuilder.delete();
+      let onlineQuery =
+        this.method === "update"
+          ? this.realBuilder.update(this.payload)
+          : this.realBuilder.delete();
 
       for (const filter of this.filters) {
         onlineQuery = onlineQuery.eq(filter.column, filter.value);
       }
 
+      if (this.selectColumns) {
+        onlineQuery = onlineQuery.select(this.selectColumns);
+      }
+
       const res = await onlineQuery;
       if (!res.error) {
         if (this.method === "update") {
-          if (this.tableName === "profiles" && this.filters.some(f => f.column === "user_id")) {
-            const userIdFilter = this.filters.find(f => f.column === "user_id");
-            await localDb.runQuery(`UPDATE profiles SET sync_status = 'synced' WHERE user_id = ?`, [userIdFilter!.value]);
+          if (this.tableName === "profiles" && this.filters.some((f) => f.column === "user_id")) {
+            const userIdFilter = this.filters.find((f) => f.column === "user_id");
+            await localDb.runQuery(`UPDATE profiles SET sync_status = 'synced' WHERE user_id = ?`, [
+              userIdFilter!.value,
+            ]);
           } else {
-            const whereClause = this.filters.map(f => `${f.column} = ?`).join(" AND ");
-            const filterVals = this.filters.map(f => f.value);
-            await localDb.runQuery(`UPDATE ${this.tableName} SET sync_status = 'synced' WHERE ${whereClause}`, filterVals);
+            const whereClause = this.filters.map((f) => `${f.column} = ?`).join(" AND ");
+            const filterVals = this.filters.map((f) => f.value);
+            await localDb.runQuery(
+              `UPDATE ${this.tableName} SET sync_status = 'synced' WHERE ${whereClause}`,
+              filterVals,
+            );
           }
         }
       }
@@ -276,17 +302,140 @@ class MobileMutationBuilder {
   }
 }
 
+class MobileInsertBuilder {
+  private tableName: string;
+  private realBuilder: any;
+  private payload: any;
+  private isUpsert: boolean;
+  private options?: any;
+  private selectColumns?: string;
+
+  constructor(tableName: string, realBuilder: any, payload: any, isUpsert = false, options?: any) {
+    this.tableName = tableName;
+    this.realBuilder = realBuilder;
+    this.payload = payload;
+    this.isUpsert = isUpsert;
+    this.options = options;
+  }
+
+  select(columns?: string) {
+    this.selectColumns = columns || "*";
+    return this;
+  }
+
+  async then(onfulfilled?: (value: any) => any, onrejected?: (reason: any) => any) {
+    try {
+      const payloadArray = Array.isArray(this.payload) ? this.payload : [this.payload];
+      const localDb = await getLocalDbService();
+      let existingId = payloadArray[0]?.id;
+
+      if (this.isUpsert) {
+        const conflictCols = this.options?.onConflict
+          ? this.options.onConflict.split(",").map((c: string) => c.trim())
+          : [];
+
+        if (!existingId && conflictCols.length > 0) {
+          const whereClause = conflictCols.map((c: string) => `${c} = ?`).join(" AND ");
+          const whereVals = conflictCols.map((c: string) => payloadArray[0][c]);
+          try {
+            const existingRows = await localDb.selectQuery(
+              `SELECT id FROM ${this.tableName} WHERE ${whereClause}`,
+              whereVals,
+            );
+            if (existingRows && existingRows.length > 0) {
+              existingId = existingRows[0].id;
+            }
+          } catch (err) {
+            console.warn("[OFFLINE] Failed to check for existing record in upsert:", err);
+          }
+        }
+      }
+
+      const record = {
+        id:
+          existingId ||
+          (typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : "gen_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7)),
+        ...payloadArray[0],
+      };
+
+      // Cache locally first
+      if (this.tableName === "glucose_entries") {
+        await localDb.cacheGlucose([{ ...record, sync_status: "pending_sync" }]);
+      } else if (this.tableName === "insulin_entries") {
+        await localDb.cacheInsulin([{ ...record, sync_status: "pending_sync" }]);
+      } else if (this.tableName === "weight_entries") {
+        await localDb.cacheWeight([{ ...record, sync_status: "pending_sync" }]);
+      } else if (this.tableName === "profiles") {
+        await localDb.cacheProfile(record.user_id, { ...record, sync_status: "pending_sync" });
+      } else if (this.tableName === "smart_scan_readings") {
+        await localDb.cacheScanReadings([{ ...record, sync_status: "pending_sync" }]);
+      } else if (this.tableName === "food_entries") {
+        await localDb.cacheFood([{ ...record, sync_status: "pending_sync" }]);
+      }
+
+      try {
+        let query = this.isUpsert
+          ? this.realBuilder.upsert(record, this.options)
+          : this.realBuilder.insert(record);
+
+        if (this.selectColumns) {
+          query = query.select(this.selectColumns);
+        }
+
+        const res = await query;
+        if (!res.error) {
+          if (this.tableName === "profiles") {
+            await localDb.runQuery(`UPDATE profiles SET sync_status = 'synced' WHERE user_id = ?`, [
+              record.user_id,
+            ]);
+          } else {
+            await localDb.runQuery(
+              `UPDATE ${this.tableName} SET sync_status = 'synced' WHERE id = ?`,
+              [record.id],
+            );
+          }
+        }
+        if (!res.data && this.selectColumns) {
+          res.data = [record];
+        }
+        return onfulfilled ? onfulfilled(res) : res;
+      } catch (err) {
+        console.warn(
+          `[OFFLINE] ${this.isUpsert ? "Upsert" : "Insert"} to ${this.tableName} failed, cached locally:`,
+          err,
+        );
+        const fallbackRes = { data: this.selectColumns ? [record] : record, error: null };
+        return onfulfilled ? onfulfilled(fallbackRes) : fallbackRes;
+      }
+    } catch (err) {
+      if (onrejected) return onrejected(err);
+      throw err;
+    }
+  }
+}
+
 // Import the supabase client like this:
 // import { supabase } from "@/db/client";
 export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>, {
   get(target, prop, receiver) {
     if (!_supabase) _supabase = createSupabaseClient();
-    
+
     // Intercept 'from' on mobile platforms to inject offline caching proxy
     if (prop === "from" && typeof window !== "undefined" && Capacitor.isNativePlatform()) {
       return (tableName: any) => {
         const realBuilder = (_supabase! as any).from(tableName);
-        if (!["glucose_entries", "insulin_entries", "weight_entries", "profiles", "smart_scan_readings"].includes(tableName)) {
+        if (
+          ![
+            "glucose_entries",
+            "insulin_entries",
+            "weight_entries",
+            "profiles",
+            "smart_scan_readings",
+            "food_entries",
+          ].includes(tableName)
+        ) {
           return realBuilder;
         }
 
@@ -294,104 +443,18 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
           select: (columns?: string) => {
             return new MobileQueryBuilder(tableName, realBuilder).select(columns);
           },
-          insert: async (payload: any) => {
-            const payloadArray = Array.isArray(payload) ? payload : [payload];
-            const record = {
-              id: payloadArray[0].id || crypto.randomUUID(),
-              ...payloadArray[0],
-            };
-
-            const localDb = await getLocalDbService();
-            // Cache locally first
-            if (tableName === "glucose_entries") {
-              await localDb.cacheGlucose([{ ...record, sync_status: "pending_sync" }]);
-            } else if (tableName === "insulin_entries") {
-              await localDb.cacheInsulin([{ ...record, sync_status: "pending_sync" }]);
-            } else if (tableName === "weight_entries") {
-              await localDb.cacheWeight([{ ...record, sync_status: "pending_sync" }]);
-            } else if (tableName === "profiles") {
-              await localDb.cacheProfile(record.user_id, { ...record, sync_status: "pending_sync" });
-            } else if (tableName === "smart_scan_readings") {
-              await localDb.cacheScanReadings([{ ...record, sync_status: "pending_sync" }]);
-            }
-
-            try {
-              const res = await realBuilder.insert(record);
-              if (!res.error) {
-                if (tableName === "profiles") {
-                  await localDb.runQuery(`UPDATE profiles SET sync_status = 'synced' WHERE user_id = ?`, [record.user_id]);
-                } else {
-                  await localDb.runQuery(`UPDATE ${tableName} SET sync_status = 'synced' WHERE id = ?`, [record.id]);
-                }
-              }
-              return res;
-            } catch (err) {
-              console.warn(`[OFFLINE] Insert to ${tableName} failed, cached locally:`, err);
-              return { data: record, error: null };
-            }
+          insert: (payload: any) => {
+            return new MobileInsertBuilder(tableName, realBuilder, payload, false);
           },
-          upsert: async (payload: any, options?: any) => {
-            const payloadArray = Array.isArray(payload) ? payload : [payload];
-            const localDb = await getLocalDbService();
-            let existingId = payloadArray[0].id;
-
-            const conflictCols = options?.onConflict
-              ? options.onConflict.split(",").map((c: string) => c.trim())
-              : [];
-
-            if (!existingId && conflictCols.length > 0) {
-              const whereClause = conflictCols.map((c: string) => `${c} = ?`).join(" AND ");
-              const whereVals = conflictCols.map((c: string) => payloadArray[0][c]);
-              try {
-                const existingRows = await localDb.selectQuery(
-                  `SELECT id FROM ${tableName} WHERE ${whereClause}`,
-                  whereVals
-                );
-                if (existingRows && existingRows.length > 0) {
-                  existingId = existingRows[0].id;
-                }
-              } catch (err) {
-                console.warn("[OFFLINE] Failed to check for existing record in upsert:", err);
-              }
-            }
-
-            const record = {
-              id: existingId || crypto.randomUUID(),
-              ...payloadArray[0],
-            };
-            if (tableName === "glucose_entries") {
-              await localDb.cacheGlucose([{ ...record, sync_status: "pending_sync" }]);
-            } else if (tableName === "insulin_entries") {
-              await localDb.cacheInsulin([{ ...record, sync_status: "pending_sync" }]);
-            } else if (tableName === "weight_entries") {
-              await localDb.cacheWeight([{ ...record, sync_status: "pending_sync" }]);
-            } else if (tableName === "profiles") {
-              await localDb.cacheProfile(record.user_id, { ...record, sync_status: "pending_sync" });
-            } else if (tableName === "smart_scan_readings") {
-              await localDb.cacheScanReadings([{ ...record, sync_status: "pending_sync" }]);
-            }
-
-            try {
-              const res = await realBuilder.upsert(record, options);
-              if (!res.error) {
-                if (tableName === "profiles") {
-                  await localDb.runQuery(`UPDATE profiles SET sync_status = 'synced' WHERE user_id = ?`, [record.user_id]);
-                } else {
-                  await localDb.runQuery(`UPDATE ${tableName} SET sync_status = 'synced' WHERE id = ?`, [record.id]);
-                }
-              }
-              return res;
-            } catch (err) {
-              console.warn(`[OFFLINE] Upsert to ${tableName} failed, cached locally:`, err);
-              return { data: record, error: null };
-            }
+          upsert: (payload: any, options?: any) => {
+            return new MobileInsertBuilder(tableName, realBuilder, payload, true, options);
           },
           update: (payload: any) => {
             return new MobileMutationBuilder(tableName, "update", realBuilder, payload);
           },
           delete: () => {
             return new MobileMutationBuilder(tableName, "delete", realBuilder);
-          }
+          },
         };
       };
     }
