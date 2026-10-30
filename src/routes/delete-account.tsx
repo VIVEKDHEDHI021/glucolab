@@ -23,6 +23,7 @@ import { supabase } from "@/db/client";
 import { localDbService } from "@/services/localDbService";
 import { toast } from "sonner";
 import { Capacitor } from "@capacitor/core";
+import { getApiUrl } from "@/backend/services/authService";
 import { cn } from "@/frontend/lib/utils";
 
 export const Route = createFileRoute("/delete-account")({
@@ -133,7 +134,7 @@ function DeleteAccountPage() {
     setIsDeleting(true);
     try {
       const token = session?.access_token;
-      const res = await fetch("/api/account/delete", {
+      const res = await fetch(getApiUrl("/api/account/delete"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -181,7 +182,7 @@ function DeleteAccountPage() {
 
     setDirectLoading(true);
     try {
-      const res = await fetch("/api/account/delete", {
+      const res = await fetch(getApiUrl("/api/account/delete"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -222,7 +223,7 @@ function DeleteAccountPage() {
 
     setRequestLoading(true);
     try {
-      const res = await fetch("/api/account/delete", {
+      const res = await fetch(getApiUrl("/api/account/delete"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -110,3 +110,4 @@ DROP POLICY IF EXISTS "Users delete own food" ON public.food_entries;
 CREATE POLICY "Users delete own food" ON public.food_entries
   FOR DELETE TO authenticated
   USING (auth.uid() = user_id AND coalesce(auth.jwt() -> 'user_metadata' ->> 'email_otp_verified', 'true') != 'false');
+

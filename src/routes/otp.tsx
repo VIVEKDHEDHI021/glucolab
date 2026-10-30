@@ -18,7 +18,7 @@ function maskEmail(email: string): string {
 }
 
 function getFriendlyOtpErrorMessage(err: unknown): string {
-  if (!err) return "Unable to verify the code. Please try again.";
+  if (!err) return "That code doesn't look right. Please check and try again.";
   if (typeof err === "string") return err;
   const errorObj = err as { message?: string; code?: string; status?: number };
   const msg = (errorObj.message || "").toLowerCase();
@@ -32,30 +32,21 @@ function getFriendlyOtpErrorMessage(err: unknown): string {
     msg.includes("maximum verification attempts") ||
     code.includes("over_email_send_rate_limit")
   ) {
-    return "Too many attempts. Please request a new code or try again later.";
+    return "Too many requests. Please wait a moment before trying again.";
   }
   if (
     msg.includes("expired") ||
     code.includes("expired") ||
     msg.includes("token has expired")
   ) {
-    return "This verification code has expired. Please request a new code.";
+    return "This code has expired. Request a new verification code.";
   }
   if (
     msg.includes("already been used") ||
     msg.includes("consumed") ||
     msg.includes("already used")
   ) {
-    return "This verification code has already been used. Please request a new code.";
-  }
-  if (
-    msg.includes("invalid") ||
-    msg.includes("token is invalid") ||
-    msg.includes("otp") ||
-    code.includes("otp_disabled") ||
-    msg.includes("incorrect")
-  ) {
-    return "Invalid verification code. Please check and re-enter.";
+    return "This code has expired. Request a new verification code.";
   }
   if (
     msg.includes("fetch") ||
@@ -63,9 +54,19 @@ function getFriendlyOtpErrorMessage(err: unknown): string {
     msg.includes("connection") ||
     msg.includes("failed to fetch")
   ) {
-    return "Connection error. Please check your network and try again.";
+    return "Connection issue. Please check your internet and try again.";
   }
-  return (errorObj.message as string) || "Unable to verify the code. Please try again.";
+  if (
+    msg.includes("invalid") ||
+    msg.includes("token is invalid") ||
+    msg.includes("otp") ||
+    code.includes("otp_disabled") ||
+    msg.includes("incorrect") ||
+    msg.includes("doesn't look right")
+  ) {
+    return "That code doesn't look right. Please check and try again.";
+  }
+  return (errorObj.message as string) || "That code doesn't look right. Please check and try again.";
 }
 
 export const Route = createFileRoute("/otp")({
@@ -105,12 +106,11 @@ function OTPVerificationPage() {
           toast.error(res.error);
         } else {
           setTimer(60);
-          toast.success(res.message || "A new 6-digit verification code has been sent.");
+          toast.success(res.message || "Your verification code is on its way! Please check your inbox.");
         }
       }
-    } catch (err) {
-      console.warn("Resend OTP error:", err);
-      toast.error("Unable to resend code right now. Please try again later.");
+    } catch {
+      toast.error("We couldn't send your verification code. Please try again.");
     } finally {
       setResending(false);
     }

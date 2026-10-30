@@ -10,6 +10,11 @@
     "SUPABASE_URL": "https://yhvnfwyeippnrqtttxac.supabase.co",
     "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_dR2EoURRwH6sHIEQd8-3dQ_daz0Qn-j",
     "VITE_SUPABASE_URL": "https://yhvnfwyeippnrqtttxac.supabase.co",
-    "VITE_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_dR2EoURRwH6sHIEQd8-3dQ_daz0Qn-j"
+    "VITE_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_dR2EoURRwH6sHIEQd8-3dQ_daz0Qn-j",
+    // Email delivery configuration:
+    // To enable transactional email delivery via Resend, Brevo, SendGrid, Postmark, or SMTP,
+    // add your API key via Cloudflare Secrets: `npx wrangler secret put RESEND_API_KEY`
+    "EMAIL_FROM_NAME": "GlucoLab",
+    "EMAIL_FROM": "onboarding@resend.dev"
   }
 }

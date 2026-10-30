@@ -182,16 +182,17 @@ export function getUserFriendlyError(error: unknown, context: MessageContext = "
   if (
     lower.includes("otp expired") ||
     lower.includes("code has expired") ||
+    lower.includes("token has expired") ||
     lower.includes("verification code has expired")
   ) {
-    return "This code has expired. Request a new one to continue.";
+    return "This code has expired. Request a new verification code.";
   }
 
   if (
     lower.includes("already been used") ||
     lower.includes("already consumed")
   ) {
-    return "This code has already been used. Please request a new code to continue.";
+    return "This code has expired. Request a new verification code.";
   }
 
   if (
@@ -199,9 +200,10 @@ export function getUserFriendlyError(error: unknown, context: MessageContext = "
     lower.includes("invalid code") ||
     lower.includes("token is invalid") ||
     lower.includes("invalid token") ||
-    lower.includes("invalid otp")
+    lower.includes("invalid otp") ||
+    lower.includes("doesn't look right")
   ) {
-    return "That code doesn't look right. Please check it and try again.";
+    return "That code doesn't look right. Please check and try again.";
   }
 
   // 6. Security, Permissions & Database Leaks

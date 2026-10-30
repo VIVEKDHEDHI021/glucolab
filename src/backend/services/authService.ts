@@ -4,6 +4,17 @@ import type { Session, User } from "@supabase/supabase-js";
 
 export type OtpPurpose = "email_verification" | "login_verification" | "password_reset";
 
+export function getApiUrl(path: string): string {
+  const isMobile = typeof window !== "undefined" && Capacitor.isNativePlatform();
+  if (isMobile) {
+    const baseUrl =
+      (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
+      "https://glucolab.vioraa.workers.dev";
+    return `${baseUrl.replace(/\/$/, "")}${path.startsWith("/") ? "" : "/"}${path}`;
+  }
+  return path;
+}
+
 export const authService = {
   async signIn(email: string, password: string) {
     return supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
@@ -60,35 +71,42 @@ export const authService = {
    * Unified OTP dispatch service.
    * Sends 6-digit OTP through server-side rate-limited engine and transactional mailer.
    */
-  async sendOtp(email: string, purpose: OtpPurpose): Promise<{ success: boolean; message?: string; error?: string }> {
+  async sendOtp(
+    email: string,
+    purpose: OtpPurpose,
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
     const cleanEmail = email.trim().toLowerCase();
     try {
-      const response = await fetch("/api/auth/otp/send", {
+      const targetUrl = getApiUrl("/api/auth/otp/send");
+      const response = await fetch(targetUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cleanEmail, purpose }),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        return { success: false, error: data.error || "Unable to send verification code." };
-      }
-      return { success: true, message: data.message };
-    } catch (err: any) {
-      // Fallback for native platform or network fetch issues: invoke direct Supabase auth methods
-      if (purpose === "password_reset") {
-        const res = await supabase.auth.resetPasswordForEmail(cleanEmail);
-        return { success: !res.error, error: res.error?.message };
-      } else if (purpose === "login_verification") {
-        const res = await supabase.auth.signInWithOtp({ email: cleanEmail, options: { shouldCreateUser: false } });
-        return { success: !res.error, error: res.error?.message };
-      } else {
-        const res = await supabase.auth.resend({ type: "signup", email: cleanEmail });
-        if (res.error) {
-          const otpRes = await supabase.auth.signInWithOtp({ email: cleanEmail, options: { shouldCreateUser: false } });
-          return { success: !otpRes.error, error: otpRes.error?.message || res.error?.message };
+        if (response.status === 429) {
+          return {
+            success: false,
+            error: data.error || "Too many requests. Please wait a moment before trying again.",
+          };
         }
-        return { success: true };
+        return {
+          success: false,
+          error: data.error || "We couldn't send your verification code. Please try again.",
+        };
       }
+
+      return {
+        success: true,
+        message: data.message || "Your verification code is on its way! Please check your inbox.",
+      };
+    } catch {
+      return {
+        success: false,
+        error: "Connection issue. Please check your internet and try again.",
+      };
     }
   },
 
@@ -175,7 +193,7 @@ export const authService = {
 
     if (sbSuccess) {
       // Notify server-side verification record asynchronously
-      fetch("/api/auth/otp/verify", {
+      fetch(getApiUrl("/api/auth/otp/verify"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cleanEmail, purpose, code: cleanToken }),
@@ -193,12 +211,12 @@ export const authService = {
 
     // 2. Fallback to server-side OTP engine (HMAC-SHA256, 5-min TTL, attempt limiter)
     try {
-      const response = await fetch("/api/auth/otp/verify", {
+      const response = await fetch(getApiUrl("/api/auth/otp/verify"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cleanEmail, purpose, code: cleanToken }),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (response.ok && data.success) {
         // Mark confirmed state in client metadata if session is active
@@ -211,14 +229,18 @@ export const authService = {
         return { success: true };
       }
 
+      let error = data.error || "That code doesn't look right. Please check and try again.";
+      if (response.status === 429) {
+        error = "Too many requests. Please wait a moment before trying again.";
+      }
       return {
         success: false,
-        error: data.error || sbErrorMsg || "Invalid verification code. Please check and try again.",
+        error,
       };
-    } catch (err: any) {
+    } catch {
       return {
         success: false,
-        error: sbErrorMsg || err?.message || "Verification failed. Please try again.",
+        error: "Connection issue. Please check your internet and try again.",
       };
     }
   },
@@ -235,7 +257,7 @@ export const authService = {
   async verifyPasswordResetOtp(email: string, token: string) {
     const res = await this.verifyOtp(email, "password_reset", token);
     if (!res.success) {
-      return { data: { user: null, session: null }, error: new Error(res.error || "Invalid code") };
+      return { data: { user: null, session: null }, error: new Error(res.error || "That code doesn't look right. Please check and try again.") };
     }
     return { data: {}, error: null };
   },

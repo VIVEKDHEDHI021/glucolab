@@ -1,13 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { otpService, type OtpPurpose } from "@/backend/services/otpService.server";
-import { supabaseAdmin } from "@/db/client.server";
-import { supabase } from "@/db/client";
+import { supabaseAdmin, hasServiceRoleKey } from "@/db/client.server";
 
 const VALID_PURPOSES: OtpPurpose[] = ["email_verification", "login_verification", "password_reset"];
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
 
 export const Route = createFileRoute("/api/auth/otp/verify")({
   server: {
     handlers: {
+      OPTIONS: async () => {
+        return new Response(null, {
+          status: 204,
+          headers: corsHeaders,
+        });
+      },
+
       POST: async ({ request }) => {
         try {
           const body = await request.json().catch(() => ({}));
@@ -19,16 +31,16 @@ export const Route = createFileRoute("/api/auth/otp/verify")({
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!email || !emailRegex.test(email)) {
             return Response.json(
-              { error: "Invalid email format. Please provide a valid email address." },
-              { status: 400 },
+              { error: "Please enter a valid email address." },
+              { status: 400, headers: corsHeaders },
             );
           }
 
           // 2. Code format validation: exactly 6 digits
           if (!code || !/^[0-9]{6}$/.test(code)) {
             return Response.json(
-              { error: "Invalid verification code format. Must be a 6-digit number." },
-              { status: 400 },
+              { error: "That code doesn't look right. Please check and try again." },
+              { status: 400, headers: corsHeaders },
             );
           }
 
@@ -36,7 +48,7 @@ export const Route = createFileRoute("/api/auth/otp/verify")({
           if (!purpose || !VALID_PURPOSES.includes(purpose)) {
             return Response.json(
               { error: "Invalid verification purpose." },
-              { status: 400 },
+              { status: 400, headers: corsHeaders },
             );
           }
 
@@ -49,12 +61,21 @@ export const Route = createFileRoute("/api/auth/otp/verify")({
           const verifyResult = otpService.verifyOtp(email, purpose, code, clientIp);
 
           if (!verifyResult.success) {
+            const rawErr = (verifyResult.error || "").toLowerCase();
+            let friendlyError = "That code doesn't look right. Please check and try again.";
+
+            if (verifyResult.status === 429 || rawErr.includes("too many") || rawErr.includes("rate limit")) {
+              friendlyError = "Too many requests. Please wait a moment before trying again.";
+            } else if (rawErr.includes("expired")) {
+              friendlyError = "This code has expired. Request a new verification code.";
+            }
+
             return Response.json(
               {
-                error: verifyResult.error || "Invalid verification code. Please check and try again.",
+                error: friendlyError,
                 attemptsRemaining: verifyResult.attemptsRemaining,
               },
-              { status: verifyResult.status || 400 },
+              { status: verifyResult.status || 400, headers: corsHeaders },
             );
           }
 
@@ -83,20 +104,23 @@ export const Route = createFileRoute("/api/auth/otp/verify")({
             }
           }
 
-          return Response.json({
-            success: true,
-            verified: true,
-            purpose,
-            message:
-              purpose === "password_reset"
-                ? "Code verified successfully. You may now reset your password."
-                : "Email verified successfully. Your account is active.",
-          });
+          return Response.json(
+            {
+              success: true,
+              verified: true,
+              purpose,
+              message:
+                purpose === "password_reset"
+                  ? "Code verified successfully. You may now reset your password."
+                  : "Email verified successfully. Your account is active.",
+            },
+            { status: 200, headers: corsHeaders },
+          );
         } catch (error: any) {
           console.error("[AUTH OTP VERIFY] Unexpected error:", error);
           return Response.json(
-            { error: "An unexpected error occurred while verifying the code." },
-            { status: 500 },
+            { error: "Connection issue. Please check your internet and try again." },
+            { status: 500, headers: corsHeaders },
           );
         }
       },

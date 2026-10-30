@@ -5,9 +5,22 @@ import {
   hasServiceRoleKey,
 } from "@/db/client.server";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
 export const Route = createFileRoute("/api/account/delete")({
   server: {
     handlers: {
+      OPTIONS: async () => {
+        return new Response(null, {
+          status: 204,
+          headers: corsHeaders,
+        });
+      },
+
       POST: async ({ request }) => {
         try {
           let userId: string | null = null;
