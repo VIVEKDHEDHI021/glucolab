@@ -17,6 +17,7 @@ export const authService = {
       options: {
         data: {
           name: name || undefined,
+          email_otp_verified: false,
           email_verified: false,
         },
         emailRedirectTo:
@@ -57,7 +58,7 @@ export const authService = {
 
   /**
    * Unified OTP dispatch service.
-   * Sends 8-digit OTP through server-side rate-limited engine and transactional mailer.
+   * Sends 6-digit OTP through server-side rate-limited engine and transactional mailer.
    */
   async sendOtp(email: string, purpose: OtpPurpose): Promise<{ success: boolean; message?: string; error?: string }> {
     const cleanEmail = email.trim().toLowerCase();
@@ -93,7 +94,7 @@ export const authService = {
 
   /**
    * Unified OTP verification service.
-   * Verifies 8-digit code with authentication provider and server-side engine,
+   * Verifies 6-digit code with authentication provider and server-side engine,
    * establishing authenticated session upon successful verification.
    */
   async verifyOtp(
@@ -182,7 +183,9 @@ export const authService = {
 
       // Synchronize confirmed state in user metadata
       try {
-        await supabase.auth.updateUser({ data: { email_verified: true } });
+        await supabase.auth.updateUser({
+          data: { email_otp_verified: true, email_verified: true },
+        });
       } catch {}
 
       return { success: true, session: sbSession };
@@ -200,7 +203,9 @@ export const authService = {
       if (response.ok && data.success) {
         // Mark confirmed state in client metadata if session is active
         try {
-          await supabase.auth.updateUser({ data: { email_verified: true } });
+          await supabase.auth.updateUser({
+            data: { email_otp_verified: true, email_verified: true },
+          });
         } catch {}
 
         return { success: true };
@@ -251,7 +256,14 @@ export const authService = {
   isEmailVerified(user: User | null): boolean {
     if (!user) return false;
 
-    // Check if signup OTP verification is still actively pending in the current browser session
+    // 1. Google OAuth accounts are pre-verified by Google
+    const isGoogle =
+      user.app_metadata?.provider === "google" ||
+      (Array.isArray(user.app_metadata?.providers) &&
+        user.app_metadata.providers.includes("google"));
+    if (isGoogle) return true;
+
+    // 2. Check if signup OTP verification is still actively pending in the current browser session
     if (typeof window !== "undefined") {
       const pendingSignupEmail = sessionStorage.getItem("pending_otp_verification");
       if (
@@ -263,20 +275,26 @@ export const authService = {
       }
     }
 
-    // Google OAuth accounts are pre-verified by Google
-    const isGoogle =
-      user.app_metadata?.provider === "google" ||
-      (Array.isArray(user.app_metadata?.providers) &&
-        user.app_metadata.providers.includes("google"));
-    if (isGoogle) return true;
-
-    // If user metadata explicitly flags as unverified, reject
+    // 3. Explicit unverified state persisted in user_metadata:
+    // When a user signs up, email_otp_verified is set to false.
+    // It remains false across app restarts and logins until the 6-digit OTP is verified.
+    if (user.user_metadata?.email_otp_verified === false) {
+      return false;
+    }
     if (user.user_metadata?.email_verified === false) {
       return false;
     }
 
-    // Check if email_confirmed_at is set by Supabase Auth
-    if (user.email_confirmed_at) return true;
+    // 4. If user has explicitly verified OTP
+    if (user.user_metadata?.email_otp_verified === true) {
+      return true;
+    }
+
+    // 5. For existing verified accounts (legacy accounts created before this fix),
+    // if email_confirmed_at is set and email_otp_verified is not false, preserve access
+    if (user.email_confirmed_at && user.user_metadata?.email_otp_verified !== false) {
+      return true;
+    }
 
     return false;
   },

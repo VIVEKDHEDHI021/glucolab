@@ -105,7 +105,7 @@ function OTPVerificationPage() {
           toast.error(res.error);
         } else {
           setTimer(60);
-          toast.success(res.message || "A new 8-digit verification code has been sent.");
+          toast.success(res.message || "A new 6-digit verification code has been sent.");
         }
       }
     } catch (err) {
@@ -119,8 +119,8 @@ function OTPVerificationPage() {
   const handleVerify = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const cleanCode = code.trim();
-    if (cleanCode.length !== 8 || !/^[0-9]{8}$/.test(cleanCode) || verifying) {
-      toast.error("Please enter the complete 8-digit verification code.");
+    if (cleanCode.length !== 6 || !/^[0-9]{6}$/.test(cleanCode) || verifying) {
+      toast.error("Please enter the complete 6-digit verification code.");
       return;
     }
 
@@ -177,7 +177,7 @@ function OTPVerificationPage() {
     }
   };
 
-  const isComplete = code.length === 8 && /^[0-9]{8}$/.test(code);
+  const isComplete = code.length === 6 && /^[0-9]{6}$/.test(code);
 
   const getBackLink = () => {
     if (purpose === "email_verification") return "/signup";
@@ -193,12 +193,12 @@ function OTPVerificationPage() {
 
   const getPageSubtitle = () => {
     if (purpose === "email_verification") {
-      return "Enter the 8-digit verification code sent to your email to activate your account.";
+      return "Enter the 6-digit verification code sent to your email to activate your account.";
     }
     if (purpose === "login_verification") {
-      return "Enter the 8-digit code sent to your email to verify your identity and access your account.";
+      return "Enter the 6-digit code sent to your email to verify your identity and access your account.";
     }
-    return "Enter the 8-digit code sent to your email to reset your password.";
+    return "Enter the 6-digit code sent to your email to reset your password.";
   };
 
   return (
@@ -252,16 +252,16 @@ function OTPVerificationPage() {
                 htmlFor="otp-code-input"
                 className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider text-center"
               >
-                Enter 8-digit verification code
+                Enter 6-digit verification code
               </label>
 
               <div className="flex justify-center items-center py-2 px-1">
                 <InputOTP
                   id="otp-code-input"
-                  maxLength={8}
+                  maxLength={6}
                   value={code}
                   onChange={(val) => {
-                    const numericVal = val.replace(/[^0-9]/g, "").slice(0, 8);
+                    const numericVal = val.replace(/[^0-9]/g, "").slice(0, 6);
                     setCode(numericVal);
                     if (errorMsg) setErrorMsg(null);
                   }}
@@ -272,14 +272,12 @@ function OTPVerificationPage() {
                     <InputOTPSlot index={0} />
                     <InputOTPSlot index={1} />
                     <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
                   </InputOTPGroup>
                   <div className="text-muted-foreground font-bold px-1 sm:px-2 select-none">-</div>
                   <InputOTPGroup className="gap-1 sm:gap-2">
+                    <InputOTPSlot index={3} />
                     <InputOTPSlot index={4} />
                     <InputOTPSlot index={5} />
-                    <InputOTPSlot index={6} />
-                    <InputOTPSlot index={7} />
                   </InputOTPGroup>
                 </InputOTP>
               </div>

@@ -28,11 +28,6 @@ async function test(name, fn) {
 function isEmailVerified(user, pendingSignupEmail = null) {
   if (!user) return false;
 
-  // If a signup OTP is actively pending for this user, they are unverified
-  if (pendingSignupEmail && user.email && pendingSignupEmail.toLowerCase() === user.email.toLowerCase()) {
-    return false;
-  }
-
   // Google OAuth accounts are pre-verified by Google
   const isGoogle =
     user.app_metadata?.provider === "google" ||
@@ -40,13 +35,30 @@ function isEmailVerified(user, pendingSignupEmail = null) {
       user.app_metadata.providers.includes("google"));
   if (isGoogle) return true;
 
-  // If user metadata explicitly flags as unverified from signup
+  // If a signup OTP is actively pending for this user, they are unverified
+  if (pendingSignupEmail && user.email && pendingSignupEmail.toLowerCase() === user.email.toLowerCase()) {
+    return false;
+  }
+
+  // Explicit unverified state persisted in user_metadata
+  if (user.user_metadata?.email_otp_verified === false) {
+    return false;
+  }
+
   if (user.user_metadata?.email_verified === false) {
     return false;
   }
 
-  // Check if email_confirmed_at is set by Supabase Auth
-  if (user.email_confirmed_at) return true;
+  // If user has explicitly verified OTP
+  if (user.user_metadata?.email_otp_verified === true) {
+    return true;
+  }
+
+  // For existing verified accounts (legacy accounts created before this fix),
+  // if email_confirmed_at is set and email_otp_verified is not false, preserve access
+  if (user.email_confirmed_at && user.user_metadata?.email_otp_verified !== false) {
+    return true;
+  }
 
   return false;
 }
@@ -64,7 +76,7 @@ async function runAllTests() {
   await test("1. New signup triggers OTP generation and email dispatch for email_verification", async () => {
     const gen = otpService.generateOtp(testEmail, "email_verification", "127.0.0.1");
     assert.strictEqual(gen.success, true, "OTP generation must succeed");
-    assert(gen.otp && /^[0-9]{8}$/.test(gen.otp), "OTP must be 8 digits");
+    assert(gen.otp && /^[0-9]{6}$/.test(gen.otp), "OTP must be 6 digits");
     generatedOtp = gen.otp;
   });
 

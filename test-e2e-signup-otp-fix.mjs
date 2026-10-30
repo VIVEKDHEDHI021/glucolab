@@ -36,7 +36,7 @@ async function runAllTests() {
     // Generate OTP for registration flow
     const gen = otpService.generateOtp(testEmail, "email_verification", "127.0.0.1");
     assert.strictEqual(gen.success, true, "OTP generation must succeed");
-    assert(gen.otp && /^[0-9]{8}$/.test(gen.otp), "OTP must be an 8-digit number");
+    assert(gen.otp && /^[0-9]{6}$/.test(gen.otp), "OTP must be a 6-digit number");
   });
 
   // -------------------------------------------------------------------------

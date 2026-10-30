@@ -30,10 +30,11 @@ function AuthenticatedLayout() {
         navigate({ to: "/login" });
       } else if (!authService.isEmailVerified(user) || isPendingOtp) {
         // User is unverified or signup OTP verification is pending: strictly redirect to OTP challenge
+        const targetEmail = user?.email || pendingEmail;
         navigate({
           to: "/otp",
           search: {
-            email: pendingEmail,
+            email: targetEmail,
             purpose: "email_verification",
           },
         });

@@ -388,7 +388,7 @@ export function getValidationMessage(field: string, error?: string): string {
     case "name":
       return "Please enter your full name.";
     case "otp_code":
-      return "Please enter the complete 8-digit verification code.";
+      return "Please enter the complete 6-digit verification code.";
     case "date_time":
       return "Please select a valid date and time.";
     case "food_selection":

@@ -24,10 +24,10 @@ export const Route = createFileRoute("/api/auth/otp/verify")({
             );
           }
 
-          // 2. Code format validation (supports 8 digits and backward-compatible 6 digits)
-          if (!code || !/^[0-9]{6,8}$/.test(code)) {
+          // 2. Code format validation: exactly 6 digits
+          if (!code || !/^[0-9]{6}$/.test(code)) {
             return Response.json(
-              { error: "Invalid verification code format. Must be an 8-digit number." },
+              { error: "Invalid verification code format. Must be a 6-digit number." },
               { status: 400 },
             );
           }
@@ -48,46 +48,35 @@ export const Route = createFileRoute("/api/auth/otp/verify")({
           // 5. Verify via server otpService
           const verifyResult = otpService.verifyOtp(email, purpose, code, clientIp);
 
-          let isVerified = verifyResult.success;
-          let errorMessage = verifyResult.error;
-
-          // 6. If local verification failed, check if user was already confirmed via client provider
-          if (!isVerified) {
-            try {
-              const { data: userData } = await supabaseAdmin.auth.admin.listUsers();
-              const matchedUser = userData?.users?.find(
-                (u) => u.email?.toLowerCase() === email,
-              );
-              if (matchedUser?.email_confirmed_at) {
-                isVerified = true;
-              }
-            } catch (checkErr) {
-              // Ignore fallback check error
-            }
-          }
-
-          if (!isVerified) {
+          if (!verifyResult.success) {
             return Response.json(
               {
-                error: errorMessage || "Invalid verification code. Please check and try again.",
+                error: verifyResult.error || "Invalid verification code. Please check and try again.",
                 attemptsRemaining: verifyResult.attemptsRemaining,
               },
               { status: verifyResult.status || 400 },
             );
           }
 
-          // 7. On successful email_verification or login_verification:
-          // Ensure user's email is marked as confirmed in Supabase
+          // 6. On successful email_verification or login_verification:
+          // Ensure user's email is marked as confirmed and email_otp_verified in Supabase
           if (purpose === "email_verification" || purpose === "login_verification") {
             try {
-              const { data: userData } = await supabaseAdmin.auth.admin.listUsers();
-              const matchedUser = userData?.users?.find(
-                (u) => u.email?.toLowerCase() === email,
-              );
-              if (matchedUser) {
-                await supabaseAdmin.auth.admin.updateUserById(matchedUser.id, {
-                  email_confirm: true,
-                });
+              if (hasServiceRoleKey()) {
+                const { data: userData } = await supabaseAdmin.auth.admin.listUsers();
+                const matchedUser = userData?.users?.find(
+                  (u) => u.email?.toLowerCase() === email,
+                );
+                if (matchedUser) {
+                  await supabaseAdmin.auth.admin.updateUserById(matchedUser.id, {
+                    email_confirm: true,
+                    user_metadata: {
+                      ...matchedUser.user_metadata,
+                      email_otp_verified: true,
+                      email_verified: true,
+                    },
+                  });
+                }
               }
             } catch (adminErr) {
               console.warn("[AUTH OTP VERIFY] admin confirmation note:", adminErr);

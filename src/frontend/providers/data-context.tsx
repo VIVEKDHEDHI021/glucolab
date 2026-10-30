@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@/frontend/lib/auth-context";
+import { authService } from "@/backend/services/authService";
 import { supabase, getLocalDbService } from "@/db/client";
 import type { GlucoseEntry, InsulinEntry, WeightEntry, FoodEntry } from "@/frontend/lib/types";
 import { Capacitor } from "@capacitor/core";
@@ -34,7 +35,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
   const [initialized, setInitialized] = useState(false);
 
   const refreshData = async (force = false) => {
-    if (!user) return;
+    if (!user || !authService.isEmailVerified(user)) return;
 
     const isMobile = Capacitor.isNativePlatform();
     // Only return cached values if we are on mobile, already loaded once, and not forcing a reload

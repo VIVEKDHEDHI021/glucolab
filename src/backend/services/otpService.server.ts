@@ -113,8 +113,8 @@ export const otpService = {
       };
     }
 
-    // 3. Cryptographically secure 8-digit OTP generation (10000000 - 99999999)
-    const otpNumber = randomInt(10000000, 100000000);
+    // 3. Cryptographically secure 6-digit OTP generation (100000 - 999999)
+    const otpNumber = randomInt(100000, 1000000);
     const otp = otpNumber.toString();
 
     // 4. Secure hashing

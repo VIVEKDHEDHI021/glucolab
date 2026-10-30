@@ -27,13 +27,14 @@ export const Route = createFileRoute("/api/account/delete")({
             } = await userClient.auth.getUser();
             if (user && !authError) {
               const isVerified =
-                user.email_confirmed_at ||
                 user.app_metadata?.provider === "google" ||
                 (Array.isArray(user.app_metadata?.providers) &&
                   user.app_metadata.providers.includes("google")) ||
-                user.user_metadata?.email_verified === true;
+                (user.user_metadata?.email_otp_verified !== false &&
+                  user.user_metadata?.email_verified !== false &&
+                  Boolean(user.email_confirmed_at));
 
-              if (!isVerified) {
+              if (!isVerified || user.user_metadata?.email_otp_verified === false) {
                 return Response.json(
                   { error: "Unauthorized: Email address must be verified to perform this action." },
                   { status: 403 },
@@ -54,13 +55,14 @@ export const Route = createFileRoute("/api/account/delete")({
               });
             if (loginData?.user && !loginError) {
               const isVerified =
-                loginData.user.email_confirmed_at ||
                 loginData.user.app_metadata?.provider === "google" ||
                 (Array.isArray(loginData.user.app_metadata?.providers) &&
                   loginData.user.app_metadata.providers.includes("google")) ||
-                loginData.user.user_metadata?.email_verified === true;
+                (loginData.user.user_metadata?.email_otp_verified !== false &&
+                  loginData.user.user_metadata?.email_verified !== false &&
+                  Boolean(loginData.user.email_confirmed_at));
 
-              if (!isVerified) {
+              if (!isVerified || loginData.user.user_metadata?.email_otp_verified === false) {
                 return Response.json(
                   { error: "Unauthorized: Email address must be verified to perform this action." },
                   { status: 403 },

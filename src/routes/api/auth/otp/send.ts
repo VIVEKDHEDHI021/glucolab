@@ -68,7 +68,7 @@ export const Route = createFileRoute("/api/auth/otp/send")({
             return Response.json({
               success: true,
               provider: "custom_smtp",
-              message: "An 8-digit verification code has been sent to your email.",
+              message: "A 6-digit verification code has been sent to your email.",
               cooldownSeconds: 60,
             });
           }

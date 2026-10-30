@@ -97,7 +97,7 @@ export const emailService = {
 
     <h2 style="font-size: 22px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">${title}</h2>
     <p style="font-size: 14px; color: #64748b; line-height: 1.5; margin: 0 0 24px 0;">
-      Please enter the following 8-digit verification code to ${actionDescription}.
+      Please enter the following 6-digit verification code to ${actionDescription}.
     </p>
 
     <div style="background: #f1f5f9; border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px; border: 1px dashed #cbd5e1;">
