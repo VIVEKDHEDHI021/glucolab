@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Activity, ShieldCheck, Heart, Sparkles, Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { authService } from "@/backend/services/authService";
 import { useAuth } from "@/frontend/lib/auth-context";
@@ -44,7 +44,13 @@ function SignupPage() {
   useEffect(() => {
     if (authLoading) return;
     if (user && authService.isEmailVerified(user) && profile !== undefined) {
-      if (profile?.onboarding_completed) {
+      const isCompleted =
+        Boolean(profile?.onboarding_completed) ||
+        Boolean(user?.user_metadata?.onboarding_completed) ||
+        (typeof window !== "undefined" &&
+          localStorage.getItem(`glucolab_onboarding_completed_${user.id}`) === "true");
+
+      if (isCompleted) {
         navigate({ to: "/dashboard", replace: true });
       } else {
         navigate({ to: "/onboarding", replace: true });
@@ -84,109 +90,92 @@ function SignupPage() {
     }
   };
 
+  // Prevent flash of unauthenticated signup panel for already logged-in users
+  if (authLoading || user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-14 w-14 rounded-2xl overflow-hidden animate-pulse border border-border/40 shadow-sm p-1 bg-card">
+          <img src="/icon/icon.png" alt="GlucoLab" className="h-full w-full object-contain" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
-        "flex min-h-screen flex-col items-center justify-between bg-gradient-to-b from-background via-background to-muted/20 px-4 py-8 sm:py-12",
+        "flex min-h-screen flex-col items-center justify-between bg-gradient-to-b from-background via-background to-muted/20 px-6 py-12",
         Capacitor.isNativePlatform() &&
-          "pt-[calc(2rem+max(env(safe-area-inset-top,0px),44px))] pb-[calc(2rem+env(safe-area-inset-bottom,0px))]"
+          "pt-[calc(3rem+max(env(safe-area-inset-top,0px),44px))] pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]"
       )}
     >
-      {/* Top Brand & Hero */}
-      <div className="w-full max-w-md mx-auto flex flex-col items-center text-center space-y-6 pt-4">
-        {/* Pulsing Medical Blue Logo */}
-        <div className="relative flex items-center justify-center">
-          <div className="absolute -inset-1.5 rounded-3xl bg-primary/20 blur-xl animate-pulse" />
-          <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl gradient-primary text-primary-foreground shadow-elevated">
-            <Activity className="h-10 w-10 text-white" strokeWidth={2.5} />
-          </div>
+      <div />
+
+      {/* Main Minimalist Center Container */}
+      <div className="w-full max-w-sm mx-auto flex flex-col items-center text-center space-y-6">
+        {/* App Logo */}
+        <div className="h-24 w-24 rounded-[26px] overflow-hidden shadow-md border border-slate-100 flex items-center justify-center bg-white p-2">
+          <img
+            src="/icon/icon.png"
+            alt="GlucoLab Logo"
+            className="h-full w-full object-contain"
+          />
         </div>
 
-        <div className="space-y-2">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Smart Diabetes Companion</span>
-          </span>
-          <h1 className="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+        {/* Clean Typography */}
+        <div className="space-y-1.5">
+          <h1 className="font-display text-3xl font-extrabold tracking-tight text-foreground">
             Welcome to GlucoLab
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground max-w-xs mx-auto leading-relaxed">
-            Your personal health companion to record glucose readings, log insulin, and track your wellness.
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Your personal companion for glucose tracking and insulin management.
           </p>
         </div>
 
-        {/* Feature Highlights Cards */}
-        <div className="w-full space-y-3 pt-2 text-left">
-          <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-card border border-border/70 shadow-sm transition-all">
-            <div className="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
-              <Heart className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-foreground">Effortless Tracking</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Quickly record blood glucose readings with meal context.
-              </p>
-            </div>
-          </div>
+        {/* Single Continue with Google Button */}
+        <div className="w-full pt-4 space-y-3">
+          <Button
+            type="button"
+            size="lg"
+            onClick={onGoogleSignIn}
+            disabled={googleLoading}
+            className="w-full h-13 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 font-semibold border-2 border-slate-200 shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-3 active:scale-[0.98] cursor-pointer"
+          >
+            {googleLoading ? (
+              <span className="flex items-center gap-2.5 text-primary">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm font-medium">Connecting to Google...</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-3">
+                <GoogleIcon className="shrink-0" />
+                <span className="text-base text-slate-800 font-semibold">Continue with Google</span>
+                <ArrowRight className="h-4 w-4 text-slate-400 ml-1" />
+              </span>
+            )}
+          </Button>
 
-          <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-card border border-border/70 shadow-sm transition-all">
-            <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center shrink-0">
-              <Activity className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-foreground">Precision Insulin Wheel</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Dial whole-number doses seamlessly with tactile wheel selector.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-card border border-border/70 shadow-sm transition-all">
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-foreground">Private & Encrypted</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Your health data is securely encrypted and belongs only to you.
-              </p>
-            </div>
-          </div>
+          <p className="text-xs text-muted-foreground/80 leading-relaxed px-2">
+            By continuing, you agree to our{" "}
+            <Link to="/privacy-policy" className="underline underline-offset-2 hover:text-foreground">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </div>
       </div>
 
-      {/* Bottom Action Area: Google Authentication & Privacy */}
-      <div className="w-full max-w-md mx-auto pt-8 pb-4 space-y-4 text-center">
-        {/* Single Prominent Google Sign-in Button */}
-        <Button
-          type="button"
-          size="lg"
-          onClick={onGoogleSignIn}
-          disabled={googleLoading || authLoading}
-          className="w-full h-13 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 font-semibold border-2 border-slate-200 shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-3 active:scale-[0.98] cursor-pointer"
-        >
-          {googleLoading ? (
-            <span className="flex items-center gap-2.5 text-primary">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="text-sm font-medium">Connecting to Google...</span>
-            </span>
-          ) : (
-            <span className="flex items-center gap-3">
-              <GoogleIcon className="shrink-0" />
-              <span className="text-base text-slate-800 font-semibold">Continue with Google</span>
-              <ArrowRight className="h-4 w-4 text-slate-400 ml-1" />
-            </span>
-          )}
-        </Button>
-
-        {/* Privacy & Terms Notice */}
-        <p className="text-xs text-muted-foreground px-4 leading-relaxed">
-          By continuing with Google, you agree to GlucoLab&apos;s{" "}
-          <Link to="/privacy-policy" className="underline underline-offset-2 hover:text-foreground">
+      {/* Minimal Bottom Footer */}
+      <div className="w-full max-w-sm mx-auto pt-6 text-center">
+        <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+          <Link to="/privacy-policy" className="hover:text-foreground hover:underline">
             Privacy Policy
           </Link>
-          . Your personal health records are encrypted and never shared with Google or third parties.
-        </p>
+          <span>•</span>
+          <Link to="/delete-account" className="hover:text-destructive hover:underline">
+            Delete Account &amp; Data
+          </Link>
+        </div>
       </div>
     </div>
   );

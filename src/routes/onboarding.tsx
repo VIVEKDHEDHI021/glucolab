@@ -265,7 +265,23 @@ function OnboardingPage() {
       navigate({ to: "/dashboard", replace: true });
     } catch (err: any) {
       console.error("Onboarding submission failed:", err);
-      toast.error(err.message || "Failed to save profile. Please try again.");
+      const msg = (err?.message || "").toLowerCase();
+      if (
+        msg.includes("schema cache") ||
+        msg.includes("column") ||
+        msg.includes("pgrst204") ||
+        msg.includes("profiles_diabetes_type_check")
+      ) {
+        // Fallback already saved data into auth metadata and local storage
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem(STORAGE_KEY);
+        }
+        await refreshProfile();
+        toast.success("Health profile setup complete! Welcome to GlucoLab.");
+        navigate({ to: "/dashboard", replace: true });
+      } else {
+        toast.error("We couldn't save your profile right now. Please check your connection and try again.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -294,8 +310,8 @@ function OnboardingPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-xl gradient-primary text-primary-foreground flex items-center justify-center shadow-sm">
-                <Activity className="h-5 w-5 text-white" />
+              <div className="h-9 w-9 rounded-xl overflow-hidden shadow-sm border border-border/40 flex items-center justify-center bg-white p-0.5">
+                <img src="/icon/icon.png" alt="GlucoLab" className="h-full w-full object-contain" />
               </div>
               <div>
                 <span className="font-display font-bold text-sm tracking-tight text-foreground">

@@ -72,3 +72,6 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON public.profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_onboarding ON public.profiles(user_id, onboarding_completed);
 
+
+-- 6. Immediately reload PostgREST schema cache
+NOTIFY pgrst, 'reload schema';

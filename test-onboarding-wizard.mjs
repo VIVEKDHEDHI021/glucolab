@@ -76,16 +76,19 @@ test("4. Welcome screen (src/routes/signup.tsx) removes traditional registration
   assert(!content.includes(">or<"), "OR divider should be removed from signup page");
 });
 
-test("5. Welcome screen features prominent Google-only OAuth CTA and privacy consent", () => {
+test("5. Welcome screen features prominent Google-only OAuth CTA, clean logo, and no cheesy taglines", () => {
   const signupPath = path.resolve("src/routes/signup.tsx");
   const content = fs.readFileSync(signupPath, "utf8");
   assert(content.includes("Continue with Google"), "Missing Continue with Google CTA");
   assert(content.includes("authService.signInWithGoogle"), "Google OAuth service not wired to button");
   assert(content.includes("Privacy Policy"), "Missing Privacy Policy disclaimer");
   assert(content.includes("Connecting to Google..."), "Missing Google connection loading state");
+  assert(content.includes("/icon/icon.png"), "Missing official logo icon in signup.tsx");
+  assert(!content.includes("Smart Diabetes Companion"), "Must not include cheesy 'Smart Diabetes Companion' tagline");
+  assert(content.includes("authLoading || user"), "Missing unauthenticated flash protection in signup.tsx");
 });
 
-test("5b. Login screen (src/routes/login.tsx) removes manual email/password inputs and gives only Continue with Google", () => {
+test("5b. Login screen (src/routes/login.tsx) removes manual email/password inputs, uses clean logo, and protects from flash", () => {
   const loginPath = path.resolve("src/routes/login.tsx");
   const content = fs.readFileSync(loginPath, "utf8");
   assert(!content.includes('id="email"'), "Email input should be removed from login page");
@@ -94,6 +97,17 @@ test("5b. Login screen (src/routes/login.tsx) removes manual email/password inpu
   assert(!content.includes(">or<"), "OR divider should be removed from login page");
   assert(content.includes("Continue with Google"), "Missing Continue with Google on login page");
   assert(content.includes("authService.signInWithGoogle"), "Google OAuth not wired to button");
+  assert(content.includes("/icon/icon.png"), "Missing official logo icon in login.tsx");
+  assert(!content.includes("Secure Patient Portal"), "Must not include cheesy 'Secure Patient Portal' badge");
+  assert(content.includes("authLoading || user"), "Missing unauthenticated flash protection in login.tsx");
+});
+
+test("5c. Google OAuth service initiates account selection popup window", () => {
+  const authPath = path.resolve("src/backend/services/authService.ts");
+  const content = fs.readFileSync(authPath, "utf8");
+  assert(content.includes("select_account"), "Missing prompt: 'select_account' in Google OAuth options");
+  assert(content.includes("google-oauth-popup") || content.includes("window.open"), "Missing popup window implementation for web OAuth");
+  assert(content.includes("presentationStyle"), "Missing presentationStyle in Capacitor browser call");
 });
 
 // ----------------------------------------------------

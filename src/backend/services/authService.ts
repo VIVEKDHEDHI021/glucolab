@@ -43,28 +43,44 @@ export const authService = {
       ? "com.vioraa.glucolab://auth-callback"
       : `${window.location.origin}/dashboard`;
 
-    if (isMobile) {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo,
-          skipBrowserRedirect: true,
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+        skipBrowserRedirect: true,
+        queryParams: {
+          prompt: "select_account",
+          access_type: "offline",
         },
-      });
-      if (error) throw error;
-      if (data?.url) {
+      },
+    });
+
+    if (error) throw error;
+
+    if (data?.url) {
+      if (isMobile) {
         const { Browser } = await import("@capacitor/browser");
-        await Browser.open({ url: data.url, windowName: "_self" });
+        await Browser.open({
+          url: data.url,
+          windowName: "_blank",
+          presentationStyle: "popover",
+        });
+      } else if (typeof window !== "undefined") {
+        const width = 500;
+        const height = 650;
+        const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
+        const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
+        const popup = window.open(
+          data.url,
+          "google-oauth-popup",
+          `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,location=no,status=no`
+        );
+        if (!popup || popup.closed || typeof popup.closed === "undefined") {
+          window.location.href = data.url;
+        }
       }
-      return { data, error: null };
-    } else {
-      return supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo,
-        },
-      });
     }
+    return { data, error: null };
   },
 
   /**
