@@ -7,16 +7,30 @@ export const Route = createFileRoute("/")({
 });
 
 function IndexPage() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (loading) return;
-    navigate({
-      to: user ? "/dashboard" : "/login",
-      replace: true,
-    });
-  }, [loading, user, navigate]);
+    if (!user) {
+      navigate({
+        to: "/signup",
+        replace: true,
+      });
+    } else if (profile !== undefined) {
+      if (profile?.onboarding_completed) {
+        navigate({
+          to: "/dashboard",
+          replace: true,
+        });
+      } else {
+        navigate({
+          to: "/onboarding",
+          replace: true,
+        });
+      }
+    }
+  }, [loading, user, profile, navigate]);
 
   return <div className="min-h-screen bg-background" />;
 }

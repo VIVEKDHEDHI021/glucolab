@@ -92,31 +92,46 @@ export type Database = {
       };
       profiles: {
         Row: {
+          age: number | null;
           created_at: string;
+          diabetes_type: string | null;
           email: string | null;
+          height_cm: number | null;
           id: string;
           name: string | null;
+          onboarding_completed: boolean;
           phone: string | null;
           updated_at: string;
           user_id: string;
+          weight_kg: number | null;
         };
         Insert: {
+          age?: number | null;
           created_at?: string;
+          diabetes_type?: string | null;
           email?: string | null;
+          height_cm?: number | null;
           id?: string;
           name?: string | null;
+          onboarding_completed?: boolean;
           phone?: string | null;
           updated_at?: string;
           user_id: string;
+          weight_kg?: number | null;
         };
         Update: {
+          age?: number | null;
           created_at?: string;
+          diabetes_type?: string | null;
           email?: string | null;
+          height_cm?: number | null;
           id?: string;
           name?: string | null;
+          onboarding_completed?: boolean;
           phone?: string | null;
           updated_at?: string;
           user_id?: string;
+          weight_kg?: number | null;
         };
         Relationships: [];
       };
@@ -456,3 +471,5 @@ export const Constants = {
     },
   },
 } as const;
+
+export type Profile = Database["public"]["Tables"]["profiles"]["Row"];

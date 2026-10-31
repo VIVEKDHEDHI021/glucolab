@@ -38,7 +38,7 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
 function LoginPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,10 +51,14 @@ function LoginPage() {
     const isPendingOtp =
       typeof window !== "undefined" &&
       Boolean(sessionStorage.getItem("pending_otp_verification"));
-    if (user && authService.isEmailVerified(user) && !isPendingOtp) {
-      navigate({ to: "/dashboard" });
+    if (user && authService.isEmailVerified(user) && !isPendingOtp && profile !== undefined) {
+      if (profile?.onboarding_completed) {
+        navigate({ to: "/dashboard" });
+      } else {
+        navigate({ to: "/onboarding" });
+      }
     }
-  }, [user, navigate]);
+  }, [user, profile, navigate]);
 
   useEffect(() => {
     async function loadRememberedLoginInfo() {
@@ -177,9 +181,18 @@ function LoginPage() {
       }
     }
 
-    // 5. Successful login directly establishes session and navigates to dashboard
+    // 5. Successful login establishes session and checks onboarding status
     toast.success("Welcome back!");
-    navigate({ to: "/dashboard" });
+    try {
+      const p = await healthService.getProfile();
+      if (p?.data?.onboarding_completed) {
+        navigate({ to: "/dashboard" });
+      } else {
+        navigate({ to: "/onboarding" });
+      }
+    } catch {
+      navigate({ to: "/dashboard" });
+    }
   };
 
   const onGoogleSignIn = async () => {

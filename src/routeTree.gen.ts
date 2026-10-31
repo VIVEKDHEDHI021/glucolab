@@ -14,6 +14,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as OtpRouteImport } from './routes/otp'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DeleteAccountRouteImport } from './routes/delete-account'
@@ -56,6 +57,11 @@ const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
 const OtpRoute = OtpRouteImport.update({
   id: '/otp',
   path: '/otp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/delete-account': typeof DeleteAccountRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/otp': typeof OtpRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/delete-account': typeof DeleteAccountRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/otp': typeof OtpRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/delete-account': typeof DeleteAccountRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/otp': typeof OtpRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/delete-account'
     | '/forgot-password'
     | '/login'
+    | '/onboarding'
     | '/otp'
     | '/privacy-policy'
     | '/reset-password'
@@ -254,6 +264,7 @@ export interface FileRouteTypes {
     | '/delete-account'
     | '/forgot-password'
     | '/login'
+    | '/onboarding'
     | '/otp'
     | '/privacy-policy'
     | '/reset-password'
@@ -279,6 +290,7 @@ export interface FileRouteTypes {
     | '/delete-account'
     | '/forgot-password'
     | '/login'
+    | '/onboarding'
     | '/otp'
     | '/privacy-policy'
     | '/reset-password'
@@ -305,6 +317,7 @@ export interface RootRouteChildren {
   DeleteAccountRoute: typeof DeleteAccountRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
+  OnboardingRoute: typeof OnboardingRoute
   OtpRoute: typeof OtpRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -352,6 +365,13 @@ declare module '@tanstack/react-router' {
       path: '/otp'
       fullPath: '/otp'
       preLoaderRoute: typeof OtpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -515,6 +535,7 @@ const rootRouteChildren: RootRouteChildren = {
   DeleteAccountRoute: DeleteAccountRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
+  OnboardingRoute: OnboardingRoute,
   OtpRoute: OtpRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ResetPasswordRoute: ResetPasswordRoute,

@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
 
   const isPendingOtp =
@@ -45,11 +45,24 @@ function AuthenticatedLayout() {
           },
           replace: true,
         });
+      } else if (profile !== undefined && !profile?.onboarding_completed) {
+        // Onboarding is incomplete: route strictly to onboarding wizard
+        navigate({
+          to: "/onboarding",
+          replace: true,
+        });
       }
     }
-  }, [loading, user, isPendingOtp, pendingEmail, navigate]);
+  }, [loading, user, profile, isPendingOtp, pendingEmail, navigate]);
 
-  if (loading || !user || !authService.isEmailVerified(user) || isPendingOtp) {
+  if (
+    loading ||
+    !user ||
+    !authService.isEmailVerified(user) ||
+    isPendingOtp ||
+    profile === undefined ||
+    !profile?.onboarding_completed
+  ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Activity className="h-8 w-8 animate-pulse text-primary" />

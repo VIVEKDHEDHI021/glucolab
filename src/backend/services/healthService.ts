@@ -127,19 +127,92 @@ export const healthService = {
     ]);
   },
 
-  async getProfile() {
+  async getProfile(userId?: string) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-    return supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
+    const uid = userId || user?.id;
+    if (!uid) return { data: null, error: new Error("Not authenticated") };
+    return supabase.from("profiles").select("*").eq("user_id", uid).maybeSingle();
   },
 
-  async updateProfile(data: { name?: string; phone?: string }) {
+  async updateProfile(data: {
+    name?: string | null;
+    phone?: string | null;
+    age?: number | null;
+    diabetes_type?: string | null;
+    weight_kg?: number | null;
+    height_cm?: number | null;
+    onboarding_completed?: boolean;
+  }) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
-    return supabase.from("profiles").update(data).eq("user_id", user.id);
+
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!existing) {
+      return supabase.from("profiles").insert({
+        user_id: user.id,
+        email: user.email,
+        ...data,
+      });
+    }
+
+    return supabase
+      .from("profiles")
+      .update({
+        ...data,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id);
+  },
+
+  async completeOnboarding(profileData: {
+    name: string;
+    age: number;
+    diabetes_type: string;
+    weight_kg: number;
+    height_cm: number;
+  }) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const res = await this.updateProfile({
+      name: profileData.name.trim(),
+      age: profileData.age,
+      diabetes_type: profileData.diabetes_type,
+      weight_kg: profileData.weight_kg,
+      height_cm: profileData.height_cm,
+      onboarding_completed: true,
+    });
+
+    if (res.error) {
+      throw res.error;
+    }
+
+    // Record initial weight entry if provided
+    try {
+      if (profileData.weight_kg > 0) {
+        const today = new Date().toISOString().split("T")[0];
+        await supabase.from("weight_entries").insert({
+          user_id: user.id,
+          weight_kg: profileData.weight_kg,
+          entry_date: today,
+          notes: "Initial weight recorded during onboarding",
+        });
+      }
+    } catch (e) {
+      console.warn("Could not record initial weight entry:", e);
+    }
+
+    return res;
   },
 };

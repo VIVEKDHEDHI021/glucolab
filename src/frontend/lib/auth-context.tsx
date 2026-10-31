@@ -1,12 +1,16 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import type { Profile } from "@/db/types";
 import { supabase } from "@/db/client";
 
 interface AuthContextValue {
   user: User | null;
   session: Session | null;
+  profile: Profile | null | undefined;
+  profileLoading: boolean;
   loading: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: (userId?: string) => Promise<Profile | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -14,7 +18,34 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const refreshProfile = useCallback(async (userId?: string): Promise<Profile | null> => {
+    const targetId = userId || user?.id;
+    if (!targetId) {
+      setProfile(null);
+      setProfileLoading(false);
+      return null;
+    }
+    setProfileLoading(true);
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", targetId)
+        .maybeSingle();
+      const p = (data as Profile) || null;
+      setProfile(p);
+      return p;
+    } catch (err) {
+      console.warn("[Auth] Failed to fetch profile:", err);
+      return null;
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     // CRITICAL: subscribe FIRST then read session
@@ -22,12 +53,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
+      if (s?.user?.id) {
+        refreshProfile(s.user.id);
+      } else {
+        setProfile(null);
+      }
     });
 
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
+      if (s?.user?.id) {
+        refreshProfile(s.user.id);
+      } else {
+        setProfile(null);
+      }
     });
 
     // Handle deep link OAuth callback on Native Android (Capacitor)
@@ -127,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 2. Clear state immediately so UI updates instantaneously without waiting for network
     setSession(null);
     setUser(null);
+    setProfile(null);
     setLoading(false);
 
     // 3. Fire-and-forget notification cleanup in background (never block logout)
@@ -152,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, profileLoading, loading, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
