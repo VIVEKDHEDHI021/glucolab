@@ -85,6 +85,17 @@ test("5. Welcome screen features prominent Google-only OAuth CTA and privacy con
   assert(content.includes("Connecting to Google..."), "Missing Google connection loading state");
 });
 
+test("5b. Login screen (src/routes/login.tsx) removes manual email/password inputs and gives only Continue with Google", () => {
+  const loginPath = path.resolve("src/routes/login.tsx");
+  const content = fs.readFileSync(loginPath, "utf8");
+  assert(!content.includes('id="email"'), "Email input should be removed from login page");
+  assert(!content.includes('id="password"'), "Password input should be removed from login page");
+  assert(!content.includes("Sign in</Button>"), "Sign in button should be removed from login page");
+  assert(!content.includes(">or<"), "OR divider should be removed from login page");
+  assert(content.includes("Continue with Google"), "Missing Continue with Google on login page");
+  assert(content.includes("authService.signInWithGoogle"), "Google OAuth not wired to button");
+});
+
 // ----------------------------------------------------
 // TEST GROUP 3: Multi-Step Health Profile Wizard (Phase 3)
 // ----------------------------------------------------
