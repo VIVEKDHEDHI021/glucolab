@@ -292,6 +292,23 @@ export const otpService = {
   },
 
   /**
+   * Terminates / invalidates an active OTP verification request for an email and purpose.
+   * Useful when a user cannot provide an OTP in time or voluntarily cancels the request.
+   */
+  terminateOtp(email: string, purpose: OtpPurpose): boolean {
+    cleanExpiredRecords();
+    const cleanEmail = email.trim().toLowerCase();
+    const storeKey = `${cleanEmail}:${purpose}`;
+    const record = otpStore.get(storeKey);
+    if (record) {
+      record.consumed = true;
+      otpStore.delete(storeKey);
+      return true;
+    }
+    return false;
+  },
+
+  /**
    * Reset store (useful for automated testing)
    */
   _clearForTesting() {

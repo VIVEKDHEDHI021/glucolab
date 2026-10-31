@@ -30,6 +30,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as ApiAdminResetPasswordRouteImport } from './routes/api/admin/reset-password'
 import { Route as ApiAccountDeleteRouteImport } from './routes/api/account/delete'
 import { Route as ApiAuthOtpVerifyRouteImport } from './routes/api/auth/otp/verify'
+import { Route as ApiAuthOtpTerminateRouteImport } from './routes/api/auth/otp/terminate'
 import { Route as ApiAuthOtpSendRouteImport } from './routes/api/auth/otp/send'
 
 const WelcomeRoute = WelcomeRouteImport.update({
@@ -137,6 +138,11 @@ const ApiAuthOtpVerifyRoute = ApiAuthOtpVerifyRouteImport.update({
   path: '/api/auth/otp/verify',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthOtpTerminateRoute = ApiAuthOtpTerminateRouteImport.update({
+  id: '/api/auth/otp/terminate',
+  path: '/api/auth/otp/terminate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthOtpSendRoute = ApiAuthOtpSendRouteImport.update({
   id: '/api/auth/otp/send',
   path: '/api/auth/otp/send',
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
   '/api/auth/otp/send': typeof ApiAuthOtpSendRoute
+  '/api/auth/otp/terminate': typeof ApiAuthOtpTerminateRoute
   '/api/auth/otp/verify': typeof ApiAuthOtpVerifyRoute
 }
 export interface FileRoutesByTo {
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
   '/api/auth/otp/send': typeof ApiAuthOtpSendRoute
+  '/api/auth/otp/terminate': typeof ApiAuthOtpTerminateRoute
   '/api/auth/otp/verify': typeof ApiAuthOtpVerifyRoute
 }
 export interface FileRoutesById {
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/api/account/delete': typeof ApiAccountDeleteRoute
   '/api/admin/reset-password': typeof ApiAdminResetPasswordRoute
   '/api/auth/otp/send': typeof ApiAuthOtpSendRoute
+  '/api/auth/otp/terminate': typeof ApiAuthOtpTerminateRoute
   '/api/auth/otp/verify': typeof ApiAuthOtpVerifyRoute
 }
 export interface FileRouteTypes {
@@ -237,6 +246,7 @@ export interface FileRouteTypes {
     | '/api/account/delete'
     | '/api/admin/reset-password'
     | '/api/auth/otp/send'
+    | '/api/auth/otp/terminate'
     | '/api/auth/otp/verify'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -260,6 +270,7 @@ export interface FileRouteTypes {
     | '/api/account/delete'
     | '/api/admin/reset-password'
     | '/api/auth/otp/send'
+    | '/api/auth/otp/terminate'
     | '/api/auth/otp/verify'
   id:
     | '__root__'
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | '/api/account/delete'
     | '/api/admin/reset-password'
     | '/api/auth/otp/send'
+    | '/api/auth/otp/terminate'
     | '/api/auth/otp/verify'
   fileRoutesById: FileRoutesById
 }
@@ -301,6 +313,7 @@ export interface RootRouteChildren {
   ApiAccountDeleteRoute: typeof ApiAccountDeleteRoute
   ApiAdminResetPasswordRoute: typeof ApiAdminResetPasswordRoute
   ApiAuthOtpSendRoute: typeof ApiAuthOtpSendRoute
+  ApiAuthOtpTerminateRoute: typeof ApiAuthOtpTerminateRoute
   ApiAuthOtpVerifyRoute: typeof ApiAuthOtpVerifyRoute
 }
 
@@ -453,6 +466,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthOtpVerifyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/otp/terminate': {
+      id: '/api/auth/otp/terminate'
+      path: '/api/auth/otp/terminate'
+      fullPath: '/api/auth/otp/terminate'
+      preLoaderRoute: typeof ApiAuthOtpTerminateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/otp/send': {
       id: '/api/auth/otp/send'
       path: '/api/auth/otp/send'
@@ -503,6 +523,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAccountDeleteRoute: ApiAccountDeleteRoute,
   ApiAdminResetPasswordRoute: ApiAdminResetPasswordRoute,
   ApiAuthOtpSendRoute: ApiAuthOtpSendRoute,
+  ApiAuthOtpTerminateRoute: ApiAuthOtpTerminateRoute,
   ApiAuthOtpVerifyRoute: ApiAuthOtpVerifyRoute,
 }
 export const routeTree = rootRouteImport

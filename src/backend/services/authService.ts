@@ -271,6 +271,40 @@ export const authService = {
   },
 
   /**
+   * Terminates an active OTP verification session, clears pending storage flags,
+   * invalidates backend OTP record, and safely signs out any unverified session.
+   */
+  async terminateOtp(email?: string, purpose?: OtpPurpose): Promise<{ success: boolean }> {
+    const cleanEmail = email ? email.trim().toLowerCase() : "";
+    try {
+      if (cleanEmail && purpose) {
+        fetch(getApiUrl("/api/auth/otp/terminate"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: cleanEmail, purpose }),
+        }).catch(() => {});
+      }
+    } catch {}
+
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("pending_otp_verification");
+      sessionStorage.removeItem("pending_otp_purpose");
+      sessionStorage.removeItem("login_otp_pending");
+      sessionStorage.removeItem("otp_request_expires_at");
+      sessionStorage.removeItem("otp_request_email");
+    }
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session?.user && !this.isEmailVerified(data.session.user)) {
+        await supabase.auth.signOut();
+      }
+    } catch {}
+
+    return { success: true };
+  },
+
+  /**
    * Helper to check whether user has verified their email address.
    * Google OAuth accounts are pre-verified by Google's trusted provider.
    * Email/password users must not have pending OTP flags and must have verified status.
