@@ -350,7 +350,10 @@ export const notificationScheduler = {
   async cancelAll(): Promise<void> {
     if (!Capacitor.isNativePlatform()) return;
     try {
-      await LocalNotifications.cancelAll();
+      await Promise.race([
+        LocalNotifications.cancelAll(),
+        new Promise((resolve) => setTimeout(resolve, 1000)),
+      ]);
       console.log("[NotificationScheduler] All pending notifications cancelled successfully.");
     } catch (err) {
       console.warn("[NotificationScheduler] Error cancelling notifications:", err);

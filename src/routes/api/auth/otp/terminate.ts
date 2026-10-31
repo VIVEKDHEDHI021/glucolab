@@ -46,3 +46,4 @@ export const Route = createFileRoute("/api/auth/otp/terminate")({
     },
   },
 });
+

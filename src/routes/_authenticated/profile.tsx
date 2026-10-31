@@ -12,6 +12,7 @@ import {
   LogOut,
   ShieldCheck,
   Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
@@ -50,6 +51,7 @@ function ProfilePage() {
   const [editOpen, setEditOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -142,8 +144,22 @@ function ProfilePage() {
   };
 
   const handleLogout = async () => {
-    await signOut();
-    navigate({ to: "/login" });
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setLogoutOpen(false); // Close modal immediately
+    if (typeof window !== "undefined") {
+      document.body.style.pointerEvents = "";
+      document.body.style.overflow = "";
+      document.body.removeAttribute("data-scroll-locked");
+    }
+    try {
+      await signOut();
+    } finally {
+      setLoggingOut(false);
+      navigate({ to: "/login", replace: true });
+    }
+    return;
+
   };
 
   const avatarLetter = name ? name.charAt(0).toUpperCase() : user?.email ? user.email.charAt(0).toUpperCase() : "U";
@@ -441,9 +457,16 @@ function ProfilePage() {
               type="button"
               variant="destructive"
               onClick={handleLogout}
+              disabled={loggingOut}
               className="rounded-xl font-semibold"
             >
-              Logout
+              {loggingOut ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Logging out...
+                </>
+              ) : (
+                "Logout"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

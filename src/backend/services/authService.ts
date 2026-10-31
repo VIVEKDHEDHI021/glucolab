@@ -364,7 +364,22 @@ export const authService = {
   },
 
   async signOut() {
-    return supabase.auth.signOut();
+    try {
+      if (typeof window !== "undefined") {
+        document.body.style.pointerEvents = "";
+        document.body.style.overflow = "";
+        document.body.removeAttribute("data-scroll-locked");
+        sessionStorage.clear();
+      }
+      return await Promise.race([
+        supabase.auth.signOut({ scope: "local" }),
+        new Promise<{ error: null }>((resolve) =>
+          setTimeout(() => resolve({ error: null }), 1500),
+        ),
+      ]);
+    } catch {
+      return { error: null };
+    }
   },
 
   async getSession() {

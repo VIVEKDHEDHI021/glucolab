@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/db/client";
 
@@ -113,13 +113,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
+    // 1. Immediately clean up document body locks (in case a Radix Dialog/Sheet was open)
+    if (typeof window !== "undefined") {
+      try {
+        document.body.style.pointerEvents = "";
+        document.body.style.overflow = "";
+        document.body.removeAttribute("data-scroll-locked");
+        sessionStorage.clear();
+      } catch {}
+    }
+
+    // 2. Clear state immediately so UI updates instantaneously without waiting for network
+    setSession(null);
+    setUser(null);
+    setLoading(false);
+
+    // 3. Fire-and-forget notification cleanup in background (never block logout)
     try {
-      const { notificationService } = await import("@/features/notifications");
-      await notificationService.handleSignOut();
+      import("@/features/notifications")
+        .then(({ notificationService }) => {
+          notificationService.handleSignOut().catch((err) => {
+            console.warn("[Auth] Notification signout cleanup warning:", err);
+          });
+        })
+        .catch(() => {});
     } catch {}
-    await supabase.auth.signOut();
-  };
+
+    // 4. Perform Supabase logout with race condition protection (max 1.5s timeout)
+    try {
+      await Promise.race([
+        supabase.auth.signOut({ scope: "local" }),
+        new Promise((resolve) => setTimeout(resolve, 1500)),
+      ]);
+    } catch (err) {
+      console.warn("[Auth] Supabase signOut warning:", err);
+    }
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, session, loading, signOut }}>

@@ -16,6 +16,7 @@ import {
   Clock,
   ShieldCheck,
   Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { useState, type ReactNode, useEffect } from "react";
 import { useAuth } from "@/frontend/lib/auth-context";
@@ -66,6 +67,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [showBottomNav, setShowBottomNav] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -85,8 +87,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [lastScrollY]);
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate({ to: "/login" });
+    if (signingOut) return;
+    setSigningOut(true);
+    setDrawerOpen(false);
+    if (typeof window !== "undefined") {
+      document.body.style.pointerEvents = "";
+      document.body.style.overflow = "";
+      document.body.removeAttribute("data-scroll-locked");
+    }
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
+      navigate({ to: "/login", replace: true });
+    }
+
+
   };
 
   // Adjust Status Bar on theme changes
@@ -290,10 +306,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </div>
                   <Button
                     onClick={handleSignOut}
+                    disabled={signingOut}
                     variant="destructive"
                     className="w-full justify-start gap-2.5 rounded-xl btn-ripple-effect"
                   >
-                    <LogOut className="h-4 w-4" /> Sign out
+                    {signingOut ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" /> Signing out...
+                      </>
+                    ) : (
+                      <>
+                        <LogOut className="h-4 w-4" /> Sign out
+                      </>
+                    )}
                   </Button>
                 </div>
               </SheetContent>
@@ -391,11 +416,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                 variant="ghost"
                 size="icon"
                 onClick={handleSignOut}
+                disabled={signingOut}
                 aria-label="Sign out"
                 className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 btn-ripple-effect"
                 title="Sign Out"
               >
-                <LogOut className="h-5 w-5" />
+                {signingOut ? (
+                  <RefreshCw className="h-5 w-5 animate-spin" />
+                ) : (
+                  <LogOut className="h-5 w-5" />
+                )}
               </Button>
             </div>
           </div>

@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
 
   const isPendingOtp =
@@ -27,7 +27,13 @@ function AuthenticatedLayout() {
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        navigate({ to: "/login" });
+        // Clear any leftover modal pointer-events/scroll locks
+        if (typeof window !== "undefined") {
+          document.body.style.pointerEvents = "";
+          document.body.style.overflow = "";
+          document.body.removeAttribute("data-scroll-locked");
+        }
+        navigate({ to: "/login", replace: true });
       } else if (!authService.isEmailVerified(user) || isPendingOtp) {
         // User is unverified or signup OTP verification is pending: strictly redirect to OTP challenge
         const targetEmail = user?.email || pendingEmail;
@@ -37,10 +43,11 @@ function AuthenticatedLayout() {
             email: targetEmail,
             purpose: "email_verification",
           },
+          replace: true,
         });
       }
     }
-  }, [loading, user, isPendingOtp, pendingEmail, navigate, signOut]);
+  }, [loading, user, isPendingOtp, pendingEmail, navigate]);
 
   if (loading || !user || !authService.isEmailVerified(user) || isPendingOtp) {
     return (
