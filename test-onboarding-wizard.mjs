@@ -156,7 +156,7 @@ test("13. AuthenticatedLayout (_authenticated.tsx) enforces onboarding completio
   const authLayoutPath = path.resolve("src/routes/_authenticated.tsx");
   const content = fs.readFileSync(authLayoutPath, "utf8");
   assert(content.includes("!profile?.onboarding_completed"), "Missing profile onboarding check in AuthenticatedLayout");
-  assert(content.includes('navigate({\n          to: "/onboarding"'), "Missing redirect to /onboarding");
+  assert(content.includes('to: "/onboarding"'), "Missing redirect to /onboarding");
 });
 
 test("14. AuthContext provides reactive profile and refreshProfile across the app", () => {

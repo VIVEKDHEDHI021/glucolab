@@ -89,7 +89,13 @@ function OnboardingPage() {
       return;
     }
 
-    if (profile?.onboarding_completed) {
+    const isCompleted =
+      Boolean(profile?.onboarding_completed) ||
+      Boolean(user?.user_metadata?.onboarding_completed) ||
+      (typeof window !== "undefined" &&
+        localStorage.getItem(`glucolab_onboarding_completed_${user.id}`) === "true");
+
+    if (isCompleted) {
       navigate({ to: "/dashboard", replace: true });
     }
   }, [user, profile, authLoading, navigate]);
@@ -632,3 +638,4 @@ function OnboardingPage() {
     </div>
   );
 }
+

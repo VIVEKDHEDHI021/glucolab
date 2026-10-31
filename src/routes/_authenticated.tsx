@@ -45,15 +45,30 @@ function AuthenticatedLayout() {
           },
           replace: true,
         });
-      } else if (profile !== undefined && !profile?.onboarding_completed) {
-        // Onboarding is incomplete: route strictly to onboarding wizard
-        navigate({
-          to: "/onboarding",
-          replace: true,
-        });
+      } else if (profile !== undefined) {
+        const isUserOnboarded =
+          Boolean(profile?.onboarding_completed) ||
+          Boolean(user?.user_metadata?.onboarding_completed) ||
+          (typeof window !== "undefined" &&
+            localStorage.getItem(`glucolab_onboarding_completed_${user.id}`) === "true");
+
+        if (!profile?.onboarding_completed && !isUserOnboarded) {
+          // Onboarding is incomplete: route strictly to onboarding wizard
+          navigate({
+            to: "/onboarding",
+            replace: true,
+          });
+        }
       }
     }
   }, [loading, user, profile, isPendingOtp, pendingEmail, navigate]);
+
+  const isUserOnboarded =
+    Boolean(profile?.onboarding_completed) ||
+    Boolean(user?.user_metadata?.onboarding_completed) ||
+    (typeof window !== "undefined" &&
+      user?.id &&
+      localStorage.getItem(`glucolab_onboarding_completed_${user.id}`) === "true");
 
   if (
     loading ||
@@ -61,7 +76,7 @@ function AuthenticatedLayout() {
     !authService.isEmailVerified(user) ||
     isPendingOtp ||
     profile === undefined ||
-    !profile?.onboarding_completed
+    (!profile?.onboarding_completed && !isUserOnboarded)
   ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">

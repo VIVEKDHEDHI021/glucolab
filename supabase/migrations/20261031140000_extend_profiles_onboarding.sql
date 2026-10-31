@@ -71,3 +71,4 @@ END $$;
 -- 5. Create index for fast user lookup
 CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON public.profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_onboarding ON public.profiles(user_id, onboarding_completed);
+
