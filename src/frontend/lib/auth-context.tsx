@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import type { Session, User } from "@supabase/supabase-js";
 import type { Profile } from "@/db/types";
 import { supabase } from "@/db/client";
+import { authService } from "@/backend/services/authService";
 
 interface AuthContextValue {
   user: User | null;
@@ -10,7 +11,7 @@ interface AuthContextValue {
   profileLoading: boolean;
   loading: boolean;
   signOut: () => Promise<void>;
-  refreshProfile: (userId?: string) => Promise<Profile | null>;
+  refreshProfile: (userId?: string, explicitUser?: User | null) => Promise<Profile | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -22,13 +23,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileLoading, setProfileLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const refreshProfile = useCallback(async (userId?: string): Promise<Profile | null> => {
-    const targetId = userId || user?.id;
+  const refreshProfile = useCallback(async (userId?: string, explicitUser?: User | null): Promise<Profile | null> => {
+    let activeUser = explicitUser || user;
+    if (!activeUser && !userId) {
+      setProfile(null);
+      setProfileLoading(false);
+      return null;
+    }
+
+    if (!activeUser) {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) activeUser = userData.user;
+      } catch {}
+    }
+
+    const targetId = userId || activeUser?.id;
     if (!targetId) {
       setProfile(null);
       setProfileLoading(false);
       return null;
     }
+
     setProfileLoading(true);
     try {
       const { data } = await supabase
@@ -37,51 +53,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("user_id", targetId)
         .maybeSingle();
 
-      const meta = (user?.user_metadata || {}) as any;
+      const meta = (activeUser?.user_metadata || {}) as any;
       const localCompleted =
         typeof window !== "undefined" &&
-        localStorage.getItem(`glucolab_onboarding_completed_${targetId}`) === "true";
+        (localStorage.getItem(`glucolab_onboarding_completed_${targetId}`) === "true" ||
+         localStorage.getItem(`glucolab_has_logged_in_${targetId}`) === "true");
+
+      const isReturning =
+        authService.isReturningUser(activeUser, data) ||
+        Boolean(data?.onboarding_completed) ||
+        Boolean(meta.onboarding_completed) ||
+        Boolean(meta.has_logged_in_before) ||
+        localCompleted;
 
       const mergedProfile: Profile = {
         id: data?.id || targetId,
         user_id: targetId,
-        email: data?.email || user?.email || null,
+        email: data?.email || activeUser?.email || null,
         phone: data?.phone || null,
         name: data?.name || meta.full_name || meta.name || null,
         age: data?.age ?? (meta.age ? Number(meta.age) : null),
         diabetes_type: data?.diabetes_type || meta.diabetes_type || null,
         weight_kg: data?.weight_kg ?? (meta.weight_kg ? Number(meta.weight_kg) : null),
         height_cm: data?.height_cm ?? (meta.height_cm ? Number(meta.height_cm) : null),
-        onboarding_completed: Boolean(
-          data?.onboarding_completed || meta.onboarding_completed || localCompleted
-        ),
+        onboarding_completed: isReturning,
         created_at: data?.created_at || new Date().toISOString(),
         updated_at: data?.updated_at || new Date().toISOString(),
       };
+
+      if (isReturning && activeUser) {
+        authService.markUserAsLoggedIn(activeUser);
+      }
 
       setProfile(mergedProfile);
       return mergedProfile;
     } catch (err) {
       console.warn("[Auth] Failed to fetch profile:", err);
-      if (user) {
-        const meta = (user.user_metadata || {}) as any;
+      if (activeUser) {
+        const meta = (activeUser.user_metadata || {}) as any;
         const localCompleted =
           typeof window !== "undefined" &&
-          localStorage.getItem(`glucolab_onboarding_completed_${targetId}`) === "true";
+          (localStorage.getItem(`glucolab_onboarding_completed_${targetId}`) === "true" ||
+           localStorage.getItem(`glucolab_has_logged_in_${targetId}`) === "true");
+
+        const isReturning =
+          authService.isReturningUser(activeUser, null) ||
+          Boolean(meta.onboarding_completed) ||
+          Boolean(meta.has_logged_in_before) ||
+          localCompleted;
+
         const fallback: Profile = {
           id: targetId,
           user_id: targetId,
-          email: user.email || null,
+          email: activeUser.email || null,
           phone: null,
           name: meta.full_name || meta.name || null,
           age: meta.age ? Number(meta.age) : null,
           diabetes_type: meta.diabetes_type || null,
           weight_kg: meta.weight_kg ? Number(meta.weight_kg) : null,
           height_cm: meta.height_cm ? Number(meta.height_cm) : null,
-          onboarding_completed: Boolean(meta.onboarding_completed || localCompleted),
+          onboarding_completed: isReturning,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
+
+        if (isReturning) {
+          authService.markUserAsLoggedIn(activeUser);
+        }
+
         setProfile(fallback);
         return fallback;
       }
@@ -89,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setProfileLoading(false);
     }
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => {
     // CRITICAL: subscribe FIRST then read session
@@ -98,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       setLoading(false);
       if (s?.user?.id) {
-        refreshProfile(s.user.id);
+        refreshProfile(s.user.id, s.user);
       } else {
         setProfile(null);
       }
@@ -109,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       setLoading(false);
       if (s?.user?.id) {
-        refreshProfile(s.user.id);
+        refreshProfile(s.user.id, s.user);
       } else {
         setProfile(null);
       }

@@ -44,13 +44,16 @@ function SignupPage() {
   useEffect(() => {
     if (authLoading) return;
     if (user && authService.isEmailVerified(user) && profile !== undefined) {
-      const isCompleted =
+      const isReturningOrCompleted =
+        authService.isReturningUser(user, profile) ||
         Boolean(profile?.onboarding_completed) ||
         Boolean(user?.user_metadata?.onboarding_completed) ||
         (typeof window !== "undefined" &&
-          localStorage.getItem(`glucolab_onboarding_completed_${user.id}`) === "true");
+          (localStorage.getItem(`glucolab_onboarding_completed_${user.id}`) === "true" ||
+           localStorage.getItem(`glucolab_has_logged_in_${user.id}`) === "true"));
 
-      if (isCompleted) {
+      if (isReturningOrCompleted) {
+        authService.markUserAsLoggedIn(user);
         navigate({ to: "/dashboard", replace: true });
       } else {
         navigate({ to: "/onboarding", replace: true });

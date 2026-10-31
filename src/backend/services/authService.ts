@@ -371,6 +371,84 @@ export const authService = {
     return false;
   },
 
+  /**
+   * Helper to check whether an account is an already-registered user who has logged in before,
+   * or has existing profile records/health logs, versus a brand new user needing onboarding.
+   */
+  isReturningUser(user: User | null, profile?: any): boolean {
+    if (!user) return false;
+
+    // 1. Explicit metadata flags indicating the user has already logged in or completed setup
+    if (
+      user.user_metadata?.has_logged_in_before === true ||
+      user.user_metadata?.onboarding_completed === true
+    ) {
+      return true;
+    }
+
+    // 2. Profile object indicates completed onboarding or existing clinical details
+    if (
+      profile?.onboarding_completed === true ||
+      Boolean(profile?.diabetes_type) ||
+      (profile?.age !== null && profile?.age !== undefined) ||
+      (profile?.weight_kg !== null && profile?.weight_kg !== undefined)
+    ) {
+      return true;
+    }
+
+    // 3. Persistent device storage flag
+    if (typeof window !== "undefined") {
+      try {
+        const hasLoggedInLocal = localStorage.getItem(`glucolab_has_logged_in_${user.id}`);
+        const onboardingLocal = localStorage.getItem(`glucolab_onboarding_completed_${user.id}`);
+        if (hasLoggedInLocal === "true" || onboardingLocal === "true") {
+          return true;
+        }
+      } catch {}
+    }
+
+    // 4. Account timestamp history in Supabase Auth:
+    // If account was created more than 45 seconds ago, it is an already registered account logging in.
+    if (user.created_at) {
+      const createdTime = new Date(user.created_at).getTime();
+      const now = Date.now();
+      const lastSignInTime = user.last_sign_in_at ? new Date(user.last_sign_in_at).getTime() : 0;
+
+      if (!isNaN(createdTime) && now - createdTime > 45 * 1000) {
+        return true;
+      }
+
+      if (lastSignInTime > 0 && !isNaN(lastSignInTime) && lastSignInTime - createdTime > 15 * 1000) {
+        return true;
+      }
+    }
+
+    return false;
+  },
+
+  /**
+   * Marks a user as having logged in before in both local storage and Supabase Auth metadata.
+   */
+  markUserAsLoggedIn(user: User | null) {
+    if (!user) return;
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(`glucolab_has_logged_in_${user.id}`, "true");
+        localStorage.setItem(`glucolab_onboarding_completed_${user.id}`, "true");
+      } catch {}
+    }
+    try {
+      supabase.auth
+        .updateUser({
+          data: {
+            has_logged_in_before: true,
+            onboarding_completed: true,
+          },
+        })
+        .catch(() => {});
+    } catch {}
+  },
+
   async resetPassword(email: string, redirectTo?: string) {
     return supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
   },

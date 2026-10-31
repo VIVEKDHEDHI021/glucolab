@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { healthService } from "@/backend/services/healthService";
+import { authService } from "@/backend/services/authService";
 import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
 import { Label } from "@/frontend/components/ui/label";
@@ -89,13 +90,16 @@ function OnboardingPage() {
       return;
     }
 
-    const isCompleted =
+    const isCompletedOrReturning =
+      authService.isReturningUser(user, profile) ||
       Boolean(profile?.onboarding_completed) ||
       Boolean(user?.user_metadata?.onboarding_completed) ||
       (typeof window !== "undefined" &&
-        localStorage.getItem(`glucolab_onboarding_completed_${user.id}`) === "true");
+        (localStorage.getItem(`glucolab_onboarding_completed_${user.id}`) === "true" ||
+         localStorage.getItem(`glucolab_has_logged_in_${user.id}`) === "true"));
 
-    if (isCompleted) {
+    if (isCompletedOrReturning) {
+      authService.markUserAsLoggedIn(user);
       navigate({ to: "/dashboard", replace: true });
     }
   }, [user, profile, authLoading, navigate]);
@@ -287,10 +291,22 @@ function OnboardingPage() {
     }
   };
 
-  if (authLoading || !user) {
+  const isCheckingStatus = authLoading || profile === undefined;
+  const isCompletedOrReturning =
+    authService.isReturningUser(user, profile) ||
+    Boolean(profile?.onboarding_completed) ||
+    Boolean(user?.user_metadata?.onboarding_completed) ||
+    (typeof window !== "undefined" &&
+      user?.id &&
+      (localStorage.getItem(`glucolab_onboarding_completed_${user.id}`) === "true" ||
+       localStorage.getItem(`glucolab_has_logged_in_${user.id}`) === "true"));
+
+  if (isCheckingStatus || !user || isCompletedOrReturning) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <Activity className="h-8 w-8 animate-pulse text-primary" />
+        <div className="h-14 w-14 rounded-2xl overflow-hidden animate-pulse border border-border/40 shadow-sm p-1 bg-card">
+          <img src="/icon/icon.png" alt="GlucoLab" className="h-full w-full object-contain" />
+        </div>
       </div>
     );
   }

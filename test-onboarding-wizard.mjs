@@ -202,6 +202,18 @@ test("15. Profile page (src/routes/_authenticated/profile.tsx) allows editing he
   assert(!content.includes("onboarding_completed: false"), "Profile edit must never reset onboarding_completed to false");
 });
 
+test("16. Returning registered user detection prevents flash of setup wizard", () => {
+  const authPath = path.resolve("src/backend/services/authService.ts");
+  const authContent = fs.readFileSync(authPath, "utf8");
+  assert(authContent.includes("isReturningUser"), "Missing isReturningUser helper in authService.ts");
+  assert(authContent.includes("markUserAsLoggedIn"), "Missing markUserAsLoggedIn helper in authService.ts");
+
+  const onboardingPath = path.resolve("src/routes/onboarding.tsx");
+  const onboardingContent = fs.readFileSync(onboardingPath, "utf8");
+  assert(onboardingContent.includes("isCompletedOrReturning"), "Missing isCompletedOrReturning render check in onboarding.tsx");
+  assert(onboardingContent.includes("authService.isReturningUser"), "Onboarding route must check isReturningUser to avoid flash");
+});
+
 // ----------------------------------------------------
 // SUMMARY
 // ----------------------------------------------------

@@ -47,10 +47,12 @@ function AuthenticatedLayout() {
         });
       } else if (profile !== undefined) {
         const isUserOnboarded =
+          authService.isReturningUser(user, profile) ||
           Boolean(profile?.onboarding_completed) ||
           Boolean(user?.user_metadata?.onboarding_completed) ||
           (typeof window !== "undefined" &&
-            localStorage.getItem(`glucolab_onboarding_completed_${user.id}`) === "true");
+            (localStorage.getItem(`glucolab_onboarding_completed_${user.id}`) === "true" ||
+             localStorage.getItem(`glucolab_has_logged_in_${user.id}`) === "true"));
 
         if (!profile?.onboarding_completed && !isUserOnboarded) {
           // Onboarding is incomplete: route strictly to onboarding wizard
@@ -58,17 +60,21 @@ function AuthenticatedLayout() {
             to: "/onboarding",
             replace: true,
           });
+        } else {
+          authService.markUserAsLoggedIn(user);
         }
       }
     }
   }, [loading, user, profile, isPendingOtp, pendingEmail, navigate]);
 
   const isUserOnboarded =
+    authService.isReturningUser(user, profile) ||
     Boolean(profile?.onboarding_completed) ||
     Boolean(user?.user_metadata?.onboarding_completed) ||
     (typeof window !== "undefined" &&
       user?.id &&
-      localStorage.getItem(`glucolab_onboarding_completed_${user.id}`) === "true");
+      (localStorage.getItem(`glucolab_onboarding_completed_${user.id}`) === "true" ||
+       localStorage.getItem(`glucolab_has_logged_in_${user.id}`) === "true"));
 
   if (
     loading ||
@@ -80,7 +86,9 @@ function AuthenticatedLayout() {
   ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <Activity className="h-8 w-8 animate-pulse text-primary" />
+        <div className="h-14 w-14 rounded-2xl overflow-hidden animate-pulse border border-border/40 shadow-sm p-1 bg-card">
+          <img src="/icon/icon.png" alt="GlucoLab" className="h-full w-full object-contain" />
+        </div>
       </div>
     );
   }
