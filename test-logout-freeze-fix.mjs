@@ -1,4 +1,5 @@
 import assert from "node:assert";
+import fs from "node:fs";
 import { authService } from "./src/backend/services/authService.ts";
 
 console.log("===================================================================");
@@ -72,6 +73,23 @@ async function runTestSuite() {
       "",
       "overflow lock must be cleared after signOut",
     );
+  });
+
+  // 4. Verify confirmation dialog and flicker-prevention overlay in app-shell.tsx
+  await test("4. AppShell asks for confirmation before signing out and shows smooth transition overlay", async () => {
+    const appShellContent = fs.readFileSync("src/frontend/components/app-shell.tsx", "utf8");
+    assert(appShellContent.includes("confirmSignOutOpen"), "Missing confirmSignOutOpen state");
+    assert(appShellContent.includes("Sign out of GlucoLab?"), "Missing sign out confirmation dialog title");
+    assert(appShellContent.includes("Are you sure you want to sign out?"), "Missing confirmation prompt description");
+    assert(appShellContent.includes("Signing out safely..."), "Missing smooth fullscreen transition overlay");
+  });
+
+  // 5. Verify Profile page logout confirmation and redirect to /login
+  await test("5. Profile page asks for confirmation and redirects to /login", async () => {
+    const profileContent = fs.readFileSync("src/routes/_authenticated/profile.tsx", "utf8");
+    assert(profileContent.includes("logoutOpen"), "Missing logoutOpen state in profile.tsx");
+    assert(profileContent.includes("navigate({ to: \"/login\", replace: true })"), "Profile page must navigate to /login on logout");
+    assert(profileContent.includes("Signing out safely..."), "Missing smooth transition overlay in profile.tsx");
   });
 
   console.log("\n===================================================================");

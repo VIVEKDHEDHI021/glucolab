@@ -39,6 +39,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/frontend/components/ui/dialog";
 
 const NAV = [
@@ -68,6 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [showBottomNav, setShowBottomNav] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [signingOut, setSigningOut] = useState(false);
+  const [confirmSignOutOpen, setConfirmSignOutOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -89,6 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const handleSignOut = async () => {
     if (signingOut) return;
     setSigningOut(true);
+    setConfirmSignOutOpen(false);
     setDrawerOpen(false);
     if (typeof window !== "undefined") {
       document.body.style.pointerEvents = "";
@@ -101,8 +104,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       setSigningOut(false);
       navigate({ to: "/login", replace: true });
     }
-
-
   };
 
   // Adjust Status Bar on theme changes
@@ -305,20 +306,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                     Signed in as <span className="font-semibold">{user?.email || "guest"}</span>
                   </div>
                   <Button
-                    onClick={handleSignOut}
+                    onClick={() => {
+                      setDrawerOpen(false);
+                      setConfirmSignOutOpen(true);
+                    }}
                     disabled={signingOut}
                     variant="destructive"
-                    className="w-full justify-start gap-2.5 rounded-xl btn-ripple-effect"
+                    className="w-full justify-start gap-2.5 rounded-xl btn-ripple-effect cursor-pointer"
                   >
-                    {signingOut ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 animate-spin" /> Signing out...
-                      </>
-                    ) : (
-                      <>
-                        <LogOut className="h-4 w-4" /> Sign out
-                      </>
-                    )}
+                    <LogOut className="h-4 w-4" /> Sign out
                   </Button>
                 </div>
               </SheetContent>
@@ -415,17 +411,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handleSignOut}
+                onClick={() => setConfirmSignOutOpen(true)}
                 disabled={signingOut}
                 aria-label="Sign out"
-                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 btn-ripple-effect"
+                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 btn-ripple-effect cursor-pointer"
                 title="Sign Out"
               >
-                {signingOut ? (
-                  <RefreshCw className="h-5 w-5 animate-spin" />
-                ) : (
-                  <LogOut className="h-5 w-5" />
-                )}
+                <LogOut className="h-5 w-5" />
               </Button>
             </div>
           </div>
@@ -573,6 +565,67 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Sign Out Confirmation Dialog */}
+      <Dialog open={confirmSignOutOpen} onOpenChange={setConfirmSignOutOpen}>
+        <DialogContent className="max-w-md rounded-3xl p-6 bg-card border border-border">
+          <DialogHeader className="space-y-2">
+            <div className="h-12 w-12 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center mb-1">
+              <LogOut className="h-6 w-6" />
+            </div>
+            <DialogTitle className="font-display text-xl font-bold text-foreground">
+              Sign out of GlucoLab?
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              Are you sure you want to sign out? Your glucose records, insulin doses, and health profile are safely encrypted in your private vault.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-row items-center justify-end gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmSignOutOpen(false)}
+              className="rounded-xl flex-1 sm:flex-initial cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="rounded-xl font-semibold flex-1 sm:flex-initial gap-2 cursor-pointer"
+            >
+              {signingOut ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span>Signing out...</span>
+                </>
+              ) : (
+                <>
+                  <LogOut className="h-4 w-4" />
+                  <span>Log Out</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Smooth Signing Out Fullscreen Transition Overlay */}
+      {signingOut && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="flex flex-col items-center gap-4 text-center p-6">
+            <div className="h-16 w-16 rounded-2xl overflow-hidden animate-pulse border border-border/40 shadow-sm p-1.5 bg-card">
+              <img src="/icon/icon.png" alt="GlucoLab" className="h-full w-full object-contain" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-base font-semibold text-foreground">Signing out safely...</p>
+              <p className="text-xs text-muted-foreground">Securing your health records</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -215,7 +215,7 @@ function ProfilePage() {
       await signOut();
     } finally {
       setLoggingOut(false);
-      navigate({ to: "/signup", replace: true });
+      navigate({ to: "/login", replace: true });
     }
     return;
   };
@@ -613,8 +613,8 @@ function ProfilePage() {
         <DialogContent className="sm:max-w-md rounded-[18px]">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">Logout</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to logout?
+            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              Are you sure you want to sign out? Your glucose records, insulin doses, and health profile are safely encrypted in your private vault.
             </DialogDescription>
           </DialogHeader>
 
@@ -646,6 +646,20 @@ function ProfilePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Smooth Signing Out Fullscreen Transition Overlay */}
+      {loggingOut && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="flex flex-col items-center gap-4 text-center p-6">
+            <div className="h-16 w-16 rounded-2xl overflow-hidden animate-pulse border border-border/40 shadow-sm p-1.5 bg-card">
+              <img src="/icon/icon.png" alt="GlucoLab" className="h-full w-full object-contain" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-base font-semibold text-foreground">Signing out safely...</p>
+              <p className="text-xs text-muted-foreground">Securing your health records</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

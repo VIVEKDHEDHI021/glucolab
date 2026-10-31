@@ -464,11 +464,19 @@ export const authService = {
         document.body.style.overflow = "";
         document.body.removeAttribute("data-scroll-locked");
         sessionStorage.clear();
+        for (const key of Object.keys(localStorage)) {
+          if (
+            (key.startsWith("sb-") && key.endsWith("-auth-token")) ||
+            key.includes("supabase.auth")
+          ) {
+            localStorage.removeItem(key);
+          }
+        }
       }
       return await Promise.race([
         supabase.auth.signOut({ scope: "local" }),
         new Promise<{ error: null }>((resolve) =>
-          setTimeout(() => resolve({ error: null }), 1500),
+          setTimeout(() => resolve({ error: null }), 1000),
         ),
       ]);
     } catch {

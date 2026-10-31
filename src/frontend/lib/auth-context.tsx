@@ -14,6 +14,7 @@ interface AuthContextValue {
   refreshProfile: (userId?: string, explicitUser?: User | null) => Promise<Profile | null>;
 }
 
+let isSigningOutGlobal = false;
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -133,6 +134,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // CRITICAL: subscribe FIRST then read session
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      if (isSigningOutGlobal) {
+        if (!s) {
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+        }
+        return;
+      }
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
@@ -144,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     supabase.auth.getSession().then(({ data: { session: s } }) => {
+      if (isSigningOutGlobal) return;
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
@@ -238,41 +248,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user?.id]);
 
   const signOut = useCallback(async () => {
-    // 1. Immediately clean up document body locks (in case a Radix Dialog/Sheet was open)
-    if (typeof window !== "undefined") {
+    isSigningOutGlobal = true;
+    try {
+      // 1. Immediately clean up document body locks & purge storage tokens
+      if (typeof window !== "undefined") {
+        try {
+          document.body.style.pointerEvents = "";
+          document.body.style.overflow = "";
+          document.body.removeAttribute("data-scroll-locked");
+          sessionStorage.clear();
+          for (const key of Object.keys(localStorage)) {
+            if (
+              (key.startsWith("sb-") && key.endsWith("-auth-token")) ||
+              key.includes("supabase.auth")
+            ) {
+              localStorage.removeItem(key);
+            }
+          }
+        } catch {}
+      }
+
+      // 2. Clear state immediately so UI updates instantaneously without waiting for network
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
+
+      // 3. Fire-and-forget notification cleanup in background (never block logout)
       try {
-        document.body.style.pointerEvents = "";
-        document.body.style.overflow = "";
-        document.body.removeAttribute("data-scroll-locked");
-        sessionStorage.clear();
+        import("@/features/notifications")
+          .then(({ notificationService }) => {
+            notificationService.handleSignOut().catch((err) => {
+              console.warn("[Auth] Notification signout cleanup warning:", err);
+            });
+          })
+          .catch(() => {});
       } catch {}
-    }
 
-    // 2. Clear state immediately so UI updates instantaneously without waiting for network
-    setSession(null);
-    setUser(null);
-    setProfile(null);
-    setLoading(false);
-
-    // 3. Fire-and-forget notification cleanup in background (never block logout)
-    try {
-      import("@/features/notifications")
-        .then(({ notificationService }) => {
-          notificationService.handleSignOut().catch((err) => {
-            console.warn("[Auth] Notification signout cleanup warning:", err);
-          });
-        })
-        .catch(() => {});
-    } catch {}
-
-    // 4. Perform Supabase logout with race condition protection (max 1.5s timeout)
-    try {
-      await Promise.race([
-        supabase.auth.signOut({ scope: "local" }),
-        new Promise((resolve) => setTimeout(resolve, 1500)),
-      ]);
-    } catch (err) {
-      console.warn("[Auth] Supabase signOut warning:", err);
+      // 4. Perform Supabase logout with race condition protection (max 1s timeout)
+      try {
+        await Promise.race([
+          supabase.auth.signOut({ scope: "local" }),
+          new Promise((resolve) => setTimeout(resolve, 1000)),
+        ]);
+      } catch (err) {
+        console.warn("[Auth] Supabase signOut warning:", err);
+      }
+    } finally {
+      setTimeout(() => {
+        isSigningOutGlobal = false;
+      }, 500);
     }
   }, []);
 
