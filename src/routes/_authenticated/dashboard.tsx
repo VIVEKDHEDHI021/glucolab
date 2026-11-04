@@ -130,9 +130,6 @@ function DashboardPage() {
   const [cachedSummary, setCachedSummary] = useState<CachedDashboardData | null>(() => {
     return user?.id ? dashboardCacheService.get(user.id).data : null;
   });
-  const [cacheAgeText, setCacheAgeText] = useState<string>(() => {
-    return user?.id ? dashboardCacheService.get(user.id).lastUpdatedText : "";
-  });
 
   // Fast background revalidation for consolidated dashboard summary
   useEffect(() => {
@@ -142,14 +139,12 @@ function DashboardPage() {
     const local = dashboardCacheService.get(user.id);
     if (local.data) {
       setCachedSummary(local.data);
-      setCacheAgeText(local.lastUpdatedText);
     }
 
     let active = true;
     healthService.getDashboardSummary().then((fresh) => {
       if (active && fresh && !fresh.error) {
         setCachedSummary(fresh);
-        setCacheAgeText("Just now");
         dashboardCacheService.set(user.id, fresh);
       }
     }).catch(() => {});
@@ -354,17 +349,6 @@ function DashboardPage() {
   return (
     <>
       <div className="space-y-5 md:space-y-6 animate-fade-in">
-
-      {/* Freshness & SWR Cache Status */}
-      {cacheAgeText && (
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1 -mb-2">
-          <span className="flex items-center gap-1.5 font-medium">
-            <Clock className="h-3 w-3 text-primary/70" />
-            Status: <span className="text-foreground/80">{cacheAgeText === "Just now" ? "Fresh (Live)" : `Cached (${cacheAgeText})`}</span>
-          </span>
-          <span className="text-[10px] text-muted-foreground/70">Instant 0ms launch</span>
-        </div>
-      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">

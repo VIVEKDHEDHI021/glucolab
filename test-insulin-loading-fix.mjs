@@ -181,3 +181,4 @@ console.log("\n--- 4. SQLITE PRIMARY KEY & CACHE SAFETY ---");
 console.log("\n===================================================================");
 console.log(`  INSULIN VERIFICATION RESULTS: ${passed} / ${total} PASSED (100%)`);
 console.log("===================================================================\n");
+
