@@ -20,7 +20,7 @@ export interface StartupSplashProps {
 
 export function StartupSplashAnimation({
   onComplete,
-  minDurationMs = 3900,
+  minDurationMs = 1200,
 }: StartupSplashProps) {
   const [completed, setCompleted] = useState(() => hasCompletedStartupSplash);
   const [hasStaticSplash, setHasStaticSplash] = useState(() => {

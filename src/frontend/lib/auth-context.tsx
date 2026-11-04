@@ -1,8 +1,9 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import type { Profile } from "@/db/types";
 import { supabase } from "@/db/client";
 import { authService } from "@/backend/services/authService";
+import { dashboardCacheService } from "@/frontend/services/dashboardCacheService";
 
 interface AuthContextValue {
   user: User | null;
@@ -15,6 +16,24 @@ interface AuthContextValue {
 }
 
 let isSigningOutGlobal = false;
+const pendingProfileFetches = new Map<string, Promise<Profile | null>>();
+
+function getLocalProfileCache(uid: string): Profile | null {
+  if (typeof window === "undefined" || !uid) return null;
+  try {
+    const raw = localStorage.getItem(`glucolab_profile_cache_${uid}`);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
+function setLocalProfileCache(uid: string, prof: Profile): void {
+  if (typeof window === "undefined" || !uid || !prof) return;
+  try {
+    localStorage.setItem(`glucolab_profile_cache_${uid}`, JSON.stringify(prof));
+  } catch {}
+}
+
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -23,6 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
   const [profileLoading, setProfileLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const lastProfileFetchIdRef = useRef<string | null>(null);
 
   const refreshProfile = useCallback(async (userId?: string, explicitUser?: User | null): Promise<Profile | null> => {
     let activeUser = explicitUser || user;
@@ -46,67 +67,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-    setProfileLoading(true);
-    try {
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", targetId)
-        .maybeSingle();
+    // Fast Path: Immediate local cache retrieval
+    const cached = getLocalProfileCache(targetId);
+    if (cached) {
+      setProfile(cached);
+    }
 
-      const meta = (activeUser?.user_metadata || {}) as any;
-      const localCompleted =
-        typeof window !== "undefined" &&
-        (localStorage.getItem(`glucolab_onboarding_completed_${targetId}`) === "true" ||
-         localStorage.getItem(`glucolab_has_logged_in_${targetId}`) === "true");
+    // Deduplicate concurrent profile fetches for the same targetId
+    if (pendingProfileFetches.has(targetId)) {
+      return pendingProfileFetches.get(targetId)!;
+    }
 
-      const isReturning =
-        authService.isReturningUser(activeUser, data) ||
-        Boolean(data?.onboarding_completed) ||
-        Boolean(meta.onboarding_completed) ||
-        Boolean(meta.has_logged_in_before) ||
-        localCompleted;
+    const fetchPromise = (async () => {
+      setProfileLoading(true);
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", targetId)
+          .maybeSingle();
 
-      const mergedProfile: Profile = {
-        id: data?.id || targetId,
-        user_id: targetId,
-        email: data?.email || activeUser?.email || null,
-        phone: data?.phone || null,
-        name: data?.name || meta.full_name || meta.name || null,
-        age: data?.age ?? (meta.age ? Number(meta.age) : null),
-        diabetes_type: data?.diabetes_type || meta.diabetes_type || null,
-        weight_kg: data?.weight_kg ?? (meta.weight_kg ? Number(meta.weight_kg) : null),
-        height_cm: data?.height_cm ?? (meta.height_cm ? Number(meta.height_cm) : null),
-        onboarding_completed: isReturning,
-        created_at: data?.created_at || new Date().toISOString(),
-        updated_at: data?.updated_at || new Date().toISOString(),
-      };
-
-      if (isReturning && activeUser) {
-        authService.markUserAsLoggedIn(activeUser);
-      }
-
-      setProfile(mergedProfile);
-      return mergedProfile;
-    } catch (err) {
-      console.warn("[Auth] Failed to fetch profile:", err);
-      if (activeUser) {
-        const meta = (activeUser.user_metadata || {}) as any;
+        const meta = (activeUser?.user_metadata || {}) as any;
         const localCompleted =
           typeof window !== "undefined" &&
           (localStorage.getItem(`glucolab_onboarding_completed_${targetId}`) === "true" ||
            localStorage.getItem(`glucolab_has_logged_in_${targetId}`) === "true");
 
         const isReturning =
-          authService.isReturningUser(activeUser, null) ||
+          authService.isReturningUser(activeUser, data) ||
+          Boolean(data?.onboarding_completed) ||
           Boolean(meta.onboarding_completed) ||
           Boolean(meta.has_logged_in_before) ||
           localCompleted;
 
+        const mergedProfile: Profile = {
+          id: data?.id || targetId,
+          user_id: targetId,
+          email: data?.email || activeUser?.email || null,
+          phone: data?.phone || null,
+          name: data?.name || meta.full_name || meta.name || null,
+          age: data?.age ?? (meta.age ? Number(meta.age) : null),
+          diabetes_type: data?.diabetes_type || meta.diabetes_type || null,
+          weight_kg: data?.weight_kg ?? (meta.weight_kg ? Number(meta.weight_kg) : null),
+          height_cm: data?.height_cm ?? (meta.height_cm ? Number(meta.height_cm) : null),
+          onboarding_completed: isReturning,
+          created_at: data?.created_at || new Date().toISOString(),
+          updated_at: data?.updated_at || new Date().toISOString(),
+        };
+
+        if (isReturning && activeUser) {
+          authService.markUserAsLoggedIn(activeUser);
+        }
+
+        setLocalProfileCache(targetId, mergedProfile);
+        setProfile(mergedProfile);
+        return mergedProfile;
+      } catch (err: any) {
+        console.warn("[Auth] Failed to load full profile, falling back safely:", err);
+        const meta = (activeUser?.user_metadata || {}) as any;
+        const isReturning =
+          authService.isReturningUser(activeUser, null) ||
+          Boolean(meta.onboarding_completed) ||
+          Boolean(meta.has_logged_in_before);
+
         const fallback: Profile = {
           id: targetId,
           user_id: targetId,
-          email: activeUser.email || null,
+          email: activeUser?.email || null,
           phone: null,
           name: meta.full_name || meta.name || null,
           age: meta.age ? Number(meta.age) : null,
@@ -118,17 +145,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           updated_at: new Date().toISOString(),
         };
 
-        if (isReturning) {
+        if (isReturning && activeUser) {
           authService.markUserAsLoggedIn(activeUser);
         }
 
         setProfile(fallback);
         return fallback;
+      } finally {
+        setProfileLoading(false);
+        pendingProfileFetches.delete(targetId);
       }
-      return null;
-    } finally {
-      setProfileLoading(false);
-    }
+    })();
+
+    pendingProfileFetches.set(targetId, fetchPromise);
+    return fetchPromise;
   }, [user]);
 
   useEffect(() => {
@@ -146,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       setLoading(false);
       if (s?.user?.id) {
+        lastProfileFetchIdRef.current = s.user.id;
         refreshProfile(s.user.id, s.user);
       } else {
         setProfile(null);
@@ -158,7 +189,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       setLoading(false);
       if (s?.user?.id) {
-        refreshProfile(s.user.id, s.user);
+        // Prevent duplicate simultaneous fetch if onAuthStateChange already initiated it
+        if (lastProfileFetchIdRef.current !== s.user.id) {
+          lastProfileFetchIdRef.current = s.user.id;
+          refreshProfile(s.user.id, s.user);
+        }
       } else {
         setProfile(null);
       }
@@ -268,7 +303,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {}
       }
 
-      // 2. Clear state immediately so UI updates instantaneously without waiting for network
+      // 2. Clear user-specific local storage caches & state immediately
+      if (user?.id) {
+        dashboardCacheService.clearAllUserCaches(user.id);
+      }
       setSession(null);
       setUser(null);
       setProfile(null);

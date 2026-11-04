@@ -23,6 +23,31 @@ interface HealthDataContextValue {
   setProfileName: React.Dispatch<React.SetStateAction<string>>;
 }
 
+interface LocalHealthCache {
+  glucose: GlucoseEntry[];
+  insulin: InsulinEntry[];
+  weight: WeightEntry[];
+  food: FoodEntry[];
+  profileName: string;
+  cachedAt: string;
+}
+
+function getLocalHealthCache(uid: string): LocalHealthCache | null {
+  if (typeof window === "undefined" || !uid) return null;
+  try {
+    const raw = localStorage.getItem(`glucolab_health_cache_${uid}`);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
+function setLocalHealthCache(uid: string, data: LocalHealthCache): void {
+  if (typeof window === "undefined" || !uid) return;
+  try {
+    localStorage.setItem(`glucolab_health_cache_${uid}`, JSON.stringify(data));
+  } catch {}
+}
+
 const HealthDataContext = createContext<HealthDataContextValue | undefined>(undefined);
 
 export function HealthDataProvider({ children }: { children: ReactNode }) {
@@ -38,9 +63,15 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
 
   const lastSyncUserIdRef = useRef<string | null>(null);
   const activeSyncSeqRef = useRef<number>(0);
+  const inFlightRefreshRef = useRef<Promise<void> | null>(null);
 
   const refreshData = async (force = false) => {
     if (!user || !authService.isEmailVerified(user)) return;
+
+    // Deduplicate in-flight sync if not forced
+    if (inFlightRefreshRef.current && !force) {
+      return inFlightRefreshRef.current;
+    }
 
     const currentUserId = user.id;
     const syncSeq = ++activeSyncSeqRef.current;
@@ -57,7 +88,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
     }
     lastSyncUserIdRef.current = currentUserId;
 
-    // Fast Path 1: Load from local SQLite database immediately for instant UI display
+    // Fast Path 1: Load from local SQLite (native) or LocalStorage (web/SPA) immediately
     if (isMobile) {
       try {
         const localDb = await getLocalDbService();
@@ -80,9 +111,19 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.warn("[HEALTH_DATA_CONTEXT] Local DB pre-load failed:", err);
       }
+    } else {
+      const cached = getLocalHealthCache(currentUserId);
+      if (cached && activeSyncSeqRef.current === syncSeq) {
+        if (cached.glucose?.length) setGlucose(cached.glucose);
+        if (cached.insulin?.length) setInsulin(cached.insulin);
+        if (cached.weight?.length) setWeight(cached.weight);
+        if (cached.food?.length) setFood(cached.food);
+        if (cached.profileName) setProfileName(cached.profileName);
+        setInitialized(true);
+      }
     }
 
-    // If already loaded and not forced, keep current cache on mobile
+    // If already initialized and not forced on mobile, keep current cache
     if (isMobile && initialized && !force) {
       return;
     }
@@ -93,72 +134,92 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
       setLoading(true);
     }
 
-    // Path 2: Fetch fresh data from Supabase in parallel (stale-while-revalidate)
-    try {
-      const [g, i, w, f, p] = await Promise.all([
-        supabase
-          .from("glucose_entries")
-          .select("*")
-          .eq("user_id", currentUserId)
-          .order("date_time", { ascending: false })
-          .limit(300),
-        supabase
-          .from("insulin_entries")
-          .select("*")
-          .eq("user_id", currentUserId)
-          .order("entry_date", { ascending: false })
-          .limit(100),
-        supabase
-          .from("weight_entries")
-          .select("*")
-          .eq("user_id", currentUserId)
-          .order("entry_date", { ascending: false })
-          .limit(50),
-        supabase
-          .from("food_entries")
-          .select("*")
-          .eq("user_id", currentUserId)
-          .order("date_time", { ascending: false })
-          .limit(150),
-        supabase.from("profiles").select("name").eq("user_id", currentUserId).maybeSingle(),
-      ]);
+    const doFetch = async () => {
+      try {
+        const [g, i, w, f, p] = await Promise.all([
+          supabase
+            .from("glucose_entries")
+            .select("*")
+            .eq("user_id", currentUserId)
+            .order("date_time", { ascending: false })
+            .limit(300),
+          supabase
+            .from("insulin_entries")
+            .select("*")
+            .eq("user_id", currentUserId)
+            .order("entry_date", { ascending: false })
+            .limit(100),
+          supabase
+            .from("weight_entries")
+            .select("*")
+            .eq("user_id", currentUserId)
+            .order("entry_date", { ascending: false })
+            .limit(50),
+          supabase
+            .from("food_entries")
+            .select("*")
+            .eq("user_id", currentUserId)
+            .order("date_time", { ascending: false })
+            .limit(150),
+          supabase.from("profiles").select("name").eq("user_id", currentUserId).maybeSingle(),
+        ]);
 
-      // Guard against race conditions if another sync started or user switched
-      if (activeSyncSeqRef.current !== syncSeq || user?.id !== currentUserId) {
-        return;
-      }
+        if (activeSyncSeqRef.current !== syncSeq || user?.id !== currentUserId) {
+          return;
+        }
 
-      if (g.data) setGlucose(g.data as GlucoseEntry[]);
-      if (i.data) setInsulin(i.data as InsulinEntry[]);
-      if (w.data) setWeight(w.data as WeightEntry[]);
-      if (f.data) setFood(f.data as FoodEntry[]);
-      if (p.data?.name) setProfileName(p.data.name);
+        const freshG = (g.data || []) as GlucoseEntry[];
+        const freshI = (i.data || []) as InsulinEntry[];
+        const freshW = (w.data || []) as WeightEntry[];
+        const freshF = (f.data || []) as FoodEntry[];
+        const freshName = p.data?.name || "";
 
-      setInitialized(true);
+        if (g.data) setGlucose(freshG);
+        if (i.data) setInsulin(freshI);
+        if (w.data) setWeight(freshW);
+        if (f.data) setFood(freshF);
+        if (p.data?.name) setProfileName(freshName);
 
-      // Path 3: Update local SQLite cache asynchronously (non-blocking)
-      if (isMobile) {
-        try {
-          const localDb = await getLocalDbService();
-          await Promise.all([
-            g.data && g.data.length > 0 ? localDb.cacheGlucose(g.data) : Promise.resolve(),
-            i.data && i.data.length > 0 ? localDb.cacheInsulin(i.data) : Promise.resolve(),
-            w.data && w.data.length > 0 ? localDb.cacheWeight(w.data) : Promise.resolve(),
-            f.data && f.data.length > 0 ? localDb.cacheFood(f.data) : Promise.resolve(),
-            p.data ? localDb.cacheProfile(currentUserId, p.data.name) : Promise.resolve(),
-          ]);
-        } catch (cacheErr) {
-          console.warn("[HEALTH_DATA_CONTEXT] Background SQLite cache save failed:", cacheErr);
+        setInitialized(true);
+
+        // Update local web cache
+        setLocalHealthCache(currentUserId, {
+          glucose: freshG,
+          insulin: freshI,
+          weight: freshW,
+          food: freshF,
+          profileName: freshName,
+          cachedAt: new Date().toISOString(),
+        });
+
+        // Path 3: Update local SQLite cache asynchronously (non-blocking)
+        if (isMobile) {
+          try {
+            const localDb = await getLocalDbService();
+            await Promise.all([
+              g.data && g.data.length > 0 ? localDb.cacheGlucose(g.data) : Promise.resolve(),
+              i.data && i.data.length > 0 ? localDb.cacheInsulin(i.data) : Promise.resolve(),
+              w.data && w.data.length > 0 ? localDb.cacheWeight(w.data) : Promise.resolve(),
+              f.data && f.data.length > 0 ? localDb.cacheFood(f.data) : Promise.resolve(),
+              p.data ? localDb.cacheProfile(currentUserId, p.data.name) : Promise.resolve(),
+            ]);
+          } catch (cacheErr) {
+            console.warn("[HEALTH_DATA_CONTEXT] Background SQLite cache save failed:", cacheErr);
+          }
+        }
+      } catch (err) {
+        console.error("[HEALTH_DATA_CONTEXT] Error fetching data:", err);
+      } finally {
+        if (activeSyncSeqRef.current === syncSeq) {
+          setLoading(false);
+          setSyncing(false);
+          inFlightRefreshRef.current = null;
         }
       }
-    } catch (err) {
-      console.error("[HEALTH_DATA_CONTEXT] Error fetching data:", err);
-    } finally {
-      if (activeSyncSeqRef.current === syncSeq) {
-        setLoading(false);
-        setSyncing(false);
-      }
-    }
+    };
+
+    inFlightRefreshRef.current = doFetch();
+    return inFlightRefreshRef.current;
   };
 
   useEffect(() => {
@@ -174,11 +235,16 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
       setSyncing(false);
       lastSyncUserIdRef.current = null;
 
-      // Clear user-specific SQLite cache on logout
-      if (prevUserId && Capacitor.isNativePlatform()) {
-        getLocalDbService()
-          .then((db) => db.clearUserCache(prevUserId))
-          .catch(() => {});
+      // Clear user-specific SQLite & Web cache on logout
+      if (prevUserId) {
+        try {
+          localStorage.removeItem(`glucolab_health_cache_${prevUserId}`);
+        } catch {}
+        if (Capacitor.isNativePlatform()) {
+          getLocalDbService()
+            .then((db) => db.clearUserCache(prevUserId))
+            .catch(() => {});
+        }
       }
       return;
     }

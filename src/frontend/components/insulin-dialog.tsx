@@ -72,11 +72,11 @@ export function InsulinDialog({
         if (cached) {
           setHasExistingRecord(true);
           setDoses({
-            morning: Number(cached.morning) || 0,
-            lunch: Number(cached.lunch) || 0,
-            afternoon: Number(cached.afternoon) || 0,
-            evening: Number(cached.evening) || 0,
-            night: Number(cached.night) || 0,
+            morning: Math.round(Number(cached.morning) || 0),
+            lunch: Math.round(Number(cached.lunch) || 0),
+            afternoon: Math.round(Number(cached.afternoon) || 0),
+            evening: Math.round(Number(cached.evening) || 0),
+            night: Math.round(Number(cached.night) || 0),
           });
           setShowAfternoon(Boolean(cached.afternoon && Number(cached.afternoon) > 0));
         } else {
@@ -93,11 +93,11 @@ export function InsulinDialog({
       );
       if (contextMatch) {
         const record = {
-          morning: Number(contextMatch.morning) || 0,
-          lunch: Number(contextMatch.lunch) || 0,
-          afternoon: Number(contextMatch.afternoon) || 0,
-          evening: Number(contextMatch.evening) || 0,
-          night: Number(contextMatch.night) || 0,
+          morning: Math.round(Number(contextMatch.morning) || 0),
+          lunch: Math.round(Number(contextMatch.lunch) || 0),
+          afternoon: Math.round(Number(contextMatch.afternoon) || 0),
+          evening: Math.round(Number(contextMatch.evening) || 0),
+          night: Math.round(Number(contextMatch.night) || 0),
         };
         dateCacheRef.current.set(entryDate, record);
         setHasExistingRecord(true);
@@ -106,7 +106,7 @@ export function InsulinDialog({
         return;
       }
 
-      // 3. Fallback: query Supabase if not found in local cache
+      // 3. Fallback: targeted single-date query
       try {
         const { data } = await supabase
           .from("insulin_entries")
@@ -118,11 +118,11 @@ export function InsulinDialog({
         if (active) {
           if (data) {
             const record = {
-              morning: Number(data.morning) || 0,
-              lunch: Number(data.lunch) || 0,
-              afternoon: Number(data.afternoon) || 0,
-              evening: Number(data.evening) || 0,
-              night: Number(data.night) || 0,
+              morning: Math.round(Number(data.morning) || 0),
+              lunch: Math.round(Number(data.lunch) || 0),
+              afternoon: Math.round(Number(data.afternoon) || 0),
+              evening: Math.round(Number(data.evening) || 0),
+              night: Math.round(Number(data.night) || 0),
             };
             dateCacheRef.current.set(entryDate, record);
             setHasExistingRecord(true);
