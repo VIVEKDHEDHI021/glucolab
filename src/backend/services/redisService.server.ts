@@ -19,8 +19,18 @@ export interface CacheMetrics {
   errors: number;
   fallbacksToDb: number;
   averageLatencyMs: number;
+  p50LatencyMs: number;
+  p95LatencyMs: number;
+  p99LatencyMs: number;
   isRedisConnected: boolean;
   provider: "upstash-rest" | "in-memory-fallback";
+  memoryUsageMb?: {
+    heapUsed: number;
+    heapTotal: number;
+    rss: number;
+  };
+  cachedKeysCount: number;
+  concurrentRequests: number;
 }
 
 interface InMemoryCacheEntry {
@@ -38,7 +48,7 @@ class RedisCacheService {
   private readonly memoryStore = new Map<string, InMemoryCacheEntry>();
   private readonly MAX_MEMORY_KEYS = 5000;
 
-  // Metrics
+  // Metrics & Latency Tracking
   private hits = 0;
   private misses = 0;
   private sets = 0;
@@ -49,6 +59,8 @@ class RedisCacheService {
   private totalOperations = 0;
   private consecutiveErrors = 0;
   private circuitBreakerOpenUntil = 0;
+  private recentLatencies: number[] = [];
+  private activeConcurrentRequests = 0;
 
   constructor() {
     const url =
@@ -133,6 +145,19 @@ class RedisCacheService {
   private recordLatency(ms: number) {
     this.totalLatencyMs += ms;
     this.totalOperations++;
+    if (this.recentLatencies.length >= 1000) {
+      this.recentLatencies.shift();
+    }
+    this.recentLatencies.push(ms);
+  }
+
+  private computePercentiles(): { p50: number; p95: number; p99: number } {
+    if (this.recentLatencies.length === 0) return { p50: 0, p95: 0, p99: 0 };
+    const sorted = [...this.recentLatencies].sort((a, b) => a - b);
+    const p50 = sorted[Math.floor(sorted.length * 0.5)] || 0;
+    const p95 = sorted[Math.floor(sorted.length * 0.95)] || 0;
+    const p99 = sorted[Math.floor(sorted.length * 0.99)] || 0;
+    return { p50, p95, p99 };
   }
 
   /**
@@ -372,6 +397,20 @@ class RedisCacheService {
         ? Number((this.totalLatencyMs / this.totalOperations).toFixed(2))
         : 0;
 
+    const { p50, p95, p99 } = this.computePercentiles();
+
+    let memoryUsageMb: CacheMetrics["memoryUsageMb"];
+    if (typeof process !== "undefined" && typeof process.memoryUsage === "function") {
+      try {
+        const mem = process.memoryUsage();
+        memoryUsageMb = {
+          heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+          heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
+          rss: Math.round(mem.rss / 1024 / 1024),
+        };
+      } catch {}
+    }
+
     return {
       hits: this.hits,
       misses: this.misses,
@@ -381,8 +420,14 @@ class RedisCacheService {
       errors: this.errors,
       fallbacksToDb: this.fallbacks,
       averageLatencyMs: avgLatency,
+      p50LatencyMs: p50,
+      p95LatencyMs: p95,
+      p99LatencyMs: p99,
       isRedisConnected: this.isConfigured && this.circuitBreakerOpenUntil <= Date.now(),
       provider: this.isConfigured ? "upstash-rest" : "in-memory-fallback",
+      memoryUsageMb,
+      cachedKeysCount: this.memoryStore.size,
+      concurrentRequests: this.activeConcurrentRequests,
     };
   }
 
@@ -400,6 +445,8 @@ class RedisCacheService {
     this.totalOperations = 0;
     this.consecutiveErrors = 0;
     this.circuitBreakerOpenUntil = 0;
+    this.recentLatencies = [];
+    this.activeConcurrentRequests = 0;
   }
 
   /**

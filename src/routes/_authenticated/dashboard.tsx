@@ -110,7 +110,7 @@ const CustomDot = (props: any) => {
 function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { glucose, insulin, weight, food, profileName, refreshData } = useHealthData();
+  const { glucose, insulin, weight, food, profileName, refreshData, initialized } = useHealthData();
   const [glucoseOpen, setGlucoseOpen] = useState(false);
   const [editingGlucose, setEditingGlucose] = useState<GlucoseEntry | null>(null);
   const [insulinOpen, setInsulinOpen] = useState(false);
@@ -145,8 +145,10 @@ function DashboardPage() {
   };
 
   useEffect(() => {
-    refreshData(false);
-  }, [user]);
+    if (!initialized) {
+      refreshData(false);
+    }
+  }, [user, initialized]);
 
   useEffect(() => {
     const handleOpenDialog = (e: any) => {

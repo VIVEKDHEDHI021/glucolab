@@ -100,22 +100,26 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
           .from("glucose_entries")
           .select("*")
           .eq("user_id", currentUserId)
-          .order("date_time", { ascending: false }),
+          .order("date_time", { ascending: false })
+          .limit(300),
         supabase
           .from("insulin_entries")
           .select("*")
           .eq("user_id", currentUserId)
-          .order("entry_date", { ascending: false }),
+          .order("entry_date", { ascending: false })
+          .limit(100),
         supabase
           .from("weight_entries")
           .select("*")
           .eq("user_id", currentUserId)
-          .order("entry_date", { ascending: false }),
+          .order("entry_date", { ascending: false })
+          .limit(50),
         supabase
           .from("food_entries")
           .select("*")
           .eq("user_id", currentUserId)
-          .order("date_time", { ascending: false }),
+          .order("date_time", { ascending: false })
+          .limit(150),
         supabase.from("profiles").select("name").eq("user_id", currentUserId).maybeSingle(),
       ]);
 
