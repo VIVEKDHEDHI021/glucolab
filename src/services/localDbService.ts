@@ -175,10 +175,21 @@ export const localDbService = {
     try {
       await database.execute("BEGIN TRANSACTION;");
       for (const entry of entries) {
+        const entryId = entry.id || `${entry.user_id}_${entry.entry_date}`;
         await database.run(
           `INSERT OR REPLACE INTO insulin_entries (id, user_id, morning, lunch, afternoon, evening, night, entry_date, sync_status) 
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [entry.id, entry.user_id, entry.morning, entry.lunch, entry.afternoon || 0, entry.evening, entry.night, entry.entry_date, entry.sync_status || "synced"]
+          [
+            entryId,
+            entry.user_id,
+            Math.round(Number(entry.morning) || 0),
+            Math.round(Number(entry.lunch) || 0),
+            Math.round(Number(entry.afternoon) || 0),
+            Math.round(Number(entry.evening) || 0),
+            Math.round(Number(entry.night) || 0),
+            entry.entry_date,
+            entry.sync_status || "synced",
+          ]
         );
       }
       await database.execute("COMMIT;");
@@ -191,10 +202,18 @@ export const localDbService = {
   // Get insulin entries
   async getInsulin(userId: string, limit?: number) {
     const limitClause = limit ? ` LIMIT ${Number(limit)}` : "";
-    return this.selectQuery(
+    const rows = await this.selectQuery(
       `SELECT * FROM insulin_entries WHERE user_id = ? ORDER BY entry_date DESC${limitClause}`,
       [userId]
     );
+    // Deduplicate by entry_date to guarantee clean single daily schedule
+    const seenDates = new Set<string>();
+    return rows.filter((r: any) => {
+      const dateKey = r.entry_date?.split("T")[0];
+      if (!dateKey || seenDates.has(dateKey)) return false;
+      seenDates.add(dateKey);
+      return true;
+    });
   },
 
   // Cache weight entries (transaction-batched)

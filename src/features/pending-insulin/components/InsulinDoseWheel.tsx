@@ -164,7 +164,7 @@ export function InsulinDoseWheel({
       // Clear programmatic flag shortly after
       setTimeout(() => {
         isProgrammaticScrollRef.current = false;
-      }, smooth ? 250 : 20);
+      }, smooth ? 400 : 30);
     },
     [effectiveMin, effectiveMax],
   );
@@ -175,7 +175,7 @@ export function InsulinDoseWheel({
       const clamped = Math.max(effectiveMin, Math.min(effectiveMax, Math.round(value)));
       if (clamped !== selectedVal) {
         setSelectedVal(clamped);
-        scrollToValue(clamped, !isInitialMountRef.current);
+        scrollToValue(clamped, false); // Instant scroll when syncing from parent to avoid scroll event corruption
       }
     }
   }, [value, effectiveMin, effectiveMax, selectedVal, scrollToValue]);

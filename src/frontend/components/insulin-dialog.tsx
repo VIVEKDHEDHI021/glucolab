@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { Capacitor } from "@capacitor/core";
 import { getUserFriendlyError, getSuccessMessage, logDiagnostic } from "@/frontend/lib/user-messages";
 import { Syringe, Disc, Keyboard, Plus, Trash2, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase, getLocalDbService } from "@/db/client";
@@ -66,10 +67,12 @@ export function InsulinDialog({
     async function load() {
       if (!user || !open || !entryDate) return;
 
-      // 1. Check in-memory dialog cache
-      if (dateCacheRef.current.has(entryDate)) {
-        const cached = dateCacheRef.current.get(entryDate);
-        if (cached) {
+      const dateOnly = entryDate.split("T")[0];
+
+      // 1. Check in-memory dialog cache for previously loaded/saved records
+      if (dateCacheRef.current.has(dateOnly)) {
+        const cached = dateCacheRef.current.get(dateOnly);
+        if (cached && active) {
           setHasExistingRecord(true);
           setDoses({
             morning: Math.round(Number(cached.morning) || 0),
@@ -79,19 +82,17 @@ export function InsulinDialog({
             night: Math.round(Number(cached.night) || 0),
           });
           setShowAfternoon(Boolean(cached.afternoon && Number(cached.afternoon) > 0));
-        } else {
-          setHasExistingRecord(false);
-          setDoses({ morning: 0, lunch: 0, afternoon: 0, evening: 0, night: 0 });
-          setShowAfternoon(false);
+          return;
         }
-        return;
       }
 
-      // 2. Check cached insulin records from HealthDataProvider context
-      const contextMatch = cachedInsulinList?.find(
-        (item) => item.entry_date === entryDate || item.entry_date?.startsWith(entryDate),
-      );
-      if (contextMatch) {
+      // 2. Check cached insulin records from HealthDataProvider context (instant 0ms)
+      const contextMatch = cachedInsulinList?.find((item) => {
+        const itemDate = item.entry_date?.split("T")[0];
+        return itemDate === dateOnly;
+      });
+
+      if (contextMatch && active) {
         const record = {
           morning: Math.round(Number(contextMatch.morning) || 0),
           lunch: Math.round(Number(contextMatch.lunch) || 0),
@@ -99,24 +100,49 @@ export function InsulinDialog({
           evening: Math.round(Number(contextMatch.evening) || 0),
           night: Math.round(Number(contextMatch.night) || 0),
         };
-        dateCacheRef.current.set(entryDate, record);
+        dateCacheRef.current.set(dateOnly, record);
         setHasExistingRecord(true);
         setDoses(record);
         setShowAfternoon(record.afternoon > 0);
         return;
       }
 
-      // 3. Fallback: targeted single-date query
+      // 3. Fast offline lookup from local SQLite on native mobile
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const localDb = await getLocalDbService();
+          const localRows = await localDb.getInsulin(user.id);
+          const localMatch = localRows.find((item: any) => item.entry_date?.split("T")[0] === dateOnly);
+          if (localMatch && active) {
+            const record = {
+              morning: Math.round(Number(localMatch.morning) || 0),
+              lunch: Math.round(Number(localMatch.lunch) || 0),
+              afternoon: Math.round(Number(localMatch.afternoon) || 0),
+              evening: Math.round(Number(localMatch.evening) || 0),
+              night: Math.round(Number(localMatch.night) || 0),
+            };
+            dateCacheRef.current.set(dateOnly, record);
+            setHasExistingRecord(true);
+            setDoses(record);
+            setShowAfternoon(record.afternoon > 0);
+            return;
+          }
+        } catch (sqliteErr) {
+          console.warn("[InsulinDialog] Local SQLite lookup failed:", sqliteErr);
+        }
+      }
+
+      // 4. Fallback: targeted single-date query from Supabase
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("insulin_entries")
           .select("morning, lunch, afternoon, evening, night")
           .eq("user_id", user.id)
-          .eq("entry_date", entryDate)
+          .eq("entry_date", dateOnly)
           .maybeSingle();
 
         if (active) {
-          if (data) {
+          if (data && !error) {
             const record = {
               morning: Math.round(Number(data.morning) || 0),
               lunch: Math.round(Number(data.lunch) || 0),
@@ -124,12 +150,12 @@ export function InsulinDialog({
               evening: Math.round(Number(data.evening) || 0),
               night: Math.round(Number(data.night) || 0),
             };
-            dateCacheRef.current.set(entryDate, record);
+            dateCacheRef.current.set(dateOnly, record);
             setHasExistingRecord(true);
             setDoses(record);
             setShowAfternoon(record.afternoon > 0);
           } else {
-            dateCacheRef.current.set(entryDate, null);
+            // Do not permanently poison cache with null so background sync can update it
             setHasExistingRecord(false);
             setDoses({
               morning: 0,
@@ -175,7 +201,13 @@ export function InsulinDialog({
     if (!user) return;
     setSaving(true);
 
+    const payloadId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${user.id}_${entryDate}_${Date.now()}`;
+
     const payload = {
+      id: payloadId,
       user_id: user.id,
       entry_date: entryDate,
       morning: doses.morning || 0,
@@ -186,18 +218,23 @@ export function InsulinDialog({
     };
 
     try {
-      const { error } = await supabase
+      const { data: upserted, error } = await supabase
         .from("insulin_entries")
-        .upsert(payload, { onConflict: "user_id,entry_date" });
+        .upsert(payload, { onConflict: "user_id,entry_date" })
+        .select()
+        .maybeSingle();
+
       if (error) throw error;
 
+      const finalRecord = upserted || payload;
+
       // Update in-memory cache
-      dateCacheRef.current.set(entryDate, payload);
+      dateCacheRef.current.set(entryDate, finalRecord);
 
       // Update local SQLite cache
       try {
         const localDb = await getLocalDbService();
-        await localDb.cacheInsulin([payload]);
+        await localDb.cacheInsulin([finalRecord]);
       } catch {}
 
       // Invalidate server Redis cache
@@ -430,6 +467,7 @@ export function InsulinDialog({
               {/* Classic iOS Vertical Dose Wheel */}
               <div className="flex justify-center py-0.5">
                 <InsulinDoseWheel
+                  key={activeSlot}
                   value={doses[activeSlot] || 0}
                   onChange={(val) => updateDose(activeSlot, val)}
                   min={0}

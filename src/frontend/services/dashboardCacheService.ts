@@ -28,6 +28,16 @@ export interface CachedDashboardData {
       night: number;
     };
   };
+  latestInsulin?: {
+    id?: string;
+    entryDate: string;
+    morning: number;
+    lunch: number;
+    afternoon: number;
+    evening: number;
+    night: number;
+    totalUnits: number;
+  } | null;
   tir: {
     inTargetPercent: number;
     highPercent: number;

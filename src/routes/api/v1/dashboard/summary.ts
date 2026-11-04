@@ -182,6 +182,17 @@ export const Route = createFileRoute("/api/v1/dashboard/summary")({
                           morningUnits + lunchUnits + afternoonUnits + eveningUnits + nightUnits;
                       }
 
+                      // Latest recorded insulin entry across all days
+                      const latestInsulinRow = insulinRows[0] || null;
+                      let lim = 0, lil = 0, lia = 0, lie = 0, lin = 0;
+                      if (latestInsulinRow) {
+                        lim = Math.round(Number(latestInsulinRow.morning) || 0);
+                        lil = Math.round(Number(latestInsulinRow.lunch) || 0);
+                        lia = Math.round(Number(latestInsulinRow.afternoon) || 0);
+                        lie = Math.round(Number(latestInsulinRow.evening) || 0);
+                        lin = Math.round(Number(latestInsulinRow.night) || 0);
+                      }
+
                       // Latest weight & profile
                       const latestWeight = weightRes.data || null;
                       const profile = profileRes.data || null;
@@ -216,6 +227,18 @@ export const Route = createFileRoute("/api/v1/dashboard/summary")({
                             night: nightUnits,
                           },
                         },
+                        latestInsulin: latestInsulinRow
+                          ? {
+                              id: latestInsulinRow.id,
+                              entryDate: latestInsulinRow.entry_date,
+                              morning: lim,
+                              lunch: lil,
+                              afternoon: lia,
+                              evening: lie,
+                              night: lin,
+                              totalUnits: lim + lil + lia + lie + lin,
+                            }
+                          : null,
                         tir,
                         weight: latestWeight
                           ? {

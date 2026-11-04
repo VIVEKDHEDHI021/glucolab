@@ -35,7 +35,7 @@ import { supabase } from "@/db/client";
 import { healthService } from "@/backend/services/healthService";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { useHealthData } from "@/frontend/providers/data-context";
-import { getLocalDateKey } from "@/frontend/lib/date-utils";
+import { getLocalDateKey, parseLocalDate } from "@/frontend/lib/date-utils";
 import { dashboardCacheService, type CachedDashboardData } from "@/frontend/services/dashboardCacheService";
 import { Button } from "@/frontend/components/ui/button";
 import { GlucoseDialog } from "@/frontend/components/glucose-dialog";
@@ -255,7 +255,16 @@ function DashboardPage() {
     entry_date: cachedSummary.weight.entryDate,
   } as any : undefined);
 
-  const latestInsulin = insulin[0];
+  const latestInsulin = insulin[0] || (cachedSummary?.latestInsulin ? {
+    id: cachedSummary.latestInsulin.id || "cached-insulin",
+    entry_date: cachedSummary.latestInsulin.entryDate,
+    morning: cachedSummary.latestInsulin.morning,
+    lunch: cachedSummary.latestInsulin.lunch,
+    afternoon: cachedSummary.latestInsulin.afternoon,
+    evening: cachedSummary.latestInsulin.evening,
+    night: cachedSummary.latestInsulin.night,
+  } as any : undefined);
+
   const insulinFmt = latestInsulin
     ? latestInsulin.afternoon && Number(latestInsulin.afternoon) > 0
       ? `${Math.round(Number(latestInsulin.morning) || 0)}-${Math.round(Number(latestInsulin.lunch) || 0)}-${Math.round(Number(latestInsulin.afternoon) || 0)}-${Math.round(Number(latestInsulin.evening) || 0)}-${Math.round(Number(latestInsulin.night) || 0)}`
@@ -400,8 +409,10 @@ function DashboardPage() {
           unit=""
           sub={
             latestInsulin
-              ? `Total: ${insulinTotal} units · ${format(new Date(latestInsulin.entry_date), "MMM d")}`
-              : "No data"
+              ? `Total: ${insulinTotal} units · ${format(parseLocalDate(latestInsulin.entry_date), "MMM d")}`
+              : cachedSummary?.todayInsulin?.totalUnits
+                ? `Total: ${cachedSummary.todayInsulin.totalUnits} units · Today`
+                : "No data"
           }
           onEdit={latestInsulin ? () => {
             setEditingInsulinDate(latestInsulin.entry_date.split("T")[0]);

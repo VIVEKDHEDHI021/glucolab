@@ -77,6 +77,8 @@ async function runDashboardBugFixTests() {
     assert(summary.latestReading?.glucose === 132, "Latest reading glucose correctly resolved to 132 mg/dL");
     assert(summary.todayGlucoseCount === 2, `todayGlucoseCount correctly calculated as 2`);
     assert(summary.todayInsulin?.totalUnits === 30, `todayInsulin totalUnits correctly calculated as 30 units (12+6+8+4)`);
+    assert(summary.latestInsulin?.totalUnits === 30, `latestInsulin correctly populated with 30 units`);
+    assert(summary.latestInsulin?.entryDate === today, `latestInsulin entryDate correctly mapped to ${today}`);
     assert(summary.weight?.weightKg === 71.5, `Latest weight correctly mapped to 71.5 kg`);
     assert(summary.profile?.name === "John Doe", "Profile name correctly resolved to 'John Doe'");
     assert(summary.tir?.totalReadings === 3, "TIR statistics calculated across readings");

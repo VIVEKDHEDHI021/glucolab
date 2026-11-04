@@ -106,8 +106,14 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
             setGlucose(localG as GlucoseEntry[]);
             hadLocalData = true;
           }
-          if (localI && localI.length > 0) setInsulin(localI as InsulinEntry[]);
-          if (localW && localW.length > 0) setWeight(localW as WeightEntry[]);
+          if (localI && localI.length > 0) {
+            setInsulin(localI as InsulinEntry[]);
+            hadLocalData = true;
+          }
+          if (localW && localW.length > 0) {
+            setWeight(localW as WeightEntry[]);
+            hadLocalData = true;
+          }
           if (localF && localF.length > 0) setFood(localF as FoodEntry[]);
           if (localP?.name) setProfileName(localP.name);
           if (hadLocalData) {
@@ -124,8 +130,14 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
           setGlucose(cached.glucose);
           hadLocalData = true;
         }
-        if (cached.insulin?.length) setInsulin(cached.insulin);
-        if (cached.weight?.length) setWeight(cached.weight);
+        if (cached.insulin?.length) {
+          setInsulin(cached.insulin);
+          hadLocalData = true;
+        }
+        if (cached.weight?.length) {
+          setWeight(cached.weight);
+          hadLocalData = true;
+        }
         if (cached.food?.length) setFood(cached.food);
         if (cached.profileName) setProfileName(cached.profileName);
         if (hadLocalData) {
