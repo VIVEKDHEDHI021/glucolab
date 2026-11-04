@@ -23,6 +23,7 @@ import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
+import { Route as AuthenticatedMonitoringRouteImport } from './routes/_authenticated/monitoring'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
@@ -37,7 +38,11 @@ import { Route as ApiV1CacheInvalidateRouteImport } from './routes/api/v1/cache/
 import { Route as ApiV1CacheMetricsRouteImport } from './routes/api/v1/cache/metrics'
 import { Route as ApiV1DashboardSummaryRouteImport } from './routes/api/v1/dashboard/summary'
 import { Route as ApiV1GlucoseHistoryRouteImport } from './routes/api/v1/glucose/history'
+import { Route as ApiV1HealthIndexRouteImport } from './routes/api/v1/health/index'
+import { Route as ApiV1HealthReadyRouteImport } from './routes/api/v1/health/ready'
 import { Route as ApiV1InsulinHistoryRouteImport } from './routes/api/v1/insulin/history'
+import { Route as ApiV1MonitoringAlertsRouteImport } from './routes/api/v1/monitoring/alerts'
+import { Route as ApiV1MonitoringMetricsRouteImport } from './routes/api/v1/monitoring/metrics'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -106,6 +111,11 @@ const AuthenticatedExportRoute = AuthenticatedExportRouteImport.update({
 const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
   id: '/history',
   path: '/history',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedMonitoringRoute = AuthenticatedMonitoringRouteImport.update({
+  id: '/monitoring',
+  path: '/monitoring',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedNotificationsRoute =
@@ -179,9 +189,29 @@ const ApiV1GlucoseHistoryRoute = ApiV1GlucoseHistoryRouteImport.update({
   path: '/api/v1/glucose/history',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1HealthIndexRoute = ApiV1HealthIndexRouteImport.update({
+  id: '/api/v1/health/',
+  path: '/api/v1/health/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1HealthReadyRoute = ApiV1HealthReadyRouteImport.update({
+  id: '/api/v1/health/ready',
+  path: '/api/v1/health/ready',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiV1InsulinHistoryRoute = ApiV1InsulinHistoryRouteImport.update({
   id: '/api/v1/insulin/history',
   path: '/api/v1/insulin/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1MonitoringAlertsRoute = ApiV1MonitoringAlertsRouteImport.update({
+  id: '/api/v1/monitoring/alerts',
+  path: '/api/v1/monitoring/alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1MonitoringMetricsRoute = ApiV1MonitoringMetricsRouteImport.update({
+  id: '/api/v1/monitoring/metrics',
+  path: '/api/v1/monitoring/metrics',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -199,6 +229,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/export': typeof AuthenticatedExportRoute
   '/history': typeof AuthenticatedHistoryRoute
+  '/monitoring': typeof AuthenticatedMonitoringRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -213,7 +244,11 @@ export interface FileRoutesByFullPath {
   '/api/v1/cache/metrics': typeof ApiV1CacheMetricsRoute
   '/api/v1/dashboard/summary': typeof ApiV1DashboardSummaryRoute
   '/api/v1/glucose/history': typeof ApiV1GlucoseHistoryRoute
+  '/api/v1/health/ready': typeof ApiV1HealthReadyRoute
   '/api/v1/insulin/history': typeof ApiV1InsulinHistoryRoute
+  '/api/v1/monitoring/alerts': typeof ApiV1MonitoringAlertsRoute
+  '/api/v1/monitoring/metrics': typeof ApiV1MonitoringMetricsRoute
+  '/api/v1/health/': typeof ApiV1HealthIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -229,6 +264,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/export': typeof AuthenticatedExportRoute
   '/history': typeof AuthenticatedHistoryRoute
+  '/monitoring': typeof AuthenticatedMonitoringRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -243,7 +279,11 @@ export interface FileRoutesByTo {
   '/api/v1/cache/metrics': typeof ApiV1CacheMetricsRoute
   '/api/v1/dashboard/summary': typeof ApiV1DashboardSummaryRoute
   '/api/v1/glucose/history': typeof ApiV1GlucoseHistoryRoute
+  '/api/v1/health/ready': typeof ApiV1HealthReadyRoute
   '/api/v1/insulin/history': typeof ApiV1InsulinHistoryRoute
+  '/api/v1/monitoring/alerts': typeof ApiV1MonitoringAlertsRoute
+  '/api/v1/monitoring/metrics': typeof ApiV1MonitoringMetricsRoute
+  '/api/v1/health': typeof ApiV1HealthIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -261,6 +301,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/export': typeof AuthenticatedExportRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
+  '/_authenticated/monitoring': typeof AuthenticatedMonitoringRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
@@ -275,7 +316,11 @@ export interface FileRoutesById {
   '/api/v1/cache/metrics': typeof ApiV1CacheMetricsRoute
   '/api/v1/dashboard/summary': typeof ApiV1DashboardSummaryRoute
   '/api/v1/glucose/history': typeof ApiV1GlucoseHistoryRoute
+  '/api/v1/health/ready': typeof ApiV1HealthReadyRoute
   '/api/v1/insulin/history': typeof ApiV1InsulinHistoryRoute
+  '/api/v1/monitoring/alerts': typeof ApiV1MonitoringAlertsRoute
+  '/api/v1/monitoring/metrics': typeof ApiV1MonitoringMetricsRoute
+  '/api/v1/health/': typeof ApiV1HealthIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -293,6 +338,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/export'
     | '/history'
+    | '/monitoring'
     | '/notifications'
     | '/profile'
     | '/reports'
@@ -307,7 +353,11 @@ export interface FileRouteTypes {
     | '/api/v1/cache/metrics'
     | '/api/v1/dashboard/summary'
     | '/api/v1/glucose/history'
+    | '/api/v1/health/ready'
     | '/api/v1/insulin/history'
+    | '/api/v1/monitoring/alerts'
+    | '/api/v1/monitoring/metrics'
+    | '/api/v1/health/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -323,6 +373,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/export'
     | '/history'
+    | '/monitoring'
     | '/notifications'
     | '/profile'
     | '/reports'
@@ -337,7 +388,11 @@ export interface FileRouteTypes {
     | '/api/v1/cache/metrics'
     | '/api/v1/dashboard/summary'
     | '/api/v1/glucose/history'
+    | '/api/v1/health/ready'
     | '/api/v1/insulin/history'
+    | '/api/v1/monitoring/alerts'
+    | '/api/v1/monitoring/metrics'
+    | '/api/v1/health'
   id:
     | '__root__'
     | '/'
@@ -354,6 +409,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/export'
     | '/_authenticated/history'
+    | '/_authenticated/monitoring'
     | '/_authenticated/notifications'
     | '/_authenticated/profile'
     | '/_authenticated/reports'
@@ -368,7 +424,11 @@ export interface FileRouteTypes {
     | '/api/v1/cache/metrics'
     | '/api/v1/dashboard/summary'
     | '/api/v1/glucose/history'
+    | '/api/v1/health/ready'
     | '/api/v1/insulin/history'
+    | '/api/v1/monitoring/alerts'
+    | '/api/v1/monitoring/metrics'
+    | '/api/v1/health/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -392,7 +452,11 @@ export interface RootRouteChildren {
   ApiV1CacheMetricsRoute: typeof ApiV1CacheMetricsRoute
   ApiV1DashboardSummaryRoute: typeof ApiV1DashboardSummaryRoute
   ApiV1GlucoseHistoryRoute: typeof ApiV1GlucoseHistoryRoute
+  ApiV1HealthReadyRoute: typeof ApiV1HealthReadyRoute
   ApiV1InsulinHistoryRoute: typeof ApiV1InsulinHistoryRoute
+  ApiV1MonitoringAlertsRoute: typeof ApiV1MonitoringAlertsRoute
+  ApiV1MonitoringMetricsRoute: typeof ApiV1MonitoringMetricsRoute
+  ApiV1HealthIndexRoute: typeof ApiV1HealthIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -495,6 +559,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHistoryRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/monitoring': {
+      id: '/_authenticated/monitoring'
+      path: '/monitoring'
+      fullPath: '/monitoring'
+      preLoaderRoute: typeof AuthenticatedMonitoringRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/notifications': {
       id: '/_authenticated/notifications'
       path: '/notifications'
@@ -593,11 +664,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1GlucoseHistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/health/': {
+      id: '/api/v1/health/'
+      path: '/api/v1/health'
+      fullPath: '/api/v1/health/'
+      preLoaderRoute: typeof ApiV1HealthIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/health/ready': {
+      id: '/api/v1/health/ready'
+      path: '/api/v1/health/ready'
+      fullPath: '/api/v1/health/ready'
+      preLoaderRoute: typeof ApiV1HealthReadyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/v1/insulin/history': {
       id: '/api/v1/insulin/history'
       path: '/api/v1/insulin/history'
       fullPath: '/api/v1/insulin/history'
       preLoaderRoute: typeof ApiV1InsulinHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/monitoring/alerts': {
+      id: '/api/v1/monitoring/alerts'
+      path: '/api/v1/monitoring/alerts'
+      fullPath: '/api/v1/monitoring/alerts'
+      preLoaderRoute: typeof ApiV1MonitoringAlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/monitoring/metrics': {
+      id: '/api/v1/monitoring/metrics'
+      path: '/api/v1/monitoring/metrics'
+      fullPath: '/api/v1/monitoring/metrics'
+      preLoaderRoute: typeof ApiV1MonitoringMetricsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -607,6 +706,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedExportRoute: typeof AuthenticatedExportRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
+  AuthenticatedMonitoringRoute: typeof AuthenticatedMonitoringRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
@@ -618,6 +718,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedExportRoute: AuthenticatedExportRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
+  AuthenticatedMonitoringRoute: AuthenticatedMonitoringRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
@@ -650,7 +751,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1CacheMetricsRoute: ApiV1CacheMetricsRoute,
   ApiV1DashboardSummaryRoute: ApiV1DashboardSummaryRoute,
   ApiV1GlucoseHistoryRoute: ApiV1GlucoseHistoryRoute,
+  ApiV1HealthReadyRoute: ApiV1HealthReadyRoute,
   ApiV1InsulinHistoryRoute: ApiV1InsulinHistoryRoute,
+  ApiV1MonitoringAlertsRoute: ApiV1MonitoringAlertsRoute,
+  ApiV1MonitoringMetricsRoute: ApiV1MonitoringMetricsRoute,
+  ApiV1HealthIndexRoute: ApiV1HealthIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

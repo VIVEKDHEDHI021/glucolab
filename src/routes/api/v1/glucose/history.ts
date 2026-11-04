@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createUserScopedClient } from "@/db/client.server";
 import { CacheManager, CACHE_TTL } from "@/backend/services/cacheManager.server";
-import { redisService } from "@/backend/services/redisService.server";
+import { instrumentApiHandler } from "@/backend/telemetry/instrumentation";
+import { withDbMonitoring } from "@/backend/telemetry/dbMonitor";
+import { RequestTracer } from "@/backend/telemetry/tracer";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Request-ID",
 };
 
 export const Route = createFileRoute("/api/v1/glucose/history")({
@@ -19,7 +21,7 @@ export const Route = createFileRoute("/api/v1/glucose/history")({
         });
       },
 
-      GET: async ({ request }) => {
+      GET: instrumentApiHandler("/api/v1/glucose/history", "GET", async ({ request, traceContext }) => {
         const start = Date.now();
         const authHeader = request.headers.get("Authorization");
 
@@ -43,19 +45,21 @@ export const Route = createFileRoute("/api/v1/glucose/history")({
 
         try {
           userClient = createUserScopedClient(token);
-          const {
-            data: { user },
-            error,
-          } = await userClient.auth.getUser();
+          const userRes = await RequestTracer.traceSpan(
+            traceContext,
+            "auth.verify_token",
+            "auth",
+            async () => userClient.auth.getUser(),
+          );
 
-          if (error || !user) {
+          if (userRes.error || !userRes.data?.user) {
             return Response.json(
               { error: "Unauthorized: Session invalid or expired" },
               { status: 401, headers: corsHeaders },
             );
           }
 
-          userId = user.id;
+          userId = userRes.data.user.id;
         } catch (authErr: any) {
           return Response.json(
             { error: "Authentication failed", details: authErr?.message },
@@ -63,84 +67,106 @@ export const Route = createFileRoute("/api/v1/glucose/history")({
           );
         }
 
-        // Parse query parameters
+        // Query parameters
         const url = new URL(request.url);
         const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
-        const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") || "20", 10)));
-        const from = url.searchParams.get("from");
-        const to = url.searchParams.get("to");
-        const readingType = url.searchParams.get("readingType");
+        const pageSize = Math.min(100, Math.max(5, parseInt(url.searchParams.get("pageSize") || "20", 10)));
+        const fromIso = url.searchParams.get("from"); // e.g. 2026-10-01T00:00:00.000Z
+        const toIso = url.searchParams.get("to");
+        const readingType = url.searchParams.get("readingType"); // optional filter
 
-        // Construct unique deterministic cache key
-        const cacheKey = `user:${userId}:glucose:history:p${page}_s${pageSize}_f${from || "all"}_t${to || "all"}_rt${readingType || "all"}`;
+        // Build deterministic cache key based on query filters
+        const cacheKey = `user:${userId}:glucose:page:${page}:size:${pageSize}:from:${fromIso || "all"}:to:${toIso || "all"}:type:${readingType || "all"}`;
         let cacheStatus: "HIT" | "MISS" = "MISS";
 
         try {
-          const cachedResult = await CacheManager.getOrSet(
-            cacheKey,
-            CACHE_TTL.GLUCOSE_ANALYTICS,
+          const cachedResult = await RequestTracer.traceSpan(
+            traceContext,
+            "cache.glucose_history",
+            "cache",
             async () => {
-              cacheStatus = "MISS";
+              return CacheManager.getOrSet(
+                cacheKey,
+                CACHE_TTL.GLUCOSE_ANALYTICS,
+                async () => {
+                  cacheStatus = "MISS";
 
-              // Build indexed Supabase range query
-              let query = userClient
-                .from("glucose_entries")
-                .select("id, glucose, reading_type, date_time, notes, symptoms", { count: "exact" })
-                .eq("user_id", userId)
-                .order("date_time", { ascending: false });
+                  return withDbMonitoring(
+                    "db.glucose_history_paginated",
+                    async () => {
+                      const offset = (page - 1) * pageSize;
 
-              if (from) {
-                const fromIso = from.includes("T") ? from : `${from}T00:00:00.000Z`;
-                query = query.gte("date_time", fromIso);
-              }
+                      // Base query with RLS
+                      let countQuery = userClient
+                        .from("glucose_entries")
+                        .select("id", { count: "exact", head: true })
+                        .eq("user_id", userId);
 
-              if (to) {
-                const toIso = to.includes("T") ? to : `${to}T23:59:59.999Z`;
-                query = query.lte("date_time", toIso);
-              }
+                      let dataQuery = userClient
+                        .from("glucose_entries")
+                        .select("id, glucose, reading_type, date_time, notes, created_at")
+                        .eq("user_id", userId)
+                        .order("date_time", { ascending: false })
+                        .range(offset, offset + pageSize - 1);
 
-              if (readingType) {
-                query = query.eq("reading_type", readingType);
-              }
+                      if (fromIso) {
+                        countQuery = countQuery.gte("date_time", fromIso);
+                        dataQuery = dataQuery.gte("date_time", fromIso);
+                      }
+                      if (toIso) {
+                        countQuery = countQuery.lte("date_time", toIso);
+                        dataQuery = dataQuery.lte("date_time", toIso);
+                      }
+                      if (readingType && readingType !== "all") {
+                        countQuery = countQuery.eq("reading_type", readingType);
+                        dataQuery = dataQuery.eq("reading_type", readingType);
+                      }
 
-              const fromIndex = (page - 1) * pageSize;
-              const toIndex = fromIndex + pageSize - 1;
-              const { data, count, error } = await query.range(fromIndex, toIndex);
+                      const [countRes, dataRes] = await Promise.all([countQuery, dataQuery]);
 
-              if (error) throw error;
+                      if (dataRes.error) throw dataRes.error;
 
-              const totalCount = count || 0;
-              const totalPages = Math.ceil(totalCount / pageSize);
-              const readings = data || [];
+                      const totalCount = countRes.count || 0;
+                      const totalPages = Math.ceil(totalCount / pageSize);
+                      const readings = dataRes.data || [];
 
-              // Calculate range statistics
-              let inTarget = 0, high = 0, low = 0, sum = 0;
-              for (const r of readings) {
-                const val = Number(r.glucose);
-                sum += val;
-                if (val < 70) low++;
-                else if (val > 180) high++;
-                else inTarget++;
-              }
+                      // Calculate batch statistics for requested range
+                      let inTarget = 0;
+                      let high = 0;
+                      let low = 0;
+                      let sum = 0;
 
-              const countInBatch = readings.length;
-              const stats = {
-                average: countInBatch > 0 ? Math.round(sum / countInBatch) : null,
-                inTargetPercent: countInBatch > 0 ? Math.round((inTarget / countInBatch) * 100) : 0,
-                highPercent: countInBatch > 0 ? Math.round((high / countInBatch) * 100) : 0,
-                lowPercent: countInBatch > 0 ? Math.round((low / countInBatch) * 100) : 0,
-              };
+                      for (const r of readings) {
+                        const val = Number(r.glucose);
+                        sum += val;
+                        if (val < 70) low++;
+                        else if (val > 180) high++;
+                        else inTarget++;
+                      }
 
-              return {
-                page,
-                pageSize,
-                totalCount,
-                totalPages,
-                hasMore: page < totalPages,
-                readings,
-                stats,
-                cachedAt: new Date().toISOString(),
-              };
+                      const countInBatch = readings.length;
+                      const stats = {
+                        average: countInBatch > 0 ? Math.round(sum / countInBatch) : null,
+                        inTargetPercent: countInBatch > 0 ? Math.round((inTarget / countInBatch) * 100) : 0,
+                        highPercent: countInBatch > 0 ? Math.round((high / countInBatch) * 100) : 0,
+                        lowPercent: countInBatch > 0 ? Math.round((low / countInBatch) * 100) : 0,
+                      };
+
+                      return {
+                        page,
+                        pageSize,
+                        totalCount,
+                        totalPages,
+                        hasMore: page < totalPages,
+                        readings,
+                        stats,
+                        cachedAt: new Date().toISOString(),
+                      };
+                    },
+                    traceContext,
+                  );
+                },
+              );
             },
           );
 
@@ -162,7 +188,7 @@ export const Route = createFileRoute("/api/v1/glucose/history")({
             { status: 500, headers: corsHeaders },
           );
         }
-      },
+      }),
     },
   },
 });
