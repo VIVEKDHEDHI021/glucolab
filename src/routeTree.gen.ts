@@ -36,6 +36,8 @@ import { Route as ApiAuthOtpVerifyRouteImport } from './routes/api/auth/otp/veri
 import { Route as ApiV1CacheInvalidateRouteImport } from './routes/api/v1/cache/invalidate'
 import { Route as ApiV1CacheMetricsRouteImport } from './routes/api/v1/cache/metrics'
 import { Route as ApiV1DashboardSummaryRouteImport } from './routes/api/v1/dashboard/summary'
+import { Route as ApiV1GlucoseHistoryRouteImport } from './routes/api/v1/glucose/history'
+import { Route as ApiV1InsulinHistoryRouteImport } from './routes/api/v1/insulin/history'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -172,6 +174,16 @@ const ApiV1DashboardSummaryRoute = ApiV1DashboardSummaryRouteImport.update({
   path: '/api/v1/dashboard/summary',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1GlucoseHistoryRoute = ApiV1GlucoseHistoryRouteImport.update({
+  id: '/api/v1/glucose/history',
+  path: '/api/v1/glucose/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1InsulinHistoryRoute = ApiV1InsulinHistoryRouteImport.update({
+  id: '/api/v1/insulin/history',
+  path: '/api/v1/insulin/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -200,6 +212,8 @@ export interface FileRoutesByFullPath {
   '/api/v1/cache/invalidate': typeof ApiV1CacheInvalidateRoute
   '/api/v1/cache/metrics': typeof ApiV1CacheMetricsRoute
   '/api/v1/dashboard/summary': typeof ApiV1DashboardSummaryRoute
+  '/api/v1/glucose/history': typeof ApiV1GlucoseHistoryRoute
+  '/api/v1/insulin/history': typeof ApiV1InsulinHistoryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -228,6 +242,8 @@ export interface FileRoutesByTo {
   '/api/v1/cache/invalidate': typeof ApiV1CacheInvalidateRoute
   '/api/v1/cache/metrics': typeof ApiV1CacheMetricsRoute
   '/api/v1/dashboard/summary': typeof ApiV1DashboardSummaryRoute
+  '/api/v1/glucose/history': typeof ApiV1GlucoseHistoryRoute
+  '/api/v1/insulin/history': typeof ApiV1InsulinHistoryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -258,6 +274,8 @@ export interface FileRoutesById {
   '/api/v1/cache/invalidate': typeof ApiV1CacheInvalidateRoute
   '/api/v1/cache/metrics': typeof ApiV1CacheMetricsRoute
   '/api/v1/dashboard/summary': typeof ApiV1DashboardSummaryRoute
+  '/api/v1/glucose/history': typeof ApiV1GlucoseHistoryRoute
+  '/api/v1/insulin/history': typeof ApiV1InsulinHistoryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -288,6 +306,8 @@ export interface FileRouteTypes {
     | '/api/v1/cache/invalidate'
     | '/api/v1/cache/metrics'
     | '/api/v1/dashboard/summary'
+    | '/api/v1/glucose/history'
+    | '/api/v1/insulin/history'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -316,6 +336,8 @@ export interface FileRouteTypes {
     | '/api/v1/cache/invalidate'
     | '/api/v1/cache/metrics'
     | '/api/v1/dashboard/summary'
+    | '/api/v1/glucose/history'
+    | '/api/v1/insulin/history'
   id:
     | '__root__'
     | '/'
@@ -345,6 +367,8 @@ export interface FileRouteTypes {
     | '/api/v1/cache/invalidate'
     | '/api/v1/cache/metrics'
     | '/api/v1/dashboard/summary'
+    | '/api/v1/glucose/history'
+    | '/api/v1/insulin/history'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -367,6 +391,8 @@ export interface RootRouteChildren {
   ApiV1CacheInvalidateRoute: typeof ApiV1CacheInvalidateRoute
   ApiV1CacheMetricsRoute: typeof ApiV1CacheMetricsRoute
   ApiV1DashboardSummaryRoute: typeof ApiV1DashboardSummaryRoute
+  ApiV1GlucoseHistoryRoute: typeof ApiV1GlucoseHistoryRoute
+  ApiV1InsulinHistoryRoute: typeof ApiV1InsulinHistoryRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -560,6 +586,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1DashboardSummaryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/glucose/history': {
+      id: '/api/v1/glucose/history'
+      path: '/api/v1/glucose/history'
+      fullPath: '/api/v1/glucose/history'
+      preLoaderRoute: typeof ApiV1GlucoseHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/insulin/history': {
+      id: '/api/v1/insulin/history'
+      path: '/api/v1/insulin/history'
+      fullPath: '/api/v1/insulin/history'
+      preLoaderRoute: typeof ApiV1InsulinHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -609,6 +649,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1CacheInvalidateRoute: ApiV1CacheInvalidateRoute,
   ApiV1CacheMetricsRoute: ApiV1CacheMetricsRoute,
   ApiV1DashboardSummaryRoute: ApiV1DashboardSummaryRoute,
+  ApiV1GlucoseHistoryRoute: ApiV1GlucoseHistoryRoute,
+  ApiV1InsulinHistoryRoute: ApiV1InsulinHistoryRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

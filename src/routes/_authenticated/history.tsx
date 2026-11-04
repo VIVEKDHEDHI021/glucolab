@@ -5,6 +5,7 @@ import { Pencil, Trash2, Search, Droplet, Syringe, Utensils, MessageSquare, Cloc
 import { toast } from "sonner";
 import { getUserFriendlyError, getSuccessMessage, logDiagnostic } from "@/frontend/lib/user-messages";
 import { supabase } from "@/db/client";
+import { healthService } from "@/backend/services/healthService";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { useHealthData } from "@/frontend/providers/data-context";
 import { Capacitor } from "@capacitor/core";
@@ -197,6 +198,7 @@ function HistoryPage() {
       toast.error(getUserFriendlyError(error, "glucose"));
       return;
     }
+    healthService.invalidateServerCache("glucose");
     toast.success(getSuccessMessage("glucose_deleted"));
     load();
   };
@@ -220,6 +222,7 @@ function HistoryPage() {
       toast.error(getUserFriendlyError(error, "insulin"));
       return;
     }
+    healthService.invalidateServerCache("insulin");
     toast.success(getSuccessMessage("insulin_deleted"));
     load();
   };
@@ -243,7 +246,32 @@ function HistoryPage() {
       toast.error(getUserFriendlyError(error, "food"));
       return;
     }
+    healthService.invalidateServerCache("food");
     toast.success(getSuccessMessage("food_deleted"));
+    load();
+  };
+
+  const handleDeleteWeight = async (id: string) => {
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser();
+    if (!currentUser) {
+      toast.error(getUserFriendlyError("not authenticated", "weight"));
+      return;
+    }
+    if (!confirm("Are you sure you want to delete this weight entry?")) return;
+    const { error } = await supabase
+      .from("weight_entries")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", currentUser.id);
+    if (error) {
+      logDiagnostic("history:delete-weight", error);
+      toast.error(getUserFriendlyError(error, "weight"));
+      return;
+    }
+    healthService.invalidateServerCache("weight");
+    toast.success(getSuccessMessage("weight_deleted"));
     load();
   };
 
