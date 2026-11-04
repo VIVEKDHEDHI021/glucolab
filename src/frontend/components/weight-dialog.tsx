@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { getUserFriendlyError, getSuccessMessage, logDiagnostic } from "@/frontend/lib/user-messages";
 import { supabase } from "@/db/client";
+import { healthService } from "@/backend/services/healthService";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
@@ -75,6 +76,11 @@ export function WeightDialog({
         { onConflict: "user_id,entry_date" },
       );
       if (error) throw error;
+
+      // Invalidate server Redis cache
+      healthService.invalidateServerCache("weight");
+      window.dispatchEvent(new Event("health-data-updated"));
+
       const isUpdate = Boolean(entry);
       toast.success(getSuccessMessage(isUpdate ? "weight_updated" : "weight_saved"));
 

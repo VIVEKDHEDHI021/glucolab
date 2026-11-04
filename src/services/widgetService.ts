@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Preferences } from "@capacitor/preferences";
 import type { GlucoseEntry, InsulinEntry } from "@/frontend/lib/types";
+import { getLocalDateKey } from "@/frontend/lib/date-utils";
 
 interface WidgetPluginInterface {
   updateWidgetData(data: {
@@ -88,7 +89,7 @@ export const widgetService = {
       }
 
       // 3. Count of readings logged today
-      const todayStr = new Date().toISOString().split("T")[0];
+      const todayStr = getLocalDateKey();
       const todayCount = glucoseEntries.filter((g) => {
         if (!g.date_time) return false;
         return g.date_time.startsWith(todayStr);

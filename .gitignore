@@ -46,6 +46,9 @@ supabase/.temp/
 assets/*.pdf
 assets/*.docx
 assets/*.pptx
+assets/*.zip
+assets/video/
+skills-lock.json
 
 .agents/
 

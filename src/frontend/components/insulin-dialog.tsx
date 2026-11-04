@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
-import { format, subDays, addDays } from "date-fns";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { getUserFriendlyError, getSuccessMessage, logDiagnostic } from "@/frontend/lib/user-messages";
 import { Syringe, Disc, Keyboard, Plus, Trash2, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase, getLocalDbService } from "@/db/client";
+import { healthService } from "@/backend/services/healthService";
 import { useAuth } from "@/frontend/lib/auth-context";
+import { useHealthData } from "@/frontend/providers/data-context";
+import { getLocalDateKey, addDaysLocal, subDaysLocal, formatLocalDate } from "@/frontend/lib/date-utils";
 import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
 import { Label } from "@/frontend/components/ui/label";
@@ -32,9 +34,12 @@ export function InsulinDialog({
   initialDate?: string;
 }) {
   const { user } = useAuth();
+  const { insulin: cachedInsulinList } = useHealthData();
+  const dateCacheRef = useRef<Map<string, any>>(new Map());
+
   const [saving, setSaving] = useState(false);
   const [showAfternoon, setShowAfternoon] = useState(false);
-  const [entryDate, setEntryDate] = useState(initialDate || format(new Date(), "yyyy-MM-dd"));
+  const [entryDate, setEntryDate] = useState(() => initialDate || getLocalDateKey());
   const [hasExistingRecord, setHasExistingRecord] = useState(false);
   const [activeSlot, setActiveSlot] = useState<SlotKey>("morning");
   const [inputMode, setInputMode] = useState<"wheel" | "keypad">("wheel");
@@ -47,57 +52,104 @@ export function InsulinDialog({
     night: 0,
   });
 
+  const todayKey = getLocalDateKey();
+
   useEffect(() => {
     if (open) {
-      setEntryDate(initialDate || format(new Date(), "yyyy-MM-dd"));
+      setEntryDate(initialDate || getLocalDateKey());
     }
   }, [open, initialDate]);
 
-  // Load existing data when opening or when entryDate changes
+  // Load existing data when opening or when entryDate changes (with in-memory cache & context lookup)
   useEffect(() => {
     let active = true;
     async function load() {
       if (!user || !open || !entryDate) return;
-      const { data } = await supabase
-        .from("insulin_entries")
-        .select("morning, lunch, afternoon, evening, night")
-        .eq("user_id", user.id)
-        .eq("entry_date", entryDate)
-        .maybeSingle();
 
-      if (active) {
-        if (data) {
+      // 1. Check in-memory dialog cache
+      if (dateCacheRef.current.has(entryDate)) {
+        const cached = dateCacheRef.current.get(entryDate);
+        if (cached) {
           setHasExistingRecord(true);
           setDoses({
-            morning: Number(data.morning) || 0,
-            lunch: Number(data.lunch) || 0,
-            afternoon: Number(data.afternoon) || 0,
-            evening: Number(data.evening) || 0,
-            night: Number(data.night) || 0,
+            morning: Number(cached.morning) || 0,
+            lunch: Number(cached.lunch) || 0,
+            afternoon: Number(cached.afternoon) || 0,
+            evening: Number(cached.evening) || 0,
+            night: Number(cached.night) || 0,
           });
-          if (data.afternoon && Number(data.afternoon) > 0) {
-            setShowAfternoon(true);
-          } else {
-            setShowAfternoon(false);
-          }
+          setShowAfternoon(Boolean(cached.afternoon && Number(cached.afternoon) > 0));
         } else {
           setHasExistingRecord(false);
-          setDoses({
-            morning: 0,
-            lunch: 0,
-            afternoon: 0,
-            evening: 0,
-            night: 0,
-          });
+          setDoses({ morning: 0, lunch: 0, afternoon: 0, evening: 0, night: 0 });
           setShowAfternoon(false);
         }
+        return;
+      }
+
+      // 2. Check cached insulin records from HealthDataProvider context
+      const contextMatch = cachedInsulinList?.find(
+        (item) => item.entry_date === entryDate || item.entry_date?.startsWith(entryDate),
+      );
+      if (contextMatch) {
+        const record = {
+          morning: Number(contextMatch.morning) || 0,
+          lunch: Number(contextMatch.lunch) || 0,
+          afternoon: Number(contextMatch.afternoon) || 0,
+          evening: Number(contextMatch.evening) || 0,
+          night: Number(contextMatch.night) || 0,
+        };
+        dateCacheRef.current.set(entryDate, record);
+        setHasExistingRecord(true);
+        setDoses(record);
+        setShowAfternoon(record.afternoon > 0);
+        return;
+      }
+
+      // 3. Fallback: query Supabase if not found in local cache
+      try {
+        const { data } = await supabase
+          .from("insulin_entries")
+          .select("morning, lunch, afternoon, evening, night")
+          .eq("user_id", user.id)
+          .eq("entry_date", entryDate)
+          .maybeSingle();
+
+        if (active) {
+          if (data) {
+            const record = {
+              morning: Number(data.morning) || 0,
+              lunch: Number(data.lunch) || 0,
+              afternoon: Number(data.afternoon) || 0,
+              evening: Number(data.evening) || 0,
+              night: Number(data.night) || 0,
+            };
+            dateCacheRef.current.set(entryDate, record);
+            setHasExistingRecord(true);
+            setDoses(record);
+            setShowAfternoon(record.afternoon > 0);
+          } else {
+            dateCacheRef.current.set(entryDate, null);
+            setHasExistingRecord(false);
+            setDoses({
+              morning: 0,
+              lunch: 0,
+              afternoon: 0,
+              evening: 0,
+              night: 0,
+            });
+            setShowAfternoon(false);
+          }
+        }
+      } catch (err) {
+        console.warn("[InsulinDialog] Error loading entry:", err);
       }
     }
     load();
     return () => {
       active = false;
     };
-  }, [entryDate, user, open]);
+  }, [entryDate, user, open, cachedInsulinList]);
 
   const updateDose = (slot: SlotKey, value: number) => {
     const intVal = Number.isFinite(value) ? Math.round(value) : 0;
@@ -139,11 +191,17 @@ export function InsulinDialog({
         .upsert(payload, { onConflict: "user_id,entry_date" });
       if (error) throw error;
 
+      // Update in-memory cache
+      dateCacheRef.current.set(entryDate, payload);
+
       // Update local SQLite cache
       try {
         const localDb = await getLocalDbService();
         await localDb.cacheInsulin([payload]);
       } catch {}
+
+      // Invalidate server Redis cache
+      healthService.invalidateServerCache("insulin");
 
       toast.success(getSuccessMessage("insulin_saved"));
 
@@ -188,7 +246,7 @@ export function InsulinDialog({
               </DialogTitle>
               <p className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight line-clamp-1">
                 {hasExistingRecord
-                  ? `Editing doses for ${format(new Date(entryDate + "T12:00:00"), "MMM d, yyyy")}`
+                  ? `Editing doses for ${formatLocalDate(entryDate, "MMM d, yyyy")}`
                   : "Select slots and adjust doses with the wheel"}
               </p>
             </div>
@@ -232,10 +290,10 @@ export function InsulinDialog({
                     Existing Record (Edit)
                   </span>
                 )}
-                {entryDate !== format(new Date(), "yyyy-MM-dd") && (
+                {entryDate !== todayKey && (
                   <button
                     type="button"
-                    onClick={() => setEntryDate(format(new Date(), "yyyy-MM-dd"))}
+                    onClick={() => setEntryDate(todayKey)}
                     className="text-xs font-bold text-primary hover:bg-primary/10 px-2 py-0.5 rounded-lg transition-colors"
                   >
                     Today
@@ -251,8 +309,8 @@ export function InsulinDialog({
                 size="icon"
                 className="h-10 w-10 shrink-0 rounded-xl border-border/80 bg-background hover:bg-muted active:scale-95 shadow-xs transition-all"
                 onClick={() => {
-                  const prev = subDays(new Date(entryDate + "T12:00:00"), 1);
-                  setEntryDate(format(prev, "yyyy-MM-dd"));
+                  const prev = subDaysLocal(entryDate, 1);
+                  setEntryDate(prev);
                 }}
                 title="Previous day"
               >
@@ -262,9 +320,11 @@ export function InsulinDialog({
               <Input
                 id="entry_date"
                 type="date"
-                max={format(new Date(), "yyyy-MM-dd")}
+                max={todayKey}
                 value={entryDate}
-                onChange={(e) => setEntryDate(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value) setEntryDate(e.target.value);
+                }}
                 className="h-10 text-sm font-bold rounded-xl bg-background border-border/80 text-center shadow-xs cursor-pointer hover:border-primary/50 transition-colors flex-1"
               />
 
@@ -273,10 +333,10 @@ export function InsulinDialog({
                 variant="outline"
                 size="icon"
                 className="h-10 w-10 shrink-0 rounded-xl border-border/80 bg-background hover:bg-muted active:scale-95 shadow-xs transition-all disabled:opacity-25"
-                disabled={entryDate >= format(new Date(), "yyyy-MM-dd")}
+                disabled={entryDate >= todayKey}
                 onClick={() => {
-                  const next = addDays(new Date(entryDate + "T12:00:00"), 1);
-                  setEntryDate(format(next, "yyyy-MM-dd"));
+                  const next = addDaysLocal(entryDate, 1);
+                  setEntryDate(next);
                 }}
                 title="Next day"
               >

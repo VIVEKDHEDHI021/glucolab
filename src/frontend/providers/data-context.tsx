@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { authService } from "@/backend/services/authService";
 import { supabase, getLocalDbService } from "@/db/client";
@@ -13,6 +13,7 @@ interface HealthDataContextValue {
   food: FoodEntry[];
   profileName: string;
   loading: boolean;
+  syncing: boolean;
   initialized: boolean;
   refreshData: (force?: boolean) => Promise<void>;
   setGlucose: React.Dispatch<React.SetStateAction<GlucoseEntry[]>>;
@@ -32,64 +33,96 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
   const [food, setFood] = useState<FoodEntry[]>([]);
   const [profileName, setProfileName] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [initialized, setInitialized] = useState(false);
+
+  const lastSyncUserIdRef = useRef<string | null>(null);
+  const activeSyncSeqRef = useRef<number>(0);
 
   const refreshData = async (force = false) => {
     if (!user || !authService.isEmailVerified(user)) return;
 
+    const currentUserId = user.id;
+    const syncSeq = ++activeSyncSeqRef.current;
     const isMobile = Capacitor.isNativePlatform();
-    // Only return cached values if we are on mobile, already loaded once, and not forcing a reload
-    if (isMobile && initialized && !force) {
-      return;
-    }
 
-    // Load from local SQLite database immediately for instant UI update on mobile
+    // Reset user state if switched to ensure strict user data isolation
+    if (lastSyncUserIdRef.current && lastSyncUserIdRef.current !== currentUserId) {
+      setGlucose([]);
+      setInsulin([]);
+      setWeight([]);
+      setFood([]);
+      setProfileName("");
+      setInitialized(false);
+    }
+    lastSyncUserIdRef.current = currentUserId;
+
+    // Fast Path 1: Load from local SQLite database immediately for instant UI display
     if (isMobile) {
       try {
         const localDb = await getLocalDbService();
         const [localG, localI, localW, localF, localP] = await Promise.all([
-          localDb.getGlucose(user.id),
-          localDb.getInsulin(user.id),
-          localDb.getWeight(user.id),
-          localDb.getFood(user.id),
-          localDb.getProfile(user.id),
+          localDb.getGlucose(currentUserId),
+          localDb.getInsulin(currentUserId),
+          localDb.getWeight(currentUserId),
+          localDb.getFood(currentUserId),
+          localDb.getProfile(currentUserId),
         ]);
-        if (localG) setGlucose(localG as GlucoseEntry[]);
-        if (localI) setInsulin(localI as InsulinEntry[]);
-        if (localW) setWeight(localW as WeightEntry[]);
-        if (localF) setFood(localF as FoodEntry[]);
-        if (localP?.name) setProfileName(localP.name);
-        setInitialized(true);
+
+        if (activeSyncSeqRef.current === syncSeq && user?.id === currentUserId) {
+          if (localG && localG.length > 0) setGlucose(localG as GlucoseEntry[]);
+          if (localI && localI.length > 0) setInsulin(localI as InsulinEntry[]);
+          if (localW && localW.length > 0) setWeight(localW as WeightEntry[]);
+          if (localF && localF.length > 0) setFood(localF as FoodEntry[]);
+          if (localP?.name) setProfileName(localP.name);
+          setInitialized(true);
+        }
       } catch (err) {
         console.warn("[HEALTH_DATA_CONTEXT] Local DB pre-load failed:", err);
       }
     }
 
-    setLoading(true);
+    // If already loaded and not forced, keep current cache on mobile
+    if (isMobile && initialized && !force) {
+      return;
+    }
+
+    if (initialized) {
+      setSyncing(true);
+    } else {
+      setLoading(true);
+    }
+
+    // Path 2: Fetch fresh data from Supabase in parallel (stale-while-revalidate)
     try {
       const [g, i, w, f, p] = await Promise.all([
         supabase
           .from("glucose_entries")
           .select("*")
-          .eq("user_id", user.id)
+          .eq("user_id", currentUserId)
           .order("date_time", { ascending: false }),
         supabase
           .from("insulin_entries")
           .select("*")
-          .eq("user_id", user.id)
+          .eq("user_id", currentUserId)
           .order("entry_date", { ascending: false }),
         supabase
           .from("weight_entries")
           .select("*")
-          .eq("user_id", user.id)
+          .eq("user_id", currentUserId)
           .order("entry_date", { ascending: false }),
         supabase
           .from("food_entries")
           .select("*")
-          .eq("user_id", user.id)
+          .eq("user_id", currentUserId)
           .order("date_time", { ascending: false }),
-        supabase.from("profiles").select("name").eq("user_id", user.id).maybeSingle(),
+        supabase.from("profiles").select("name").eq("user_id", currentUserId).maybeSingle(),
       ]);
+
+      // Guard against race conditions if another sync started or user switched
+      if (activeSyncSeqRef.current !== syncSeq || user?.id !== currentUserId) {
+        return;
+      }
 
       if (g.data) setGlucose(g.data as GlucoseEntry[]);
       if (i.data) setInsulin(i.data as InsulinEntry[]);
@@ -98,21 +131,51 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
       if (p.data?.name) setProfileName(p.data.name);
 
       setInitialized(true);
+
+      // Path 3: Update local SQLite cache asynchronously (non-blocking)
+      if (isMobile) {
+        try {
+          const localDb = await getLocalDbService();
+          await Promise.all([
+            g.data && g.data.length > 0 ? localDb.cacheGlucose(g.data) : Promise.resolve(),
+            i.data && i.data.length > 0 ? localDb.cacheInsulin(i.data) : Promise.resolve(),
+            w.data && w.data.length > 0 ? localDb.cacheWeight(w.data) : Promise.resolve(),
+            f.data && f.data.length > 0 ? localDb.cacheFood(f.data) : Promise.resolve(),
+            p.data ? localDb.cacheProfile(currentUserId, p.data.name) : Promise.resolve(),
+          ]);
+        } catch (cacheErr) {
+          console.warn("[HEALTH_DATA_CONTEXT] Background SQLite cache save failed:", cacheErr);
+        }
+      }
     } catch (err) {
       console.error("[HEALTH_DATA_CONTEXT] Error fetching data:", err);
     } finally {
-      setLoading(false);
+      if (activeSyncSeqRef.current === syncSeq) {
+        setLoading(false);
+        setSyncing(false);
+      }
     }
   };
 
   useEffect(() => {
     if (!user) {
+      const prevUserId = lastSyncUserIdRef.current;
       setGlucose([]);
       setInsulin([]);
       setWeight([]);
       setFood([]);
       setProfileName("");
       setInitialized(false);
+      setLoading(false);
+      setSyncing(false);
+      lastSyncUserIdRef.current = null;
+
+      // Clear user-specific SQLite cache on logout
+      if (prevUserId && Capacitor.isNativePlatform()) {
+        getLocalDbService()
+          .then((db) => db.clearUserCache(prevUserId))
+          .catch(() => {});
+      }
       return;
     }
     refreshData(false);
@@ -174,7 +237,8 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
 
   const isMobile = Capacitor.isNativePlatform();
 
-  if (isMobile && !initialized && loading) {
+  // Only block full screen on first load if we have NEITHER local cache nor network data yet
+  if (isMobile && !initialized && loading && glucose.length === 0 && insulin.length === 0) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 text-white">
         <Activity className="h-12 w-12 text-primary animate-pulse" />
@@ -191,6 +255,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
         food,
         profileName,
         loading,
+        syncing,
         initialized,
         refreshData,
         setGlucose,

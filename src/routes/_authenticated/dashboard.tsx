@@ -35,6 +35,7 @@ import { supabase } from "@/db/client";
 import { healthService } from "@/backend/services/healthService";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { useHealthData } from "@/frontend/providers/data-context";
+import { getLocalDateKey } from "@/frontend/lib/date-utils";
 import { Button } from "@/frontend/components/ui/button";
 import { GlucoseDialog } from "@/frontend/components/glucose-dialog";
 import { InsulinDialog } from "@/frontend/components/insulin-dialog";
@@ -332,11 +333,8 @@ function DashboardPage() {
             setInsulinOpen(true);
           } : undefined}
           onClick={() => {
-            if (latestInsulin) {
-              setEditingInsulinDate(latestInsulin.entry_date.split("T")[0]);
-            } else {
-              setEditingInsulinDate(null);
-            }
+            const todayKey = getLocalDateKey();
+            setEditingInsulinDate(todayKey);
             setInsulinOpen(true);
           }}
         />

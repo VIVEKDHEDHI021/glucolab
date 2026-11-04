@@ -216,6 +216,9 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
         } catch {}
       }
 
+      // Invalidate server Redis cache
+      healthService.invalidateServerCache("glucose");
+
       window.dispatchEvent(new Event("health-data-updated"));
 
       const isUpdate = Boolean(entry);

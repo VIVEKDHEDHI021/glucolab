@@ -96,6 +96,10 @@ export const localDbService = {
           glucose_entry_id TEXT,
           sync_status TEXT DEFAULT 'synced'
         );
+        CREATE INDEX IF NOT EXISTS idx_local_glucose_user_date ON glucose_entries(user_id, date_time DESC);
+        CREATE INDEX IF NOT EXISTS idx_local_insulin_user_date ON insulin_entries(user_id, entry_date DESC);
+        CREATE INDEX IF NOT EXISTS idx_local_weight_user_date ON weight_entries(user_id, entry_date DESC);
+        CREATE INDEX IF NOT EXISTS idx_local_food_user_date ON food_entries(user_id, date_time DESC);
       `;
       
       await database.execute(tablesSchema);
@@ -137,9 +141,11 @@ export const localDbService = {
   },
 
   // Cache glucose entries
+  // Cache glucose entries (transaction-batched for ultra-fast native execution)
   async cacheGlucose(entries: any[]) {
-    if (!isMobile || !database) return;
+    if (!isMobile || !database || !entries || entries.length === 0) return;
     try {
+      await database.execute("BEGIN TRANSACTION;");
       for (const entry of entries) {
         await database.run(
           `INSERT OR REPLACE INTO glucose_entries (id, user_id, glucose, reading_type, notes, date_time, sync_status) 
@@ -147,23 +153,27 @@ export const localDbService = {
           [entry.id, entry.user_id, entry.glucose, entry.reading_type, entry.notes, entry.date_time, entry.sync_status || "synced"]
         );
       }
+      await database.execute("COMMIT;");
     } catch (err) {
+      try { await database.execute("ROLLBACK;"); } catch {}
       console.error("[SQLITE] Error caching glucose:", err);
     }
   },
 
   // Get glucose entries
-  async getGlucose(userId: string) {
+  async getGlucose(userId: string, limit?: number) {
+    const limitClause = limit ? ` LIMIT ${Number(limit)}` : "";
     return this.selectQuery(
-      `SELECT * FROM glucose_entries WHERE user_id = ? ORDER BY date_time DESC`,
+      `SELECT * FROM glucose_entries WHERE user_id = ? ORDER BY date_time DESC${limitClause}`,
       [userId]
     );
   },
 
-  // Cache insulin entries
+  // Cache insulin entries (transaction-batched)
   async cacheInsulin(entries: any[]) {
-    if (!isMobile || !database) return;
+    if (!isMobile || !database || !entries || entries.length === 0) return;
     try {
+      await database.execute("BEGIN TRANSACTION;");
       for (const entry of entries) {
         await database.run(
           `INSERT OR REPLACE INTO insulin_entries (id, user_id, morning, lunch, afternoon, evening, night, entry_date, sync_status) 
@@ -171,23 +181,27 @@ export const localDbService = {
           [entry.id, entry.user_id, entry.morning, entry.lunch, entry.afternoon || 0, entry.evening, entry.night, entry.entry_date, entry.sync_status || "synced"]
         );
       }
+      await database.execute("COMMIT;");
     } catch (err) {
+      try { await database.execute("ROLLBACK;"); } catch {}
       console.error("[SQLITE] Error caching insulin:", err);
     }
   },
 
   // Get insulin entries
-  async getInsulin(userId: string) {
+  async getInsulin(userId: string, limit?: number) {
+    const limitClause = limit ? ` LIMIT ${Number(limit)}` : "";
     return this.selectQuery(
-      `SELECT * FROM insulin_entries WHERE user_id = ? ORDER BY entry_date DESC`,
+      `SELECT * FROM insulin_entries WHERE user_id = ? ORDER BY entry_date DESC${limitClause}`,
       [userId]
     );
   },
 
-  // Cache weight entries
+  // Cache weight entries (transaction-batched)
   async cacheWeight(entries: any[]) {
-    if (!isMobile || !database) return;
+    if (!isMobile || !database || !entries || entries.length === 0) return;
     try {
+      await database.execute("BEGIN TRANSACTION;");
       for (const entry of entries) {
         await database.run(
           `INSERT OR REPLACE INTO weight_entries (id, user_id, weight_kg, notes, entry_date, sync_status) 
@@ -195,15 +209,18 @@ export const localDbService = {
           [entry.id, entry.user_id, entry.weight_kg, entry.notes, entry.entry_date, entry.sync_status || "synced"]
         );
       }
+      await database.execute("COMMIT;");
     } catch (err) {
+      try { await database.execute("ROLLBACK;"); } catch {}
       console.error("[SQLITE] Error caching weight:", err);
     }
   },
 
   // Get weight entries
-  async getWeight(userId: string) {
+  async getWeight(userId: string, limit?: number) {
+    const limitClause = limit ? ` LIMIT ${Number(limit)}` : "";
     return this.selectQuery(
-      `SELECT * FROM weight_entries WHERE user_id = ? ORDER BY entry_date DESC`,
+      `SELECT * FROM weight_entries WHERE user_id = ? ORDER BY entry_date DESC${limitClause}`,
       [userId]
     );
   },
@@ -227,10 +244,11 @@ export const localDbService = {
     return rows.length > 0 ? rows[0] : null;
   },
 
-  // Cache smart scan readings
+  // Cache smart scan readings (transaction-batched)
   async cacheScanReadings(readings: any[]) {
-    if (!isMobile || !database) return;
+    if (!isMobile || !database || !readings || readings.length === 0) return;
     try {
+      await database.execute("BEGIN TRANSACTION;");
       for (const r of readings) {
         await database.run(
           `INSERT OR REPLACE INTO smart_scan_readings (id, user_id, device_type, reading_date, reading_time, confidence, ocr_source, image_url, notes, data, sync_status) 
@@ -250,7 +268,9 @@ export const localDbService = {
           ]
         );
       }
+      await database.execute("COMMIT;");
     } catch (err) {
+      try { await database.execute("ROLLBACK;"); } catch {}
       console.error("[SQLITE] Error caching scan readings:", err);
     }
   },
@@ -267,10 +287,11 @@ export const localDbService = {
     }));
   },
 
-  // Cache food entries
+  // Cache food entries (transaction-batched)
   async cacheFood(entries: any[]) {
-    if (!isMobile || !database) return;
+    if (!isMobile || !database || !entries || entries.length === 0) return;
     try {
+      await database.execute("BEGIN TRANSACTION;");
       for (const f of entries) {
         const catStr = Array.isArray(f.food_categories)
           ? JSON.stringify(f.food_categories)
@@ -294,15 +315,18 @@ export const localDbService = {
           ]
         );
       }
+      await database.execute("COMMIT;");
     } catch (err) {
+      try { await database.execute("ROLLBACK;"); } catch {}
       console.error("[SQLITE] Error caching food:", err);
     }
   },
 
   // Get food entries
-  async getFood(userId: string) {
+  async getFood(userId: string, limit?: number) {
+    const limitClause = limit ? ` LIMIT ${Number(limit)}` : "";
     const rows = await this.selectQuery(
-      `SELECT * FROM food_entries WHERE user_id = ? ORDER BY date_time DESC`,
+      `SELECT * FROM food_entries WHERE user_id = ? ORDER BY date_time DESC${limitClause}`,
       [userId]
     );
     return rows.map((r: any) => {
@@ -359,7 +383,26 @@ export const localDbService = {
     };
   },
 
-  // Clear caches
+  // Clear user-specific cache on logout or user switch
+  async clearUserCache(userId: string) {
+    if (!isMobile || !database || !userId) return;
+    try {
+      await database.execute("BEGIN TRANSACTION;");
+      await database.run("DELETE FROM glucose_entries WHERE user_id = ?", [userId]);
+      await database.run("DELETE FROM insulin_entries WHERE user_id = ?", [userId]);
+      await database.run("DELETE FROM weight_entries WHERE user_id = ?", [userId]);
+      await database.run("DELETE FROM food_entries WHERE user_id = ?", [userId]);
+      await database.run("DELETE FROM profiles WHERE user_id = ?", [userId]);
+      await database.run("DELETE FROM smart_scan_readings WHERE user_id = ?", [userId]);
+      await database.execute("COMMIT;");
+      console.log(`[SQLITE] User cache cleared for: ${userId}`);
+    } catch (err) {
+      try { await database.execute("ROLLBACK;"); } catch {}
+      console.error("[SQLITE] Failed to clear user cache:", err);
+    }
+  },
+
+  // Clear all local caches
   async clearAllCaches() {
     if (!isMobile || !database) return;
     try {

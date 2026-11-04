@@ -3,6 +3,12 @@ import { getLocalDbService } from "@/db/client";
 import { insulinValidationService } from "./insulinValidationService";
 import { insulinScheduleService } from "./insulinScheduleService";
 import type { PendingDoseSlot, ScheduledSlotSummary } from "../types";
+import {
+  getLocalTimezone,
+  getLocalDateKey,
+  subDaysLocal,
+  formatLocalDate,
+} from "@/frontend/lib/date-utils";
 
 /**
  * Format "HH:mm" (24h) to "h:mm A" (12h) e.g. "19:00" -> "7:00 PM"
@@ -21,11 +27,11 @@ export function formatTime12h(timeStr: string): string {
 }
 
 /**
- * Get date parts in a specific timezone
+ * Get date parts in a specific timezone, defaulting to local timezone
  */
 export function getZonedDateParts(
   date: Date,
-  timezone: string = "UTC",
+  timezone: string = getLocalTimezone(),
 ): { dateStr: string; timeStr: string; year: number; month: number; day: number } {
   try {
     const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -55,13 +61,15 @@ export function getZonedDateParts(
       day,
     };
   } catch {
-    const iso = date.toISOString();
+    const dateStr = getLocalDateKey(date);
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
     return {
-      dateStr: iso.substring(0, 10),
-      timeStr: iso.substring(11, 16),
-      year: parseInt(iso.substring(0, 4), 10),
-      month: parseInt(iso.substring(5, 7), 10),
-      day: parseInt(iso.substring(8, 10), 10),
+      dateStr,
+      timeStr: `${hours}:${minutes}`,
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      day: date.getDate(),
     };
   }
 }
@@ -69,7 +77,7 @@ export function getZonedDateParts(
 /**
  * Construct a Date object from a date string (YYYY-MM-DD) and time string (HH:mm) in timezone
  */
-export function createDateInTimezone(dateStr: string, timeStr: string, timezone: string = "UTC"): Date {
+export function createDateInTimezone(dateStr: string, timeStr: string, timezone: string = getLocalTimezone()): Date {
   try {
     const [year, month, day] = dateStr.split("-").map((v) => parseInt(v, 10));
     const [hours, minutes] = timeStr.split(":").map((v) => parseInt(v, 10));
@@ -106,12 +114,15 @@ export function createDateInTimezone(dateStr: string, timeStr: string, timezone:
 /**
  * Format relative date display: "Today", "Yesterday", or "MMM d"
  */
-export function formatDisplayDate(dateStr: string, todayStr: string, yesterdayStr: string): string {
-  if (dateStr === todayStr) return "Today";
-  if (dateStr === yesterdayStr) return "Yesterday";
+export function formatDisplayDate(dateStr: string, todayStr?: string, yesterdayStr?: string): string {
+  const currentToday = todayStr || getLocalDateKey();
+  const currentYesterday = yesterdayStr || subDaysLocal(currentToday, 1);
+
+  if (dateStr === currentToday) return "Today";
+  if (dateStr === currentYesterday) return "Yesterday";
   try {
     const [year, month, day] = dateStr.split("-").map((v) => parseInt(v, 10));
-    const d = new Date(year, month - 1, day);
+    const d = new Date(year, month - 1, day, 12, 0, 0);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   } catch {
     return dateStr;
@@ -123,13 +134,17 @@ export const DEFAULT_LOOKBACK_DAYS = 7;
 // In-flight save prevention map
 const inFlightSaves = new Set<string>();
 
+// In-flight window query deduplication cache
+let inFlightWindowQuery: { key: string; promise: Promise<Map<string, any>> } | null = null;
+const cachedWindowEntries = new Map<string, { timestamp: number; data: Map<string, any> }>();
+
 /**
  * Generate date strings (YYYY-MM-DD) for the lookback window in the given timezone, oldest first.
  */
 export function getLookbackDateStrings(
   lookbackDays: number = DEFAULT_LOOKBACK_DAYS,
   now: Date = new Date(),
-  timezone: string = "UTC",
+  timezone: string = getLocalTimezone(),
 ): string[] {
   const dates: string[] = [];
   for (let i = lookbackDays - 1; i >= 0; i--) {
@@ -143,6 +158,55 @@ export function getLookbackDateStrings(
 }
 
 export const pendingDoseService = {
+  /**
+   * Internal deduplicated & cached fetch for lookback window entries
+   */
+  async fetchEntriesForWindow(userId: string, evaluationDates: string[]): Promise<Map<string, any>> {
+    const sortedDates = [...evaluationDates].sort();
+    const key = `${userId}_${sortedDates.join(",")}`;
+    const nowMs = Date.now();
+
+    const cached = cachedWindowEntries.get(key);
+    if (cached && nowMs - cached.timestamp < 10000) {
+      return cached.data;
+    }
+
+    if (inFlightWindowQuery && inFlightWindowQuery.key === key) {
+      return inFlightWindowQuery.promise;
+    }
+
+    const queryPromise = (async () => {
+      try {
+        const { data: entries, error } = await supabase
+          .from("insulin_entries")
+          .select("*")
+          .eq("user_id", userId)
+          .in("entry_date", sortedDates);
+
+        if (error) {
+          console.warn("[PendingDoseService] Error fetching insulin entries:", error);
+        }
+
+        const entriesByDate = new Map<string, any>();
+        if (entries) {
+          for (const entry of entries) {
+            entriesByDate.set(entry.entry_date, entry);
+          }
+        }
+
+        cachedWindowEntries.set(key, { timestamp: Date.now(), data: entriesByDate });
+        return entriesByDate;
+      } finally {
+        if (inFlightWindowQuery && inFlightWindowQuery.key === key) {
+          inFlightWindowQuery = null;
+        }
+      }
+    })();
+
+    inFlightWindowQuery = { key, promise: queryPromise };
+    return queryPromise;
+  },
+
   /**
    * Evaluate and return all pending insulin doses for user across the lookback period, sorted oldest first
    */
@@ -159,32 +223,16 @@ export const pendingDoseService = {
       const activeSchedules = userSchedules.filter((s) => s.enabled);
       if (activeSchedules.length === 0) return [];
 
-      const tz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" : "UTC";
-      const { dateStr: todayStr, timeStr: currentTimeStr } = getZonedDateParts(now, tz);
-
-      const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      const { dateStr: yesterdayStr } = getZonedDateParts(yesterdayDate, tz);
+      const tz = getLocalTimezone();
+      const todayStr = getLocalDateKey(now);
+      const { timeStr: currentTimeStr } = getZonedDateParts(now, tz);
+      const yesterdayStr = subDaysLocal(todayStr, 1);
 
       // Generate evaluation dates (oldest first, e.g. 7 days ago to today)
       const evaluationDates = getLookbackDateStrings(lookbackDays, now, tz);
 
-      // 2. Fetch existing insulin entries for these dates
-      const { data: entries, error } = await supabase
-        .from("insulin_entries")
-        .select("*")
-        .eq("user_id", userId)
-        .in("entry_date", evaluationDates);
-
-      if (error) {
-        console.warn("[PendingDoseService] Error fetching insulin entries:", error);
-      }
-
-      const entriesByDate = new Map<string, any>();
-      if (entries) {
-        for (const entry of entries) {
-          entriesByDate.set(entry.entry_date, entry);
-        }
-      }
+      // 2. Fetch existing insulin entries for these dates using shared deduplicated cache
+      const entriesByDate = await this.fetchEntriesForWindow(userId, evaluationDates);
 
       const pendingDoses: PendingDoseSlot[] = [];
 
@@ -247,26 +295,15 @@ export const pendingDoseService = {
       const activeSchedules = userSchedules.filter((s) => s.enabled);
       if (activeSchedules.length === 0) return [];
 
-      const tz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" : "UTC";
-      const { dateStr: todayStr, timeStr: currentTimeStr } = getZonedDateParts(now, tz);
-
-      const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      const { dateStr: yesterdayStr } = getZonedDateParts(yesterdayDate, tz);
+      const tz = getLocalTimezone();
+      const todayStr = getLocalDateKey(now);
+      const { timeStr: currentTimeStr } = getZonedDateParts(now, tz);
+      const yesterdayStr = subDaysLocal(todayStr, 1);
 
       const evaluationDates = getLookbackDateStrings(lookbackDays, now, tz);
 
-      const { data: entries } = await supabase
-        .from("insulin_entries")
-        .select("*")
-        .eq("user_id", userId)
-        .in("entry_date", evaluationDates);
-
-      const entriesByDate = new Map<string, any>();
-      if (entries) {
-        for (const entry of entries) {
-          entriesByDate.set(entry.entry_date, entry);
-        }
-      }
+      // Re-use deduplicated cache
+      const entriesByDate = await this.fetchEntriesForWindow(userId, evaluationDates);
 
       const results: ScheduledSlotSummary[] = [];
 

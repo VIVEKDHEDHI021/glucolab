@@ -14,6 +14,7 @@ import {
   History,
 } from "lucide-react";
 import { supabase, getLocalDbService } from "@/db/client";
+import { healthService } from "@/backend/services/healthService";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { useHealthData } from "@/frontend/providers/data-context";
 import {
@@ -158,6 +159,9 @@ export function FoodDialog({ open, onOpenChange, entry, onSaved }: Props) {
         ]);
       }
 
+      // Invalidate server Redis cache
+      healthService.invalidateServerCache("food");
+
       window.dispatchEvent(new Event("health-data-updated"));
       toast.success(getSuccessMessage(entry ? "food_updated" : "food_saved"));
       onOpenChange(false);
@@ -187,6 +191,9 @@ export function FoodDialog({ open, onOpenChange, entry, onSaved }: Props) {
         const localDb = await getLocalDbService();
         await localDb.deleteFood(entry.id);
       }
+
+      // Invalidate server Redis cache
+      healthService.invalidateServerCache("food");
 
       window.dispatchEvent(new Event("health-data-updated"));
       toast.success(getSuccessMessage("food_deleted"));

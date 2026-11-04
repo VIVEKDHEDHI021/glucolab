@@ -1,5 +1,7 @@
 import { supabase } from "@/db/client";
 import { subDays, format } from "date-fns";
+import { getLocalDateKey } from "@/frontend/lib/date-utils";
+import { getApiUrl } from "./authService";
 
 export const healthService = {
   async getDashboardData() {
@@ -48,7 +50,11 @@ export const healthService = {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
-    return supabase.from("glucose_entries").delete().eq("id", id).eq("user_id", user.id);
+    const res = await supabase.from("glucose_entries").delete().eq("id", id).eq("user_id", user.id);
+    if (!res.error) {
+      this.invalidateServerCache("glucose");
+    }
+    return res;
   },
 
   async getFoodHistory() {
@@ -68,7 +74,11 @@ export const healthService = {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
-    return supabase.from("food_entries").delete().eq("id", id).eq("user_id", user.id);
+    const res = await supabase.from("food_entries").delete().eq("id", id).eq("user_id", user.id);
+    if (!res.error) {
+      this.invalidateServerCache("food");
+    }
+    return res;
   },
 
   async getExportData(fromIso: string, toIso: string, from: string, to: string) {
@@ -192,6 +202,7 @@ export const healthService = {
           ...data,
         });
         if (insertRes.error) throw insertRes.error;
+        this.invalidateServerCache("profile");
         return insertRes;
       }
 
@@ -203,6 +214,7 @@ export const healthService = {
         })
         .eq("user_id", user.id);
       if (updateRes.error) throw updateRes.error;
+      this.invalidateServerCache("profile");
       return updateRes;
     } catch (dbError: any) {
       console.warn("[HealthService] Database profiles table update error (activating resilient fallback):", dbError);
@@ -217,7 +229,11 @@ export const healthService = {
       if (isSchemaCacheError) {
         // Fall back gracefully to updating only base columns that exist in initial profiles schema
         try {
-          const fallbackData: Record<string, any> = {
+          const fallbackData: {
+            name?: string | null;
+            phone?: string | null;
+            updated_at?: string;
+          } = {
             updated_at: new Date().toISOString(),
           };
           if (data.name !== undefined) fallbackData.name = data.name;
@@ -284,7 +300,7 @@ export const healthService = {
     // 3. Record initial weight entry if provided (non-blocking)
     try {
       if (profileData.weight_kg > 0) {
-        const today = new Date().toISOString().split("T")[0];
+        const today = getLocalDateKey();
         await supabase.from("weight_entries").insert({
           user_id: user.id,
           weight_kg: profileData.weight_kg,
@@ -296,6 +312,52 @@ export const healthService = {
       console.warn("Could not record initial weight entry:", e);
     }
 
+    // Invalidate server Redis cache
+    this.invalidateServerCache("profile");
     return res;
+  },
+
+  async invalidateServerCache(entity: "glucose" | "insulin" | "weight" | "food" | "profile" | "all" = "all") {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      fetch(getApiUrl("/api/v1/cache/invalidate"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ entity }),
+      }).catch(() => {});
+    } catch {}
+  },
+
+  async getDashboardSummary() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.access_token) {
+      try {
+        const res = await fetch(getApiUrl("/api/v1/dashboard/summary"), {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch (err) {
+        console.warn("[HealthService] Redis dashboard summary fetch fallback:", err);
+      }
+    }
+
+    // Graceful fallback to legacy multi-query if backend route unavailable or offline
+    return this.getDashboardData();
   },
 };
