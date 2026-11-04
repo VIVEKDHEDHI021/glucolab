@@ -89,6 +89,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
     lastSyncUserIdRef.current = currentUserId;
 
     // Fast Path 1: Load from local SQLite (native) or LocalStorage (web/SPA) immediately
+    let hadLocalData = false;
     if (isMobile) {
       try {
         const localDb = await getLocalDbService();
@@ -101,12 +102,17 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
         ]);
 
         if (activeSyncSeqRef.current === syncSeq && user?.id === currentUserId) {
-          if (localG && localG.length > 0) setGlucose(localG as GlucoseEntry[]);
+          if (localG && localG.length > 0) {
+            setGlucose(localG as GlucoseEntry[]);
+            hadLocalData = true;
+          }
           if (localI && localI.length > 0) setInsulin(localI as InsulinEntry[]);
           if (localW && localW.length > 0) setWeight(localW as WeightEntry[]);
           if (localF && localF.length > 0) setFood(localF as FoodEntry[]);
           if (localP?.name) setProfileName(localP.name);
-          setInitialized(true);
+          if (hadLocalData) {
+            setInitialized(true);
+          }
         }
       } catch (err) {
         console.warn("[HEALTH_DATA_CONTEXT] Local DB pre-load failed:", err);
@@ -114,21 +120,21 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
     } else {
       const cached = getLocalHealthCache(currentUserId);
       if (cached && activeSyncSeqRef.current === syncSeq) {
-        if (cached.glucose?.length) setGlucose(cached.glucose);
+        if (cached.glucose?.length) {
+          setGlucose(cached.glucose);
+          hadLocalData = true;
+        }
         if (cached.insulin?.length) setInsulin(cached.insulin);
         if (cached.weight?.length) setWeight(cached.weight);
         if (cached.food?.length) setFood(cached.food);
         if (cached.profileName) setProfileName(cached.profileName);
-        setInitialized(true);
+        if (hadLocalData) {
+          setInitialized(true);
+        }
       }
     }
 
-    // If already initialized and not forced on mobile, keep current cache
-    if (isMobile && initialized && !force) {
-      return;
-    }
-
-    if (initialized) {
+    if (hadLocalData || initialized) {
       setSyncing(true);
     } else {
       setLoading(true);
@@ -209,6 +215,8 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         console.error("[HEALTH_DATA_CONTEXT] Error fetching data:", err);
+        // Ensure initialized is marked true so the UI doesn't remain in endless loading state
+        setInitialized(true);
       } finally {
         if (activeSyncSeqRef.current === syncSeq) {
           setLoading(false);
@@ -259,7 +267,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener("health-data-updated", handleUpdate);
     };
-  }, [user]);
+  }, [user?.id]);
 
   // Sync Android Native Home Screen Widgets whenever health entries update or on load
   useEffect(() => {

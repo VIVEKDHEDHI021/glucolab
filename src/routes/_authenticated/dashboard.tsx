@@ -111,7 +111,7 @@ const CustomDot = (props: any) => {
 function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { glucose, insulin, weight, food, profileName, refreshData, initialized } = useHealthData();
+  const { glucose, insulin, weight, food, profileName, refreshData, initialized, loading } = useHealthData();
   const [glucoseOpen, setGlucoseOpen] = useState(false);
   const [editingGlucose, setEditingGlucose] = useState<GlucoseEntry | null>(null);
   const [insulinOpen, setInsulinOpen] = useState(false);
@@ -189,11 +189,12 @@ function DashboardPage() {
     await refreshData(true);
   };
 
+  // Automatically guarantee dashboard data fetch on initial mount and user change
   useEffect(() => {
-    if (!initialized) {
+    if (user?.id) {
       refreshData(false);
     }
-  }, [user, initialized]);
+  }, [user?.id]);
 
   useEffect(() => {
     const handleOpenDialog = (e: any) => {
@@ -520,6 +521,13 @@ function DashboardPage() {
             </ResponsiveContainer>
           </div>
         </div>
+        ) : loading && !initialized ? (
+          <div className="h-56 sm:h-64 w-full flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2 text-muted-foreground animate-pulse">
+              <Activity className="h-6 w-6 text-primary" />
+              <span className="text-xs">Loading glucose trend...</span>
+            </div>
+          </div>
         ) : (
           <EmptyHint
             icon={<Activity className="h-6 w-6" />}

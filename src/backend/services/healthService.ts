@@ -1,4 +1,5 @@
 import { supabase } from "@/db/client";
+import type { Database } from "@/db/types";
 import { subDays, format } from "date-fns";
 import { getLocalDateKey } from "@/frontend/lib/date-utils";
 import { getApiUrl } from "./authService";
@@ -229,11 +230,7 @@ export const healthService = {
       if (isSchemaCacheError) {
         // Fall back gracefully to updating only base columns that exist in initial profiles schema
         try {
-          const fallbackData: {
-            name?: string | null;
-            phone?: string | null;
-            updated_at?: string;
-          } = {
+          const fallbackData: Database["public"]["Tables"]["profiles"]["Update"] = {
             updated_at: new Date().toISOString(),
           };
           if (data.name !== undefined) fallbackData.name = data.name;
@@ -243,7 +240,9 @@ export const healthService = {
             await supabase.from("profiles").insert({
               user_id: user.id,
               email: user.email,
-              ...fallbackData,
+              name: fallbackData.name,
+              phone: fallbackData.phone,
+              updated_at: fallbackData.updated_at,
             });
           } else {
             await supabase
@@ -357,7 +356,91 @@ export const healthService = {
       }
     }
 
-    // Graceful fallback to legacy multi-query if backend route unavailable or offline
-    return this.getDashboardData();
+    // Graceful fallback to direct Supabase query with exact dashboard summary schema
+    try {
+      const [gRes, iRes, wRes, pRes] = await this.getDashboardData();
+      const readings = gRes?.data || [];
+      const insulinRows = iRes?.data || [];
+      const weightRows = wRes?.data || [];
+      const profile = pRes?.data || null;
+
+      const todayKey = getLocalDateKey();
+      const todayReadings = readings.filter((g: any) => g.date_time?.startsWith(todayKey));
+      const latestReading = readings[0] || null;
+
+      let inTarget = 0;
+      let high = 0;
+      let low = 0;
+      const valid = readings.filter((g: any) => typeof g.glucose === "number" && g.glucose > 0);
+      for (const r of valid) {
+        if (r.glucose < 70) low++;
+        else if (r.glucose > 180) high++;
+        else inTarget++;
+      }
+      const totalReadings = valid.length;
+      const tir = {
+        inTargetPercent: totalReadings > 0 ? Math.round((inTarget / totalReadings) * 100) : 0,
+        highPercent: totalReadings > 0 ? Math.round((high / totalReadings) * 100) : 0,
+        lowPercent: totalReadings > 0 ? Math.round((low / totalReadings) * 100) : 0,
+        totalReadings,
+        periodDays: 7,
+      };
+
+      const todayInsulinRow = insulinRows.find((i: any) => i.entry_date === todayKey) || null;
+      let m = 0;
+      let l = 0;
+      let a = 0;
+      let e = 0;
+      let n = 0;
+      if (todayInsulinRow) {
+        m = Math.round(Number(todayInsulinRow.morning) || 0);
+        l = Math.round(Number(todayInsulinRow.lunch) || 0);
+        a = Math.round(Number(todayInsulinRow.afternoon) || 0);
+        e = Math.round(Number(todayInsulinRow.evening) || 0);
+        n = Math.round(Number(todayInsulinRow.night) || 0);
+      }
+
+      const latestWeight = weightRows[0] || null;
+
+      return {
+        todayDate: todayKey,
+        latestReading: latestReading
+          ? {
+              id: latestReading.id,
+              glucose: latestReading.glucose,
+              readingType: latestReading.reading_type,
+              dateTime: latestReading.date_time,
+            }
+          : null,
+        todayGlucoseCount: todayReadings.length,
+        todayInsulin: {
+          totalUnits: m + l + a + e + n,
+          breakdown: { morning: m, lunch: l, afternoon: a, evening: e, night: n },
+        },
+        tir,
+        weight: latestWeight
+          ? {
+              weightKg: latestWeight.weight_kg,
+              entryDate: latestWeight.entry_date,
+            }
+          : null,
+        profile: {
+          name: profile?.name || "",
+          diabetesType: null,
+          onboardingCompleted: true,
+        },
+        sparkline: readings
+          .slice(0, 10)
+          .reverse()
+          .map((g: any) => ({
+            time: g.date_time,
+            glucose: g.glucose,
+          })),
+        cachedAt: new Date().toISOString(),
+      };
+    } catch (fallbackErr) {
+      console.warn("[HealthService] Direct Supabase summary fallback failed:", fallbackErr);
+      return null;
+    }
   },
 };
