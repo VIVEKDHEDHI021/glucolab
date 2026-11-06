@@ -124,6 +124,8 @@ class MobileQueryBuilder {
           await localDb.cacheGlucose(dataArray);
         } else if (this.tableName === "insulin_entries") {
           await localDb.cacheInsulin(dataArray);
+        } else if (this.tableName === "insulin_slots") {
+          await localDb.cacheInsulinSlots(dataArray);
         } else if (this.tableName === "weight_entries") {
           await localDb.cacheWeight(dataArray);
         } else if (this.tableName === "profiles") {
@@ -161,6 +163,8 @@ class MobileQueryBuilder {
       data = await localDb.getGlucose(user.id);
     } else if (this.tableName === "insulin_entries") {
       data = await localDb.getInsulin(user.id);
+    } else if (this.tableName === "insulin_slots") {
+      data = await localDb.getInsulinSlots(user.id);
     } else if (this.tableName === "weight_entries") {
       data = await localDb.getWeight(user.id);
     } else if (this.tableName === "profiles") {

@@ -90,6 +90,50 @@ export type Database = {
         };
         Relationships: [];
       };
+      insulin_slots: {
+        Row: {
+          created_at: string;
+          id: string;
+          notes: string | null;
+          recorded_at: string;
+          schedule_id: string;
+          slot_type: "morning" | "lunch" | "afternoon" | "evening" | "night";
+          units: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          notes?: string | null;
+          recorded_at?: string;
+          schedule_id: string;
+          slot_type: "morning" | "lunch" | "afternoon" | "evening" | "night";
+          units: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          notes?: string | null;
+          recorded_at?: string;
+          schedule_id?: string;
+          slot_type?: "morning" | "lunch" | "afternoon" | "evening" | "night";
+          units?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "insulin_slots_schedule_id_fkey";
+            columns: ["schedule_id"];
+            isOneToOne: false;
+            referencedRelation: "insulin_entries";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           age: number | null;

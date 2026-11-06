@@ -38,7 +38,7 @@ export function InsulinDialog({
   entryId?: string;
 }) {
   const { user } = useAuth();
-  const { insulin: cachedInsulinList } = useHealthData();
+  const { insulin: cachedInsulinList, optimisticAddOrUpdateInsulin } = useHealthData();
   const dateCacheRef = useRef<Map<string, any>>(new Map());
 
   const [saving, setSaving] = useState(false);
@@ -273,6 +273,18 @@ export function InsulinDialog({
       let finalRecord: any = null;
 
       if (existingRecordId) {
+        // Optimistic UI update for instant feedback
+        optimisticAddOrUpdateInsulin({
+          id: existingRecordId,
+          user_id: user.id,
+          entry_date: dateOnly,
+          morning: doses.morning || 0,
+          lunch: doses.lunch || 0,
+          afternoon: showAfternoon ? doses.afternoon || 0 : 0,
+          evening: doses.evening || 0,
+          night: doses.night || 0,
+        } as any);
+
         // Strict UPDATE: Must have existing ID, never falls back to insert
         const res = await healthService.updateInsulinEntry(existingRecordId, {
           morning: doses.morning || 0,
@@ -290,6 +302,18 @@ export function InsulinDialog({
           (typeof crypto !== "undefined" && crypto.randomUUID
             ? crypto.randomUUID()
             : `ins_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+
+        // Optimistic UI update for instant feedback
+        optimisticAddOrUpdateInsulin({
+          id: createId,
+          user_id: user.id,
+          entry_date: dateOnly,
+          morning: doses.morning || 0,
+          lunch: doses.lunch || 0,
+          afternoon: showAfternoon ? doses.afternoon || 0 : 0,
+          evening: doses.evening || 0,
+          night: doses.night || 0,
+        } as any);
 
         const idemKey =
           idempotencyKeyRef.current ||

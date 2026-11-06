@@ -77,6 +77,11 @@ function HistoryPage() {
 
   useEffect(() => {
     load();
+    const handleUpdate = () => {
+      load();
+    };
+    window.addEventListener("health-data-updated", handleUpdate);
+    return () => window.removeEventListener("health-data-updated", handleUpdate);
   }, [user]);
 
   useEffect(() => {
@@ -189,6 +194,8 @@ function HistoryPage() {
       return;
     }
     if (!confirm("Are you sure you want to delete this glucose reading?")) return;
+    // Optimistic UI deletion
+    setEntriesList((prev) => prev.filter((e) => e.id !== id));
     try {
       const { error } = await healthService.deleteGlucoseEntry(id);
       if (error) throw error;
@@ -197,6 +204,7 @@ function HistoryPage() {
     } catch (error: any) {
       logDiagnostic("history:delete-glucose", error);
       toast.error(getUserFriendlyError(error, "glucose"));
+      load(); // Roll back / reconcile on error
     }
   };
 
@@ -209,6 +217,8 @@ function HistoryPage() {
       return;
     }
     if (!confirm("Are you sure you want to delete this insulin entry?")) return;
+    // Optimistic UI deletion
+    setInsulinEntries((prev) => prev.filter((i) => i.id !== id));
     try {
       const { error } = await healthService.deleteInsulinEntry(id);
       if (error) throw error;
@@ -217,6 +227,7 @@ function HistoryPage() {
     } catch (error: any) {
       logDiagnostic("history:delete-insulin", error);
       toast.error(getUserFriendlyError(error, "insulin"));
+      load(); // Roll back / reconcile on error
     }
   };
 

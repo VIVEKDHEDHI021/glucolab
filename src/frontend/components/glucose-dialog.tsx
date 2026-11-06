@@ -23,6 +23,7 @@ import { FoodContextSelector } from "@/frontend/components/food-context-selector
 import { getUserFriendlyError, getSuccessMessage, logDiagnostic } from "@/frontend/lib/user-messages";
 import { getLocalDbService } from "@/db/client";
 import { Capacitor } from "@capacitor/core";
+import { useHealthData } from "@/frontend/providers/data-context";
 import { Button } from "@/frontend/components/ui/button";
 import { Input } from "@/frontend/components/ui/input";
 import { Label } from "@/frontend/components/ui/label";
@@ -67,6 +68,7 @@ interface Props {
 
 export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
   const { user } = useAuth();
+  const { optimisticAddGlucose, optimisticUpdateGlucose } = useHealthData();
   const [saving, setSaving] = useState(false);
   const [isSuggested, setIsSuggested] = useState(false);
   const [foodOptions, setFoodOptions] = useState<QuickFoodOptionId[]>([]);
@@ -174,6 +176,16 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
       let savedRecord: any = null;
 
       if (entry) {
+        // Optimistic UI update for instant feedback
+        optimisticUpdateGlucose({
+          ...entry,
+          glucose: Number(data.glucose),
+          reading_type: data.reading_type,
+          date_time: new Date(data.date_time).toISOString(),
+          food: foodString || null,
+          notes: data.notes || null,
+        });
+
         // Strict UPDATE: Must have existing ID, never falls back to insert
         const res = await healthService.updateGlucoseEntry(entry.id, {
           glucose: data.glucose,
@@ -191,6 +203,18 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
           (typeof crypto !== "undefined" && crypto.randomUUID
             ? crypto.randomUUID()
             : `gluc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+
+        // Optimistic UI update for instant feedback
+        optimisticAddGlucose({
+          id: createId,
+          user_id: user.id,
+          glucose: Number(data.glucose),
+          reading_type: data.reading_type,
+          date_time: new Date(data.date_time).toISOString(),
+          food: foodString || null,
+          notes: data.notes || null,
+          created_at: new Date().toISOString(),
+        } as any);
 
         const idemKey =
           idempotencyKeyRef.current ||

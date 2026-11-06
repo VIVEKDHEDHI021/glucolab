@@ -57,6 +57,16 @@ export const localDbService = {
           entry_date TEXT,
           sync_status TEXT DEFAULT 'synced'
         );
+        CREATE TABLE IF NOT EXISTS insulin_slots (
+          id TEXT PRIMARY KEY,
+          schedule_id TEXT,
+          user_id TEXT,
+          slot_type TEXT,
+          units INTEGER,
+          notes TEXT,
+          recorded_at TEXT,
+          sync_status TEXT DEFAULT 'synced'
+        );
         CREATE TABLE IF NOT EXISTS weight_entries (
           id TEXT PRIMARY KEY,
           user_id TEXT,
@@ -98,6 +108,7 @@ export const localDbService = {
         );
         CREATE INDEX IF NOT EXISTS idx_local_glucose_user_date ON glucose_entries(user_id, date_time DESC);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_local_insulin_user_entry_date ON insulin_entries(user_id, entry_date);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_local_insulin_slots_sched_slot ON insulin_slots(schedule_id, slot_type);
         CREATE INDEX IF NOT EXISTS idx_local_weight_user_date ON weight_entries(user_id, entry_date DESC);
         CREATE INDEX IF NOT EXISTS idx_local_food_user_date ON food_entries(user_id, date_time DESC);
       `;
@@ -233,6 +244,60 @@ export const localDbService = {
       seenDates.add(dateKey);
       return true;
     });
+  },
+
+  // Cache individual insulin slots
+  async cacheInsulinSlots(slots: any[]) {
+    if (!isMobile || !database || !slots?.length) return;
+    try {
+      await database.execute("BEGIN TRANSACTION;");
+      for (const s of slots) {
+        if (!s?.id || !s?.schedule_id) continue;
+        await database.run(
+          `INSERT INTO insulin_slots (id, schedule_id, user_id, slot_type, units, notes, recorded_at, sync_status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'synced')
+           ON CONFLICT(schedule_id, slot_type) DO UPDATE SET
+             units = excluded.units,
+             notes = excluded.notes,
+             recorded_at = excluded.recorded_at,
+             sync_status = 'synced'`,
+          [
+            s.id,
+            s.schedule_id,
+            s.user_id,
+            s.slot_type,
+            s.units || 0,
+            s.notes || null,
+            s.recorded_at || new Date().toISOString(),
+          ]
+        );
+      }
+      await database.execute("COMMIT;");
+    } catch (err) {
+      try { await database.execute("ROLLBACK;"); } catch {}
+      console.error("[SQLITE] Error caching insulin slots:", err);
+    }
+  },
+
+  // Get individual insulin slots
+  async getInsulinSlots(userId: string, scheduleId?: string) {
+    if (!isMobile || !database) return [];
+    if (scheduleId) {
+      return this.selectQuery(
+        `SELECT * FROM insulin_slots WHERE user_id = ? AND schedule_id = ? ORDER BY recorded_at ASC`,
+        [userId, scheduleId]
+      );
+    }
+    return this.selectQuery(
+      `SELECT * FROM insulin_slots WHERE user_id = ? ORDER BY recorded_at ASC`,
+      [userId]
+    );
+  },
+
+  // Delete individual local insulin slot
+  async deleteLocalInsulinSlot(slotId: string) {
+    if (!isMobile || !database || !slotId) return;
+    await this.runQuery(`DELETE FROM insulin_slots WHERE id = ?`, [slotId]);
   },
 
   // Cache weight entries (transaction-batched)

@@ -21,6 +21,11 @@ interface HealthDataContextValue {
   setWeight: React.Dispatch<React.SetStateAction<WeightEntry[]>>;
   setFood: React.Dispatch<React.SetStateAction<FoodEntry[]>>;
   setProfileName: React.Dispatch<React.SetStateAction<string>>;
+  optimisticAddGlucose: (entry: GlucoseEntry) => void;
+  optimisticUpdateGlucose: (entry: GlucoseEntry) => void;
+  optimisticDeleteGlucose: (id: string) => void;
+  optimisticAddOrUpdateInsulin: (entry: InsulinEntry) => void;
+  optimisticDeleteInsulin: (id: string) => void;
 }
 
 interface LocalHealthCache {
@@ -275,9 +280,39 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
       refreshData(true);
     };
 
+    // Multi-device realtime subscription via Supabase Realtime channel
+    const channel = supabase
+      .channel(`user_health_realtime_${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "glucose_entries", filter: `user_id=eq.${user.id}` },
+        () => {
+          console.log("[REALTIME] Remote glucose change detected");
+          refreshData(true);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "insulin_entries", filter: `user_id=eq.${user.id}` },
+        () => {
+          console.log("[REALTIME] Remote insulin change detected");
+          refreshData(true);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "insulin_slots", filter: `user_id=eq.${user.id}` },
+        () => {
+          console.log("[REALTIME] Remote insulin slot change detected");
+          refreshData(true);
+        },
+      )
+      .subscribe();
+
     window.addEventListener("health-data-updated", handleUpdate);
     return () => {
       window.removeEventListener("health-data-updated", handleUpdate);
+      supabase.removeChannel(channel);
     };
   }, [user?.id]);
 
@@ -327,6 +362,36 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
 
   const isMobile = Capacitor.isNativePlatform();
 
+  // Optimistic mutation helpers for instant UI responsiveness
+  const optimisticAddGlucose = (entry: GlucoseEntry) => {
+    setGlucose((prev) => [entry, ...prev.filter((g) => g.id !== entry.id)]);
+  };
+
+  const optimisticUpdateGlucose = (entry: GlucoseEntry) => {
+    setGlucose((prev) => prev.map((g) => (g.id === entry.id ? { ...g, ...entry } : g)));
+  };
+
+  const optimisticDeleteGlucose = (id: string) => {
+    setGlucose((prev) => prev.filter((g) => g.id !== id));
+  };
+
+  const optimisticAddOrUpdateInsulin = (entry: InsulinEntry) => {
+    setInsulin((prev) => {
+      const entryDateOnly = entry.entry_date?.split("T")[0];
+      const idx = prev.findIndex((i) => i.id === entry.id || i.entry_date?.split("T")[0] === entryDateOnly);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], ...entry };
+        return copy;
+      }
+      return [entry, ...prev];
+    });
+  };
+
+  const optimisticDeleteInsulin = (id: string) => {
+    setInsulin((prev) => prev.filter((i) => i.id !== id));
+  };
+
   // Only block full screen on first load if we have NEITHER local cache nor network data yet
   if (isMobile && !initialized && loading && glucose.length === 0 && insulin.length === 0) {
     return (
@@ -353,6 +418,11 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
         setWeight,
         setFood,
         setProfileName,
+        optimisticAddGlucose,
+        optimisticUpdateGlucose,
+        optimisticDeleteGlucose,
+        optimisticAddOrUpdateInsulin,
+        optimisticDeleteInsulin,
       }}
     >
       {children}
