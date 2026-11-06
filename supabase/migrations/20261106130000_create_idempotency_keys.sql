@@ -32,3 +32,4 @@ BEGIN
     CREATE POLICY "Users delete own idempotency keys" ON public.idempotency_keys FOR DELETE USING (auth.uid() = user_id);
   END IF;
 END $$;
+

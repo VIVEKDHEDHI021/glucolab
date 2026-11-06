@@ -80,3 +80,4 @@ INSERT INTO public.insulin_slots (schedule_id, user_id, slot_type, units, record
 SELECT id, user_id, 'night', ROUND(night)::integer, created_at, created_at, updated_at
 FROM public.insulin_entries WHERE night IS NOT NULL AND night > 0
 ON CONFLICT (schedule_id, slot_type) DO NOTHING;
+
