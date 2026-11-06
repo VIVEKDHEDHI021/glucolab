@@ -93,60 +93,62 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
     }
     lastSyncUserIdRef.current = currentUserId;
 
-    // Fast Path 1: Load from local SQLite (native) or LocalStorage (web/SPA) immediately
+    // Fast Path 1: Load from local SQLite (native) or LocalStorage (web/SPA) immediately on initial load (not forced refresh)
     let hadLocalData = false;
-    if (isMobile) {
-      try {
-        const localDb = await getLocalDbService();
-        const [localG, localI, localW, localF, localP] = await Promise.all([
-          localDb.getGlucose(currentUserId),
-          localDb.getInsulin(currentUserId),
-          localDb.getWeight(currentUserId),
-          localDb.getFood(currentUserId),
-          localDb.getProfile(currentUserId),
-        ]);
+    if (!force) {
+      if (isMobile) {
+        try {
+          const localDb = await getLocalDbService();
+          const [localG, localI, localW, localF, localP] = await Promise.all([
+            localDb.getGlucose(currentUserId),
+            localDb.getInsulin(currentUserId),
+            localDb.getWeight(currentUserId),
+            localDb.getFood(currentUserId),
+            localDb.getProfile(currentUserId),
+          ]);
 
-        if (activeSyncSeqRef.current === syncSeq && user?.id === currentUserId) {
-          if (localG && localG.length > 0) {
-            setGlucose(localG as GlucoseEntry[]);
+          if (activeSyncSeqRef.current === syncSeq && user?.id === currentUserId) {
+            if (localG && localG.length > 0) {
+              setGlucose(localG as GlucoseEntry[]);
+              hadLocalData = true;
+            }
+            if (localI && localI.length > 0) {
+              setInsulin(localI as InsulinEntry[]);
+              hadLocalData = true;
+            }
+            if (localW && localW.length > 0) {
+              setWeight(localW as WeightEntry[]);
+              hadLocalData = true;
+            }
+            if (localF && localF.length > 0) setFood(localF as FoodEntry[]);
+            if (localP?.name) setProfileName(localP.name);
+            if (hadLocalData) {
+              setInitialized(true);
+            }
+          }
+        } catch (err) {
+          console.warn("[HEALTH_DATA_CONTEXT] Local DB pre-load failed:", err);
+        }
+      } else {
+        const cached = getLocalHealthCache(currentUserId);
+        if (cached && activeSyncSeqRef.current === syncSeq) {
+          if (cached.glucose?.length) {
+            setGlucose(cached.glucose);
             hadLocalData = true;
           }
-          if (localI && localI.length > 0) {
-            setInsulin(localI as InsulinEntry[]);
+          if (cached.insulin?.length) {
+            setInsulin(cached.insulin);
             hadLocalData = true;
           }
-          if (localW && localW.length > 0) {
-            setWeight(localW as WeightEntry[]);
+          if (cached.weight?.length) {
+            setWeight(cached.weight);
             hadLocalData = true;
           }
-          if (localF && localF.length > 0) setFood(localF as FoodEntry[]);
-          if (localP?.name) setProfileName(localP.name);
+          if (cached.food?.length) setFood(cached.food);
+          if (cached.profileName) setProfileName(cached.profileName);
           if (hadLocalData) {
             setInitialized(true);
           }
-        }
-      } catch (err) {
-        console.warn("[HEALTH_DATA_CONTEXT] Local DB pre-load failed:", err);
-      }
-    } else {
-      const cached = getLocalHealthCache(currentUserId);
-      if (cached && activeSyncSeqRef.current === syncSeq) {
-        if (cached.glucose?.length) {
-          setGlucose(cached.glucose);
-          hadLocalData = true;
-        }
-        if (cached.insulin?.length) {
-          setInsulin(cached.insulin);
-          hadLocalData = true;
-        }
-        if (cached.weight?.length) {
-          setWeight(cached.weight);
-          hadLocalData = true;
-        }
-        if (cached.food?.length) setFood(cached.food);
-        if (cached.profileName) setProfileName(cached.profileName);
-        if (hadLocalData) {
-          setInitialized(true);
         }
       }
     }

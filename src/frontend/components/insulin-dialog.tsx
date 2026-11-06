@@ -52,6 +52,7 @@ export function InsulinDialog({
   const isSubmittingRef = useRef(false);
   const stableCreateIdRef = useRef<string | null>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
+  const modifiedSlotsRef = useRef<Set<SlotKey>>(new Set());
 
   const [doses, setDoses] = useState<Record<SlotKey, number>>({
     morning: 0,
@@ -70,6 +71,7 @@ export function InsulinDialog({
     setHasExistingRecord(false);
     stableCreateIdRef.current = null;
     idempotencyKeyRef.current = null;
+    modifiedSlotsRef.current.clear();
   };
 
   useEffect(() => {
@@ -81,12 +83,14 @@ export function InsulinDialog({
       isSubmittingRef.current = false;
       stableCreateIdRef.current = null;
       idempotencyKeyRef.current = null;
+      modifiedSlotsRef.current.clear();
     } else {
       isSubmittingRef.current = false;
       stableCreateIdRef.current = null;
       idempotencyKeyRef.current = null;
       setExistingRecordId(null);
       setHasExistingRecord(false);
+      modifiedSlotsRef.current.clear();
     }
   }, [open, initialDate, entryId]);
 
@@ -238,6 +242,7 @@ export function InsulinDialog({
 
   const updateDose = (slot: SlotKey, value: number) => {
     const intVal = Number.isFinite(value) ? Math.round(value) : 0;
+    modifiedSlotsRef.current.add(slot);
     setDoses((prev) => ({
       ...prev,
       [slot]: Math.max(0, Math.min(200, intVal)),
@@ -272,28 +277,34 @@ export function InsulinDialog({
     try {
       let finalRecord: any = null;
 
+      // Track slot currently in focus if no slot modifications were recorded yet
+      if (modifiedSlotsRef.current.size === 0) {
+        modifiedSlotsRef.current.add(activeSlot);
+      }
+
+      // Build payload containing modified slots to avoid overwriting other slots
+      const payloadToSave: any = {
+        entry_date: dateOnly,
+      };
+      for (const s of modifiedSlotsRef.current) {
+        payloadToSave[s] = doses[s] || 0;
+      }
+      if (showAfternoon && modifiedSlotsRef.current.has("afternoon")) {
+        payloadToSave.afternoon = doses.afternoon || 0;
+      }
+
       if (existingRecordId) {
         // Optimistic UI update for instant feedback
         optimisticAddOrUpdateInsulin({
           id: existingRecordId,
           user_id: user.id,
           entry_date: dateOnly,
-          morning: doses.morning || 0,
-          lunch: doses.lunch || 0,
-          afternoon: showAfternoon ? doses.afternoon || 0 : 0,
-          evening: doses.evening || 0,
-          night: doses.night || 0,
+          ...doses,
+          ...payloadToSave,
         } as any);
 
-        // Strict UPDATE: Must have existing ID, never falls back to insert
-        const res = await healthService.updateInsulinEntry(existingRecordId, {
-          morning: doses.morning || 0,
-          lunch: doses.lunch || 0,
-          afternoon: showAfternoon ? doses.afternoon || 0 : 0,
-          evening: doses.evening || 0,
-          night: doses.night || 0,
-          entry_date: dateOnly,
-        });
+        // Strict UPDATE: Must have existing ID, never falls back to insert, preserves unedited slots
+        const res = await healthService.updateInsulinEntry(existingRecordId, payloadToSave);
         finalRecord = res.data;
       } else {
         // Strict CREATE with Idempotency Key
@@ -308,35 +319,24 @@ export function InsulinDialog({
           id: createId,
           user_id: user.id,
           entry_date: dateOnly,
-          morning: doses.morning || 0,
-          lunch: doses.lunch || 0,
-          afternoon: showAfternoon ? doses.afternoon || 0 : 0,
-          evening: doses.evening || 0,
-          night: doses.night || 0,
+          ...doses,
+          ...payloadToSave,
         } as any);
 
         const idemKey =
           idempotencyKeyRef.current ||
           idempotencyService.generateKey(user.id, "insulin", `${dateOnly}_${createId}`);
 
-        const res = await healthService.createInsulinEntry(
-          {
-            id: createId,
-            entry_date: dateOnly,
-            morning: doses.morning || 0,
-            lunch: doses.lunch || 0,
-            afternoon: showAfternoon ? doses.afternoon || 0 : 0,
-            evening: doses.evening || 0,
-            night: doses.night || 0,
-          },
-          idemKey,
-        );
+        payloadToSave.id = createId;
+        const res = await healthService.createInsulinEntry(payloadToSave, idemKey);
         finalRecord = res.data;
 
         // Reset create tokens upon verified success
         stableCreateIdRef.current = null;
         idempotencyKeyRef.current = null;
       }
+
+      modifiedSlotsRef.current.clear();
 
       const verifiedRecord = finalRecord || {
         id: existingRecordId,

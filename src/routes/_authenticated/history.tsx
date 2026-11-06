@@ -37,7 +37,7 @@ export const Route = createFileRoute("/_authenticated/history")({
 function HistoryPage() {
   const { user } = useAuth();
   const todayStr = format(new Date(), "yyyy-MM-dd");
-  const { glucose, insulin, weight, food, refreshData } = useHealthData();
+  const { glucose, insulin, weight, food, refreshData, optimisticDeleteGlucose, optimisticDeleteInsulin } = useHealthData();
   const [activeTab, setActiveTab] = useState<"glucose" | "insulin" | "weight" | "food">("glucose");
   const [search, setSearch] = useState("");
   const [from, setFrom] = useState("");
@@ -195,7 +195,7 @@ function HistoryPage() {
     }
     if (!confirm("Are you sure you want to delete this glucose reading?")) return;
     // Optimistic UI deletion
-    setEntriesList((prev) => prev.filter((e) => e.id !== id));
+    optimisticDeleteGlucose(id);
     try {
       const { error } = await healthService.deleteGlucoseEntry(id);
       if (error) throw error;
@@ -218,7 +218,7 @@ function HistoryPage() {
     }
     if (!confirm("Are you sure you want to delete this insulin entry?")) return;
     // Optimistic UI deletion
-    setInsulinEntries((prev) => prev.filter((i) => i.id !== id));
+    optimisticDeleteInsulin(id);
     try {
       const { error } = await healthService.deleteInsulinEntry(id);
       if (error) throw error;
