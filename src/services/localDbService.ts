@@ -97,11 +97,23 @@ export const localDbService = {
           sync_status TEXT DEFAULT 'synced'
         );
         CREATE INDEX IF NOT EXISTS idx_local_glucose_user_date ON glucose_entries(user_id, date_time DESC);
-        CREATE INDEX IF NOT EXISTS idx_local_insulin_user_date ON insulin_entries(user_id, entry_date DESC);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_local_insulin_user_entry_date ON insulin_entries(user_id, entry_date);
         CREATE INDEX IF NOT EXISTS idx_local_weight_user_date ON weight_entries(user_id, entry_date DESC);
         CREATE INDEX IF NOT EXISTS idx_local_food_user_date ON food_entries(user_id, date_time DESC);
       `;
       
+      // Clean up any historical duplicate insulin rows before creating unique index (keep newest row per user/date)
+      try {
+        await database.execute(`
+          DELETE FROM insulin_entries 
+          WHERE rowid NOT IN (
+            SELECT MAX(rowid) FROM insulin_entries GROUP BY user_id, entry_date
+          );
+        `);
+      } catch (cleanErr) {
+        console.warn("[SQLITE] Pre-index insulin duplicate cleanup notice:", cleanErr);
+      }
+
       await database.execute(tablesSchema);
       console.log("[SQLITE] Database schema verified.");
 
@@ -169,7 +181,7 @@ export const localDbService = {
     );
   },
 
-  // Cache insulin entries (transaction-batched)
+  // Cache insulin entries (transaction-batched with strict uniqueness on user_id + entry_date)
   async cacheInsulin(entries: any[]) {
     if (!isMobile || !database || !entries || entries.length === 0) return;
     try {
@@ -177,8 +189,15 @@ export const localDbService = {
       for (const entry of entries) {
         const entryId = entry.id || `${entry.user_id}_${entry.entry_date}`;
         await database.run(
-          `INSERT OR REPLACE INTO insulin_entries (id, user_id, morning, lunch, afternoon, evening, night, entry_date, sync_status) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO insulin_entries (id, user_id, morning, lunch, afternoon, evening, night, entry_date, sync_status) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(user_id, entry_date) DO UPDATE SET
+             morning = excluded.morning,
+             lunch = excluded.lunch,
+             afternoon = excluded.afternoon,
+             evening = excluded.evening,
+             night = excluded.night,
+             sync_status = excluded.sync_status`,
           [
             entryId,
             entry.user_id,

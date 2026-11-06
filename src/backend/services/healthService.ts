@@ -3,6 +3,8 @@ import type { Database } from "@/db/types";
 import { subDays, format } from "date-fns";
 import { getLocalDateKey } from "@/frontend/lib/date-utils";
 import { getApiUrl } from "./authService";
+import { idempotencyService } from "./idempotencyService";
+import { dashboardCacheService } from "@/frontend/services/dashboardCacheService";
 
 export const healthService = {
   async getDashboardData() {
@@ -46,6 +48,159 @@ export const healthService = {
       .order("date_time", { ascending: false });
   },
 
+  /**
+   * Create a new glucose reading with strict idempotency and double-submit protection
+   */
+  async createGlucoseEntry(
+    payload: {
+      id?: string;
+      glucose: number;
+      reading_type: Database["public"]["Enums"]["reading_type"];
+      date_time: string;
+      food?: string | null;
+      notes?: string | null;
+      symptoms?: string | null;
+    },
+    idempotencyKey?: string,
+  ) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const stableId =
+      payload.id ||
+      (typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `gluc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+
+    const key =
+      idempotencyKey ||
+      idempotencyService.generateKey(user.id, "glucose", stableId);
+
+    const { data: record } = await idempotencyService.executeIdempotent(
+      key,
+      async () => {
+        // 1. Check if record with this stableId was already created (e.g. network timeout retry)
+        const { data: existing } = await supabase
+          .from("glucose_entries")
+          .select("*")
+          .eq("id", stableId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (existing) {
+          return existing;
+        }
+
+        // 2. Perform INSERT
+        const insertPayload = {
+          id: stableId,
+          user_id: user.id,
+          glucose: Number(payload.glucose),
+          reading_type: payload.reading_type,
+          date_time: payload.date_time,
+          food: payload.food || null,
+          notes: payload.notes || null,
+          symptoms: payload.symptoms || null,
+        };
+
+        const res = await supabase
+          .from("glucose_entries")
+          .insert(insertPayload)
+          .select()
+          .single();
+
+        if (res.error) {
+          // If duplicate key violation, fetch the already created record
+          if (
+            res.error.code === "23505" ||
+            res.error.message?.includes("duplicate key")
+          ) {
+            const { data: retryRow } = await supabase
+              .from("glucose_entries")
+              .select("*")
+              .eq("id", stableId)
+              .eq("user_id", user.id)
+              .single();
+            if (retryRow) return retryRow;
+          }
+          throw res.error;
+        }
+        return res.data;
+      },
+    );
+
+    // Invalidate caches & notify all components immediately
+    await this.invalidateServerCache("glucose");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("health-data-updated", {
+          detail: { entity: "glucose", action: "create", id: record.id },
+        }),
+      );
+    }
+
+    return { data: record, error: null };
+  },
+
+  /**
+   * Update an existing glucose reading by ID. Never falls back to insert.
+   */
+  async updateGlucoseEntry(
+    id: string,
+    payload: {
+      glucose?: number;
+      reading_type?: Database["public"]["Enums"]["reading_type"];
+      date_time?: string;
+      food?: string | null;
+      notes?: string | null;
+      symptoms?: string | null;
+    },
+  ) {
+    if (!id || typeof id !== "string") {
+      throw new Error("Cannot update glucose reading: Missing required record ID.");
+    }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const updateFields: any = {
+      updated_at: new Date().toISOString(),
+    };
+    if (payload.glucose !== undefined) updateFields.glucose = Number(payload.glucose);
+    if (payload.reading_type !== undefined) updateFields.reading_type = payload.reading_type;
+    if (payload.date_time !== undefined) updateFields.date_time = payload.date_time;
+    if (payload.food !== undefined) updateFields.food = payload.food;
+    if (payload.notes !== undefined) updateFields.notes = payload.notes;
+    if (payload.symptoms !== undefined) updateFields.symptoms = payload.symptoms;
+
+    const res = await supabase
+      .from("glucose_entries")
+      .update(updateFields)
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .select()
+      .maybeSingle();
+
+    if (res.error) throw res.error;
+    if (!res.data) {
+      throw new Error(`Glucose reading with ID "${id}" was not found or does not belong to you.`);
+    }
+
+    await this.invalidateServerCache("glucose");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("health-data-updated", {
+          detail: { entity: "glucose", action: "update", id },
+        }),
+      );
+    }
+
+    return res;
+  },
+
   async deleteGlucoseEntry(id: string) {
     const {
       data: { user },
@@ -53,7 +208,190 @@ export const healthService = {
     if (!user) throw new Error("Not authenticated");
     const res = await supabase.from("glucose_entries").delete().eq("id", id).eq("user_id", user.id);
     if (!res.error) {
-      this.invalidateServerCache("glucose");
+      await this.invalidateServerCache("glucose");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("health-data-updated", {
+            detail: { entity: "glucose", action: "delete", id },
+          }),
+        );
+      }
+    }
+    return res;
+  },
+
+  /**
+   * Create a new daily insulin schedule with strict idempotency
+   */
+  async createInsulinEntry(
+    payload: {
+      id?: string;
+      entry_date: string;
+      morning?: number;
+      lunch?: number;
+      afternoon?: number;
+      evening?: number;
+      night?: number;
+      notes?: string | null;
+    },
+    idempotencyKey?: string,
+  ) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const dateOnly = payload.entry_date.split("T")[0];
+    const stableId =
+      payload.id ||
+      (typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `ins_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+
+    const key =
+      idempotencyKey ||
+      idempotencyService.generateKey(user.id, "insulin", `${dateOnly}_${stableId}`);
+
+    const { data: record } = await idempotencyService.executeIdempotent(
+      key,
+      async () => {
+        // 1. Check if a record already exists for this (user_id, entry_date)
+        const { data: existing } = await supabase
+          .from("insulin_entries")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("entry_date", dateOnly)
+          .maybeSingle();
+
+        if (existing) {
+          // If schedule exists for this date, return existing schedule safely
+          return existing;
+        }
+
+        // 2. Insert new schedule row
+        const insertPayload = {
+          id: stableId,
+          user_id: user.id,
+          entry_date: dateOnly,
+          morning: Math.round(Number(payload.morning) || 0),
+          lunch: Math.round(Number(payload.lunch) || 0),
+          afternoon: Math.round(Number(payload.afternoon) || 0),
+          evening: Math.round(Number(payload.evening) || 0),
+          night: Math.round(Number(payload.night) || 0),
+          notes: payload.notes || null,
+        };
+
+        const res = await supabase
+          .from("insulin_entries")
+          .insert(insertPayload)
+          .select()
+          .single();
+
+        if (res.error) {
+          if (
+            res.error.code === "23505" ||
+            res.error.message?.includes("duplicate key") ||
+            res.error.message?.includes("unique")
+          ) {
+            const { data: retryRow } = await supabase
+              .from("insulin_entries")
+              .select("*")
+              .eq("user_id", user.id)
+              .eq("entry_date", dateOnly)
+              .single();
+            if (retryRow) return retryRow;
+          }
+          throw res.error;
+        }
+        return res.data;
+      },
+    );
+
+    await this.invalidateServerCache("insulin");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("health-data-updated", {
+          detail: { entity: "insulin", action: "create", id: record.id },
+        }),
+      );
+    }
+
+    return { data: record, error: null };
+  },
+
+  /**
+   * Update an existing insulin schedule by ID. Never converts to an insert.
+   */
+  async updateInsulinEntry(
+    id: string,
+    payload: {
+      morning?: number;
+      lunch?: number;
+      afternoon?: number;
+      evening?: number;
+      night?: number;
+      notes?: string | null;
+      entry_date?: string;
+    },
+  ) {
+    if (!id || typeof id !== "string") {
+      throw new Error("Cannot update insulin record: Missing required record ID.");
+    }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const updateFields: any = {
+      updated_at: new Date().toISOString(),
+    };
+    if (payload.morning !== undefined) updateFields.morning = Math.round(Number(payload.morning) || 0);
+    if (payload.lunch !== undefined) updateFields.lunch = Math.round(Number(payload.lunch) || 0);
+    if (payload.afternoon !== undefined) updateFields.afternoon = Math.round(Number(payload.afternoon) || 0);
+    if (payload.evening !== undefined) updateFields.evening = Math.round(Number(payload.evening) || 0);
+    if (payload.night !== undefined) updateFields.night = Math.round(Number(payload.night) || 0);
+    if (payload.notes !== undefined) updateFields.notes = payload.notes;
+
+    const res = await supabase
+      .from("insulin_entries")
+      .update(updateFields)
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .select()
+      .maybeSingle();
+
+    if (res.error) throw res.error;
+    if (!res.data) {
+      throw new Error(`Insulin schedule record with ID "${id}" was not found or does not belong to you.`);
+    }
+
+    await this.invalidateServerCache("insulin");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("health-data-updated", {
+          detail: { entity: "insulin", action: "update", id },
+        }),
+      );
+    }
+
+    return res;
+  },
+
+  async deleteInsulinEntry(id: string) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+    const res = await supabase.from("insulin_entries").delete().eq("id", id).eq("user_id", user.id);
+    if (!res.error) {
+      await this.invalidateServerCache("insulin");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("health-data-updated", {
+            detail: { entity: "insulin", action: "delete", id },
+          }),
+        );
+      }
     }
     return res;
   },
@@ -321,17 +659,27 @@ export const healthService = {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+
+      // Clear local client dashboard cache immediately for current user
+      if (session?.user?.id) {
+        dashboardCacheService.invalidate(session.user.id);
+      }
+
       if (!session?.access_token) return;
 
-      fetch(getApiUrl("/api/v1/cache/invalidate"), {
+      await fetch(getApiUrl("/api/v1/cache/invalidate"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ entity }),
-      }).catch(() => {});
-    } catch {}
+      }).catch((e) => {
+        console.warn("[HealthService] Cache invalidation API warning:", e);
+      });
+    } catch (err) {
+      console.warn("[HealthService] Cache invalidation error:", err);
+    }
   },
 
   async getDashboardSummary() {

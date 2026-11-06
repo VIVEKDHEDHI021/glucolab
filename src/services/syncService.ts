@@ -56,7 +56,8 @@ export const syncService = {
             date_time: g.date_time,
           });
 
-          if (!error) {
+          // Treat 23505 (unique primary key already present on remote) as success
+          if (!error || error.code === "23505") {
             await localDbService.runQuery(
               `UPDATE glucose_entries SET sync_status = 'synced' WHERE id = ?`,
               [g.id]
@@ -68,11 +69,11 @@ export const syncService = {
         }
       }
 
-      // 2. Sync Insulin Entries
+      // 2. Sync Insulin Entries (Upsert with onConflict user_id, entry_date)
       if (insulin.length > 0) {
         console.log(`[SYNC] Syncing ${insulin.length} insulin entries...`);
         for (const i of insulin) {
-          const { error } = await supabase.from("insulin_entries").insert({
+          const { error } = await supabase.from("insulin_entries").upsert({
             id: i.id,
             user_id: i.user_id,
             morning: i.morning,
@@ -81,9 +82,9 @@ export const syncService = {
             evening: i.evening,
             night: i.night,
             entry_date: i.entry_date,
-          });
+          }, { onConflict: "user_id,entry_date" });
 
-          if (!error) {
+          if (!error || error.code === "23505") {
             await localDbService.runQuery(
               `UPDATE insulin_entries SET sync_status = 'synced' WHERE id = ?`,
               [i.id]

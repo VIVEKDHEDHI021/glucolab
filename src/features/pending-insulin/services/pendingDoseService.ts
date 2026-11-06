@@ -159,6 +159,21 @@ export function getLookbackDateStrings(
 
 export const pendingDoseService = {
   /**
+   * Clear window cache to force fresh evaluations on mutations
+   */
+  clearCache(userId?: string) {
+    if (userId) {
+      for (const key of cachedWindowEntries.keys()) {
+        if (key.startsWith(userId)) {
+          cachedWindowEntries.delete(key);
+        }
+      }
+    } else {
+      cachedWindowEntries.clear();
+    }
+  },
+
+  /**
    * Internal deduplicated & cached fetch for lookback window entries
    */
   async fetchEntriesForWindow(userId: string, evaluationDates: string[]): Promise<Map<string, any>> {
@@ -450,7 +465,10 @@ export const pendingDoseService = {
         console.warn("[PendingDoseService] Local cache update warning:", cacheErr);
       }
 
-      // 7. Dispatch global event to immediately update charts, widgets, and data-context
+      // 7. Clear window cache so immediate subsequent dose evaluations are fresh
+      this.clearCache(userId);
+
+      // 8. Dispatch global event to immediately update charts, widgets, and data-context
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("health-data-updated"));
       }

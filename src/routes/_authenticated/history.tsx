@@ -45,6 +45,7 @@ function HistoryPage() {
   const [editing, setEditing] = useState<GlucoseEntry | null>(null);
   const [open, setOpen] = useState(false);
   const [editingInsulinDate, setEditingInsulinDate] = useState<string | null>(null);
+  const [editingInsulinId, setEditingInsulinId] = useState<string | null>(null);
   const [insulinOpen, setInsulinOpen] = useState(false);
   const [editingWeight, setEditingWeight] = useState<WeightEntry | null>(null);
   const [weightOpen, setWeightOpen] = useState(false);
@@ -188,19 +189,15 @@ function HistoryPage() {
       return;
     }
     if (!confirm("Are you sure you want to delete this glucose reading?")) return;
-    const { error } = await supabase
-      .from("glucose_entries")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", currentUser.id);
-    if (error) {
+    try {
+      const { error } = await healthService.deleteGlucoseEntry(id);
+      if (error) throw error;
+      toast.success(getSuccessMessage("glucose_deleted"));
+      load();
+    } catch (error: any) {
       logDiagnostic("history:delete-glucose", error);
       toast.error(getUserFriendlyError(error, "glucose"));
-      return;
     }
-    healthService.invalidateServerCache("glucose");
-    toast.success(getSuccessMessage("glucose_deleted"));
-    load();
   };
 
   const handleDeleteInsulin = async (id: string) => {
@@ -212,19 +209,15 @@ function HistoryPage() {
       return;
     }
     if (!confirm("Are you sure you want to delete this insulin entry?")) return;
-    const { error } = await supabase
-      .from("insulin_entries")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", currentUser.id);
-    if (error) {
+    try {
+      const { error } = await healthService.deleteInsulinEntry(id);
+      if (error) throw error;
+      toast.success(getSuccessMessage("insulin_deleted"));
+      load();
+    } catch (error: any) {
       logDiagnostic("history:delete-insulin", error);
       toast.error(getUserFriendlyError(error, "insulin"));
-      return;
     }
-    healthService.invalidateServerCache("insulin");
-    toast.success(getSuccessMessage("insulin_deleted"));
-    load();
   };
 
   const handleDeleteFood = async (id: string) => {
@@ -662,6 +655,7 @@ function HistoryPage() {
                           size="icon"
                           onClick={() => {
                             setEditingInsulinDate(ins.entry_date);
+                            setEditingInsulinId(ins.id);
                             setInsulinOpen(true);
                           }}
                           aria-label="Edit insulin"
@@ -812,9 +806,13 @@ function HistoryPage() {
         open={insulinOpen}
         onOpenChange={(o) => {
           setInsulinOpen(o);
-          if (!o) setEditingInsulinDate(null);
+          if (!o) {
+            setEditingInsulinDate(null);
+            setEditingInsulinId(null);
+          }
         }}
         initialDate={editingInsulinDate || undefined}
+        entryId={editingInsulinId || undefined}
         onSaved={load}
       />
 

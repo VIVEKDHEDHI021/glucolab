@@ -116,6 +116,7 @@ function DashboardPage() {
   const [editingGlucose, setEditingGlucose] = useState<GlucoseEntry | null>(null);
   const [insulinOpen, setInsulinOpen] = useState(false);
   const [editingInsulinDate, setEditingInsulinDate] = useState<string | null>(null);
+  const [editingInsulinId, setEditingInsulinId] = useState<string | null>(null);
   const [weightOpen, setWeightOpen] = useState(false);
   const [editingWeight, setEditingWeight] = useState<WeightEntry | null>(null);
   const [foodOpen, setFoodOpen] = useState(false);
@@ -182,6 +183,15 @@ function DashboardPage() {
 
   const load = async () => {
     await refreshData(true);
+    if (user?.id) {
+      try {
+        const fresh = await healthService.getDashboardSummary();
+        if (fresh && !fresh.error) {
+          setCachedSummary(fresh);
+          dashboardCacheService.set(user.id, fresh);
+        }
+      } catch {}
+    }
   };
 
   // Automatically guarantee dashboard data fetch on initial mount and user change
@@ -192,10 +202,41 @@ function DashboardPage() {
   }, [user?.id]);
 
   useEffect(() => {
+    const handleHealthDataUpdated = async () => {
+      console.log("[DASHBOARD] Realtime health data update event received, refreshing dashboard...");
+      await refreshData(true);
+      if (user?.id) {
+        try {
+          const fresh = await healthService.getDashboardSummary();
+          if (fresh && !fresh.error) {
+            setCachedSummary(fresh);
+            dashboardCacheService.set(user.id, fresh);
+          }
+        } catch {}
+      }
+    };
+
+    const handleForeground = () => {
+      if (user?.id) {
+        const cacheCheck = dashboardCacheService.get(user.id);
+        if (cacheCheck.isStale) {
+          console.log("[DASHBOARD] Stale data detected on foreground resume, refreshing...");
+          load();
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        handleForeground();
+      }
+    };
+
     const handleOpenDialog = (e: any) => {
       const target = e.detail?.dialog;
       if (target === "insulin") {
         setEditingInsulinDate(null);
+        setEditingInsulinId(null);
         setInsulinOpen(true);
       } else if (target === "glucose") {
         setEditingGlucose(null);
@@ -209,7 +250,7 @@ function DashboardPage() {
     };
 
     const handleDoseRecorded = () => {
-      refreshData();
+      load();
     };
 
     // Check cold-boot pending notification action
@@ -222,15 +263,21 @@ function DashboardPage() {
       }
     } catch {}
 
+    window.addEventListener("health-data-updated", handleHealthDataUpdated);
+    window.addEventListener("focus", handleForeground);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("glucolab-open-dialog", handleOpenDialog);
     window.addEventListener("glucolab:open_glucose_dialog", handleNotificationAction);
     window.addEventListener("glucolab:dose_recorded", handleDoseRecorded);
     return () => {
+      window.removeEventListener("health-data-updated", handleHealthDataUpdated);
+      window.removeEventListener("focus", handleForeground);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("glucolab-open-dialog", handleOpenDialog);
       window.removeEventListener("glucolab:open_glucose_dialog", handleNotificationAction);
       window.removeEventListener("glucolab:dose_recorded", handleDoseRecorded);
     };
-  }, []);
+  }, [user?.id]);
 
   const latest = glucose[0] || (cachedSummary?.latestReading ? {
     id: cachedSummary.latestReading.id,
@@ -400,11 +447,14 @@ function DashboardPage() {
           }
           onEdit={latestInsulin ? () => {
             setEditingInsulinDate(latestInsulin.entry_date.split("T")[0]);
+            setEditingInsulinId(latestInsulin.id || null);
             setInsulinOpen(true);
           } : undefined}
           onClick={() => {
             const todayKey = getLocalDateKey();
             setEditingInsulinDate(todayKey);
+            const isToday = latestInsulin?.entry_date?.split("T")[0] === todayKey;
+            setEditingInsulinId(isToday && latestInsulin?.id ? latestInsulin.id : null);
             setInsulinOpen(true);
           }}
         />
@@ -632,9 +682,13 @@ function DashboardPage() {
         open={insulinOpen}
         onOpenChange={(o) => {
           setInsulinOpen(o);
-          if (!o) setEditingInsulinDate(null);
+          if (!o) {
+            setEditingInsulinDate(null);
+            setEditingInsulinId(null);
+          }
         }}
         initialDate={editingInsulinDate || undefined}
+        entryId={editingInsulinId || undefined}
         onSaved={load}
       />
       <WeightDialog

@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/db/client";
 import { healthService } from "@/backend/services/healthService";
+import { idempotencyService } from "@/backend/services/idempotencyService";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { messagingService } from "@/frontend/lib/messaging";
 import { getSuggestedReadingType } from "@/frontend/lib/glucose-suggestions";
@@ -69,6 +70,9 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [isSuggested, setIsSuggested] = useState(false);
   const [foodOptions, setFoodOptions] = useState<QuickFoodOptionId[]>([]);
+  const isSubmittingRef = useRef(false);
+  const stableCreateIdRef = useRef<string | null>(null);
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   const form = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(schema),
@@ -86,6 +90,8 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
     if (open) {
       if (entry) {
         setIsSuggested(false);
+        stableCreateIdRef.current = null;
+        idempotencyKeyRef.current = null;
         // Pre-populate any existing quick food options matched in food field
         const existingOptions: QuickFoodOptionId[] = [];
         if (entry.food) {
@@ -112,6 +118,22 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
         const suggestedType = getSuggestedReadingType(new Date());
         setIsSuggested(true);
         setFoodOptions([]);
+
+        // Generate stable logical ID and idempotency key for new create operation
+        if (!stableCreateIdRef.current) {
+          stableCreateIdRef.current =
+            typeof crypto !== "undefined" && crypto.randomUUID
+              ? crypto.randomUUID()
+              : `gluc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        }
+        if (!idempotencyKeyRef.current && user) {
+          idempotencyKeyRef.current = idempotencyService.generateKey(
+            user.id,
+            "glucose",
+            stableCreateIdRef.current,
+          );
+        }
+
         form.reset({
           glucose: "" as unknown as number,
           reading_type: suggestedType,
@@ -121,12 +143,22 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
           insulin_all_day: "",
         });
       }
+    } else {
+      isSubmittingRef.current = false;
     }
-  }, [open, entry]);
+  }, [open, entry, user]);
 
   const onSubmit = async (data: FormData) => {
     if (!user) return;
+
+    // Concurrency double-click guard: synchronously prevent duplicate execution
+    if (isSubmittingRef.current) {
+      console.warn("[GLUCOSE_DIALOG] Duplicate submit blocked by submission guard.");
+      return;
+    }
+    isSubmittingRef.current = true;
     setSaving(true);
+
     try {
       // Build food string combining quick chips and custom food text
       let foodString = data.food ? data.food.trim() : "";
@@ -139,35 +171,53 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
         foodString = foodString ? `${categoriesJoined} · ${foodString}` : categoriesJoined;
       }
 
-      const readingId =
-        entry?.id ||
-        (typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : "glucose_" + Date.now());
+      let savedRecord: any = null;
 
-      const payload = {
-        ...(entry ? {} : { id: readingId }),
-        user_id: user.id,
-        glucose: data.glucose,
-        reading_type: data.reading_type,
-        date_time: new Date(data.date_time).toISOString(),
-        food: foodString || null,
-        notes: data.notes || null,
-        symptoms: data.insulin_all_day || null,
-      };
+      if (entry) {
+        // Strict UPDATE: Must have existing ID, never falls back to insert
+        const res = await healthService.updateGlucoseEntry(entry.id, {
+          glucose: data.glucose,
+          reading_type: data.reading_type,
+          date_time: new Date(data.date_time).toISOString(),
+          food: foodString || null,
+          notes: data.notes || null,
+          symptoms: data.insulin_all_day || null,
+        });
+        savedRecord = res.data;
+      } else {
+        // Strict CREATE with Idempotency
+        const createId =
+          stableCreateIdRef.current ||
+          (typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `gluc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
 
-      const res = entry
-        ? await supabase
-            .from("glucose_entries")
-            .update(payload)
-            .eq("id", entry.id)
-            .eq("user_id", user.id)
+        const idemKey =
+          idempotencyKeyRef.current ||
+          idempotencyService.generateKey(user.id, "glucose", createId);
 
-        : await supabase.from("glucose_entries").insert(payload);
-      if (res.error) throw res.error;
+        const res = await healthService.createGlucoseEntry(
+          {
+            id: createId,
+            glucose: data.glucose,
+            reading_type: data.reading_type,
+            date_time: new Date(data.date_time).toISOString(),
+            food: foodString || null,
+            notes: data.notes || null,
+            symptoms: data.insulin_all_day || null,
+          },
+          idemKey,
+        );
+        savedRecord = res.data;
+
+        // Reset create tokens upon verified success
+        stableCreateIdRef.current = null;
+        idempotencyKeyRef.current = null;
+      }
+
+      const activeRecordId = savedRecord?.id || entry?.id;
 
       // Link food context record into food_entries if food categories were logged
-
       const hasFoodItems = foodOptions.some((id) => id !== "no_unusual_food");
       if (hasFoodItems && selectedCategoryLabels.length > 0) {
         const isUncertain = foodOptions.includes("not_sure");
@@ -179,7 +229,7 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
           date_time: new Date(data.date_time).toISOString(),
           notes: data.food || null,
           is_uncertain: isUncertain,
-          glucose_entry_id: readingId || null,
+          glucose_entry_id: activeRecordId || null,
         };
 
         try {
@@ -206,7 +256,6 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
           console.warn("[GLUCOSE_DIALOG] Failed to sync food entry:", err);
         }
       } else if (foodOptions.includes("no_unusual_food") && entry) {
-        // If user changed food context to "no_unusual_food", clean up any previously linked food entry
         try {
           await supabase
             .from("food_entries")
@@ -216,29 +265,20 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
         } catch {}
       }
 
-      // Invalidate server Redis cache
-      healthService.invalidateServerCache("glucose");
-
-      window.dispatchEvent(new Event("health-data-updated"));
-
       const isUpdate = Boolean(entry);
       const typeLabel = READING_LABELS[data.reading_type] || data.reading_type;
 
       // If it's a new reading, send SMS alert if phone is present
       if (!isUpdate) {
-        console.log("[GLUCOSE_DIALOG] Fetching profile for alert...");
         try {
           const p = await healthService.getProfile();
           if (p.data?.phone) {
-            console.log("[GLUCOSE_DIALOG] Sending alert to:", p.data.phone);
             await messagingService.sendGlucoseAlert(p.data.phone, {
               glucose: data.glucose,
               type: data.reading_type,
               date: format(new Date(data.date_time), "MMM d, HH:mm"),
               notes: data.notes || null,
             });
-          } else {
-            console.warn("[GLUCOSE_DIALOG] No phone number found in profile, skipping alert.");
           }
         } catch (err) {
           console.error("[GLUCOSE_DIALOG] Error fetching profile for alert:", err);
@@ -260,11 +300,13 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
       }
       onOpenChange(false);
       onSaved?.();
-    } catch (e) {
+    } catch (e: any) {
       logDiagnostic("glucose-dialog", e);
       toast.error(getUserFriendlyError(e, "glucose"));
+      // Form data is preserved in form state so user does not lose input
     } finally {
       setSaving(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -376,11 +418,20 @@ export function GlucoseDialog({ open, onOpenChange, entry, onSaved }: Props) {
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Save reading"}
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : entry ? (
+                "Update reading"
+              ) : (
+                "Save reading"
+              )}
             </Button>
           </DialogFooter>
         </form>

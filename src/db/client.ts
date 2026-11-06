@@ -211,6 +211,8 @@ class MobileMutationBuilder {
   private realBuilder: any;
   private filters: Array<{ column: string; value: any }> = [];
   private selectColumns?: string;
+  private returnSingle = false;
+  private returnMaybeSingle = false;
 
   constructor(tableName: string, method: "update" | "delete", realBuilder: any, payload?: any) {
     this.tableName = tableName;
@@ -226,6 +228,16 @@ class MobileMutationBuilder {
 
   select(columns?: string) {
     this.selectColumns = columns || "*";
+    return this;
+  }
+
+  single() {
+    this.returnSingle = true;
+    return this;
+  }
+
+  maybeSingle() {
+    this.returnMaybeSingle = true;
     return this;
   }
 
@@ -275,6 +287,12 @@ class MobileMutationBuilder {
         onlineQuery = onlineQuery.select(this.selectColumns);
       }
 
+      if (this.returnSingle) {
+        onlineQuery = onlineQuery.single();
+      } else if (this.returnMaybeSingle) {
+        onlineQuery = onlineQuery.maybeSingle();
+      }
+
       const res = await onlineQuery;
       if (!res.error) {
         if (this.method === "update") {
@@ -293,10 +311,18 @@ class MobileMutationBuilder {
           }
         }
       }
+      if (res && res.data && (this.returnSingle || this.returnMaybeSingle)) {
+        if (Array.isArray(res.data)) {
+          res.data = res.data[0] || null;
+        }
+      }
       return onfulfilled ? onfulfilled(res) : res;
     } catch (err) {
       console.warn(`[OFFLINE] Mutation (${this.method}) on ${this.tableName} failed:`, err);
-      const res = { data: this.method === "update" ? this.payload : null, error: null };
+      const fallbackData = (this.returnSingle || this.returnMaybeSingle)
+        ? (this.method === "update" ? this.payload : null)
+        : (this.method === "update" ? (this.selectColumns ? [this.payload] : this.payload) : null);
+      const res = { data: fallbackData, error: null };
       return onfulfilled ? onfulfilled(res) : res;
     }
   }
@@ -309,6 +335,8 @@ class MobileInsertBuilder {
   private isUpsert: boolean;
   private options?: any;
   private selectColumns?: string;
+  private returnSingle = false;
+  private returnMaybeSingle = false;
 
   constructor(tableName: string, realBuilder: any, payload: any, isUpsert = false, options?: any) {
     this.tableName = tableName;
@@ -323,6 +351,16 @@ class MobileInsertBuilder {
     return this;
   }
 
+  single() {
+    this.returnSingle = true;
+    return this;
+  }
+
+  maybeSingle() {
+    this.returnMaybeSingle = true;
+    return this;
+  }
+
   async then(onfulfilled?: (value: any) => any, onrejected?: (reason: any) => any) {
     try {
       const payloadArray = Array.isArray(this.payload) ? this.payload : [this.payload];
@@ -334,7 +372,7 @@ class MobileInsertBuilder {
           ? this.options.onConflict.split(",").map((c: string) => c.trim())
           : [];
 
-        if (!existingId && conflictCols.length > 0) {
+        if (conflictCols.length > 0) {
           const whereClause = conflictCols.map((c: string) => `${c} = ?`).join(" AND ");
           const whereVals = conflictCols.map((c: string) => payloadArray[0][c]);
           try {
@@ -384,6 +422,12 @@ class MobileInsertBuilder {
           query = query.select(this.selectColumns);
         }
 
+        if (this.returnSingle) {
+          query = query.single();
+        } else if (this.returnMaybeSingle) {
+          query = query.maybeSingle();
+        }
+
         const res = await query;
         if (!res.error) {
           if (this.tableName === "profiles") {
@@ -397,8 +441,12 @@ class MobileInsertBuilder {
             );
           }
         }
-        if (!res.data && this.selectColumns) {
-          res.data = [record];
+        if (res && !res.data && this.selectColumns) {
+          res.data = (this.returnSingle || this.returnMaybeSingle) ? record : [record];
+        } else if (res && res.data && (this.returnSingle || this.returnMaybeSingle)) {
+          if (Array.isArray(res.data)) {
+            res.data = res.data[0] || null;
+          }
         }
         return onfulfilled ? onfulfilled(res) : res;
       } catch (err) {
@@ -406,7 +454,8 @@ class MobileInsertBuilder {
           `[OFFLINE] ${this.isUpsert ? "Upsert" : "Insert"} to ${this.tableName} failed, cached locally:`,
           err,
         );
-        const fallbackRes = { data: this.selectColumns ? [record] : record, error: null };
+        const fallbackRecord = (this.returnSingle || this.returnMaybeSingle) ? record : (this.selectColumns ? [record] : record);
+        const fallbackRes = { data: fallbackRecord, error: null };
         return onfulfilled ? onfulfilled(fallbackRes) : fallbackRes;
       }
     } catch (err) {

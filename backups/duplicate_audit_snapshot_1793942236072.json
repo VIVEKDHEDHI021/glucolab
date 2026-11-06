@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-11-06T05:17:16.058Z",
+  "insulin": {
+    "totalAnalyzed": 198,
+    "duplicateGroupsCount": 0,
+    "duplicateGroups": []
+  },
+  "glucose": {
+    "totalAnalyzed": 156,
+    "duplicateGroupsCount": 0,
+    "duplicateGroups": [],
+    "legitimateSameDayReadingsCount": 61
+  }
+}
