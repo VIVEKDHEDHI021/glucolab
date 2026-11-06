@@ -71,7 +71,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
   const inFlightRefreshRef = useRef<Promise<void> | null>(null);
 
   const refreshData = async (force = false) => {
-    if (!user || !authService.isEmailVerified(user)) return;
+    if (!user?.id) return;
 
     // Deduplicate in-flight sync if not forced
     if (inFlightRefreshRef.current && !force) {
@@ -79,7 +79,6 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
     }
 
     const currentUserId = user.id;
-    const syncSeq = ++activeSyncSeqRef.current;
     const isMobile = Capacitor.isNativePlatform();
 
     // Reset user state if switched to ensure strict user data isolation
@@ -93,9 +92,9 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
     }
     lastSyncUserIdRef.current = currentUserId;
 
-    // Fast Path 1: Load from local SQLite (native) or LocalStorage (web/SPA) immediately on initial load (not forced refresh)
+    // Fast Path 1: Load from local SQLite (native) or LocalStorage (web/SPA) immediately on initial load
     let hadLocalData = false;
-    if (!force) {
+    if (!initialized) {
       if (isMobile) {
         try {
           const localDb = await getLocalDbService();
@@ -107,7 +106,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
             localDb.getProfile(currentUserId),
           ]);
 
-          if (activeSyncSeqRef.current === syncSeq && user?.id === currentUserId) {
+          if (user?.id === currentUserId) {
             if (localG && localG.length > 0) {
               setGlucose(localG as GlucoseEntry[]);
               hadLocalData = true;
@@ -131,7 +130,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
         }
       } else {
         const cached = getLocalHealthCache(currentUserId);
-        if (cached && activeSyncSeqRef.current === syncSeq) {
+        if (cached && user?.id === currentUserId) {
           if (cached.glucose?.length) {
             setGlucose(cached.glucose);
             hadLocalData = true;
@@ -189,7 +188,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
           supabase.from("profiles").select("name").eq("user_id", currentUserId).maybeSingle(),
         ]);
 
-        if (activeSyncSeqRef.current !== syncSeq || user?.id !== currentUserId) {
+        if (user?.id !== currentUserId) {
           return;
         }
 
@@ -208,14 +207,16 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
         setInitialized(true);
 
         // Update local web cache
-        setLocalHealthCache(currentUserId, {
-          glucose: freshG,
-          insulin: freshI,
-          weight: freshW,
-          food: freshF,
-          profileName: freshName,
-          cachedAt: new Date().toISOString(),
-        });
+        if (g.data || i.data) {
+          setLocalHealthCache(currentUserId, {
+            glucose: freshG,
+            insulin: freshI,
+            weight: freshW,
+            food: freshF,
+            profileName: freshName,
+            cachedAt: new Date().toISOString(),
+          });
+        }
 
         // Path 3: Update local SQLite cache asynchronously (non-blocking)
         if (isMobile) {
@@ -234,14 +235,11 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         console.error("[HEALTH_DATA_CONTEXT] Error fetching data:", err);
-        // Ensure initialized is marked true so the UI doesn't remain in endless loading state
-        setInitialized(true);
       } finally {
-        if (activeSyncSeqRef.current === syncSeq) {
-          setLoading(false);
-          setSyncing(false);
-          inFlightRefreshRef.current = null;
-        }
+        setLoading(false);
+        setSyncing(false);
+        setInitialized(true);
+        inFlightRefreshRef.current = null;
       }
     };
 
