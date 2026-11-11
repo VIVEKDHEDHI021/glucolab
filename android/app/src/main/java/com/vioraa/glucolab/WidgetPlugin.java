@@ -69,4 +69,18 @@ public class WidgetPlugin extends Plugin {
             call.reject("Failed to clear pending queue: " + e.getMessage());
         }
     }
+
+    @PluginMethod
+    public void acknowledgePendingQuickInsulin(PluginCall call) {
+        try {
+            com.getcapacitor.JSArray ids = call.getArray("ids");
+            if (ids != null) {
+                java.util.List<String> idList = ids.toList();
+                WidgetDataStore.acknowledgePendingInsulinItems(getContext(), idList);
+            }
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Failed to acknowledge pending queue: " + e.getMessage());
+        }
+    }
 }

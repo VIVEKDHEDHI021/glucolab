@@ -20,6 +20,7 @@ interface WidgetPluginInterface {
   }): Promise<void>;
   getPendingQuickInsulin(): Promise<{ pending: Array<{ id: string; units: number; entry_date: string; timestamp: number }> }>;
   clearPendingQuickInsulin(): Promise<void>;
+  acknowledgePendingQuickInsulin?(options: { ids: string[] }): Promise<void>;
 }
 
 const WidgetPlugin = registerPlugin<WidgetPluginInterface>("WidgetPlugin");
@@ -122,10 +123,16 @@ export const widgetService = {
       const res = await WidgetPlugin.getPendingQuickInsulin();
       if (res && res.pending && res.pending.length > 0) {
         console.log(`[widgetService] Syncing ${res.pending.length} quick insulin logs from widget...`);
+        const processedIds: string[] = [];
         for (const item of res.pending) {
           await onSaveInsulin(item.units, item.entry_date);
+          if (item.id) processedIds.push(item.id);
         }
-        await WidgetPlugin.clearPendingQuickInsulin();
+        if (typeof WidgetPlugin.acknowledgePendingQuickInsulin === "function" && processedIds.length > 0) {
+          await WidgetPlugin.acknowledgePendingQuickInsulin({ ids: processedIds });
+        } else {
+          await WidgetPlugin.clearPendingQuickInsulin();
+        }
       }
     } catch (e) {
       console.error("[widgetService] Error checking pending quick insulin:", e);

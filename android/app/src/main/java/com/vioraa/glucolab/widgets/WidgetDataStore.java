@@ -131,6 +131,27 @@ public class WidgetDataStore {
         getPrefs(context).edit().remove("pending_insulin_queue").apply();
     }
 
+    public static void acknowledgePendingInsulinItems(Context context, List<String> acknowledgedIds) {
+        if (context == null || acknowledgedIds == null || acknowledgedIds.isEmpty()) return;
+        try {
+            SharedPreferences prefs = getPrefs(context);
+            String queueStr = prefs.getString("pending_insulin_queue", "[]");
+            JSONArray queue = new JSONArray(queueStr);
+            JSONArray updatedQueue = new JSONArray();
+            for (int i = 0; i < queue.length(); i++) {
+                JSONObject item = queue.getJSONObject(i);
+                String id = item.optString("id");
+                if (!acknowledgedIds.contains(id)) {
+                    updatedQueue.put(item);
+                }
+            }
+            prefs.edit().putString("pending_insulin_queue", updatedQueue.toString()).apply();
+            Log.d(TAG, "Acknowledged " + acknowledgedIds.size() + " items from pending insulin queue.");
+        } catch (Exception e) {
+            Log.e(TAG, "Error acknowledging pending items:", e);
+        }
+    }
+
     // Glucose Status Color Helper
     // Low (<70): Blue, Normal (70-180): Green, High (181-250): Orange, Very High (>250): Red
     public static int getGlucoseColor(double value) {

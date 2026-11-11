@@ -161,7 +161,13 @@ export const Route = createFileRoute("/api/v1/dashboard/summary")({
                         periodDays: 7,
                       };
 
-                      // Today's Insulin Totals (Integer Units Enforced)
+                      // Today's Insulin Totals (Decimal Units Supported)
+                      const parseDose = (val: any) => {
+                        if (val === null || val === undefined) return 0;
+                        const num = Number(val);
+                        return Number.isFinite(num) ? Math.round((num + Number.EPSILON) * 100) / 100 : 0;
+                      };
+
                       const insulinRows = insulinRes.data || [];
                       const todayInsulinRow = insulinRows.find((i: any) => i.entry_date === todayKey) || null;
 
@@ -173,24 +179,27 @@ export const Route = createFileRoute("/api/v1/dashboard/summary")({
                       let nightUnits = 0;
 
                       if (todayInsulinRow) {
-                        morningUnits = Math.round(Number(todayInsulinRow.morning) || 0);
-                        lunchUnits = Math.round(Number(todayInsulinRow.lunch) || 0);
-                        afternoonUnits = Math.round(Number(todayInsulinRow.afternoon) || 0);
-                        eveningUnits = Math.round(Number(todayInsulinRow.evening) || 0);
-                        nightUnits = Math.round(Number(todayInsulinRow.night) || 0);
+                        morningUnits = parseDose(todayInsulinRow.morning);
+                        lunchUnits = parseDose(todayInsulinRow.lunch);
+                        afternoonUnits = parseDose(todayInsulinRow.afternoon);
+                        eveningUnits = parseDose(todayInsulinRow.evening);
+                        nightUnits = parseDose(todayInsulinRow.night);
                         todayTotalInsulinUnits =
-                          morningUnits + lunchUnits + afternoonUnits + eveningUnits + nightUnits;
+                          Math.round(
+                            (morningUnits + lunchUnits + afternoonUnits + eveningUnits + nightUnits + Number.EPSILON) *
+                              100,
+                          ) / 100;
                       }
 
                       // Latest recorded insulin entry across all days
                       const latestInsulinRow = insulinRows[0] || null;
                       let lim = 0, lil = 0, lia = 0, lie = 0, lin = 0;
                       if (latestInsulinRow) {
-                        lim = Math.round(Number(latestInsulinRow.morning) || 0);
-                        lil = Math.round(Number(latestInsulinRow.lunch) || 0);
-                        lia = Math.round(Number(latestInsulinRow.afternoon) || 0);
-                        lie = Math.round(Number(latestInsulinRow.evening) || 0);
-                        lin = Math.round(Number(latestInsulinRow.night) || 0);
+                        lim = parseDose(latestInsulinRow.morning);
+                        lil = parseDose(latestInsulinRow.lunch);
+                        lia = parseDose(latestInsulinRow.afternoon);
+                        lie = parseDose(latestInsulinRow.evening);
+                        lin = parseDose(latestInsulinRow.night);
                       }
 
                       // Latest weight & profile

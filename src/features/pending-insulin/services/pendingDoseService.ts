@@ -376,7 +376,7 @@ export const pendingDoseService = {
     slot: PendingDoseSlot,
     units: number,
     notes?: string,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
     if (!userId) return { success: false, error: "Missing user identification." };
 
     // 1. In-flight simultaneous save lock
@@ -403,77 +403,111 @@ export const pendingDoseService = {
         .eq("entry_date", slot.date)
         .maybeSingle();
 
+      let existingDoseValue: number | null = null;
+
       if (checkError && checkError.code !== "PGRST116") {
-        console.warn("[PendingDoseService] Warning checking existing insulin record:", checkError);
+        const isNetworkError =
+          (typeof navigator !== "undefined" && !navigator.onLine) ||
+          checkError.message?.includes("fetch") ||
+          checkError.message?.includes("network") ||
+          checkError.message?.includes("Failed to fetch") ||
+          checkError.message?.includes("AbortError");
+
+        if (isNetworkError) {
+          // Offline mode: verify against local SQLite cache before proceeding
+          try {
+            const localDb = await getLocalDbService();
+            const localRows = await localDb.getInsulin(userId);
+            const localRow = localRows.find((r: any) => r.entry_date?.split("T")[0] === slot.date);
+            if (localRow && localRow[dbCol] !== null && localRow[dbCol] !== undefined) {
+              existingDoseValue = Number(localRow[dbCol]);
+            }
+          } catch (localErr) {
+            console.error("[PendingDoseService] Failed to check local SQLite during offline check:", localErr);
+            return {
+              success: false,
+              error: "Network unavailable and unable to verify existing doses. Save aborted to prevent data overwrite.",
+            };
+          }
+        } else {
+          // Genuine database, RLS, or unexpected error: MUST ABORT to prevent overwriting unknown remote data
+          console.error("[PendingDoseService] Database error checking existing record:", checkError);
+          return {
+            success: false,
+            error: `Database error checking existing dose: ${checkError.message || "Query failed"}. Save aborted to protect data integrity.`,
+          };
+        }
+      } else if (latestRow) {
+        existingDoseValue = latestRow[dbCol] !== null && latestRow[dbCol] !== undefined ? Number(latestRow[dbCol]) : null;
       }
 
-      if (latestRow && Number(latestRow[dbCol]) > 0) {
+      // Check local SQLite cache as secondary safeguard if remote had no dose recorded
+      if (existingDoseValue === null || isNaN(existingDoseValue)) {
+        try {
+          const localDb = await getLocalDbService();
+          const localRows = await localDb.getInsulin(userId);
+          const localRow = localRows.find((r: any) => r.entry_date?.split("T")[0] === slot.date);
+          if (localRow && localRow[dbCol] !== null && localRow[dbCol] !== undefined && Number(localRow[dbCol]) > 0) {
+            existingDoseValue = Number(localRow[dbCol]);
+          }
+        } catch {}
+      }
+
+      if (existingDoseValue !== null && existingDoseValue > 0) {
         return {
           success: false,
           error: "This dose has already been recorded.",
         };
       }
 
-      // 4. Prepare payload for upsert (preserves other slots for the same date)
-      const existingNotes = (latestRow as any)?.notes || null;
-      const updatedNotes = notes?.trim()
-        ? existingNotes
-          ? `${existingNotes}\n${notes.trim()}`
-          : notes.trim()
-        : existingNotes;
-
-      const payload: any = {
-        user_id: userId,
+      // 4. Save slot dose through authoritative Insulin Service
+      const { insulinService } = await import("@/features/insulin/services/insulinService");
+      const saveRes = await insulinService.updateDailyRecord(slot.date, {
         entry_date: slot.date,
-        morning: latestRow?.morning ?? 0,
-        afternoon: (latestRow as any)?.afternoon ?? 0,
-        lunch: latestRow?.lunch ?? 0,
-        evening: latestRow?.evening ?? 0,
-        night: latestRow?.night ?? 0,
         [dbCol]: units,
-        notes: updatedNotes,
-      };
+        notes: notes || null,
+      });
 
-      if (latestRow?.id) {
-        payload.id = latestRow.id;
+      if (saveRes.error || !saveRes.data) {
+        console.error("[PendingDoseService] Save failed in insulinService:", saveRes.error);
+        return {
+          success: false,
+          error: saveRes.error || "Failed to persist insulin dose.",
+        };
       }
 
-      // 5. Upsert into Supabase with database-level uniqueness on (user_id, entry_date)
-      const { data: upsertData, error: upsertError } = await supabase
-        .from("insulin_entries")
-        .upsert(payload, { onConflict: "user_id,entry_date" })
-        .select()
-        .maybeSingle();
-
-      if (upsertError) {
-        console.error("[PendingDoseService] Upsert error:", upsertError);
-        return { success: false, error: upsertError.message || "Failed to save insulin entry." };
+      // 5. Strictly verify persisted record before declaring success
+      const saved = saveRes.data;
+      const savedDate = saved.entry_date ? saved.entry_date.split("T")[0] : null;
+      if (
+        !saved.id ||
+        saved.user_id !== userId ||
+        savedDate !== slot.date ||
+        Number(saved[dbCol]) !== units
+      ) {
+        console.error("[PendingDoseService] Save verification failed:", {
+          expected: { userId, date: slot.date, [dbCol]: units },
+          actual: saved,
+        });
+        return {
+          success: false,
+          error: "Dose persistence verification failed. Record mismatch detected.",
+        };
       }
 
-      const savedRow = upsertData || payload;
-
-      // 6. Update local offline SQLite cache
-      try {
-        const localDb = await getLocalDbService();
-        await localDb.cacheInsulin([
-          {
-            ...savedRow,
-            id: savedRow.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${userId}_${slot.date}`),
-          },
-        ]);
-      } catch (cacheErr) {
-        console.warn("[PendingDoseService] Local cache update warning:", cacheErr);
-      }
-
-      // 7. Clear window cache so immediate subsequent dose evaluations are fresh
+      // 6. Clear window cache so immediate subsequent dose evaluations are fresh
       this.clearCache(userId);
 
-      // 8. Dispatch global event to immediately update charts, widgets, and data-context
+      // 7. Dispatch global event to immediately update charts, widgets, and data-context
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("health-data-updated"));
+        window.dispatchEvent(
+          new CustomEvent("health-data-updated", {
+            detail: { entity: "insulin", action: "update", date: slot.date },
+          }),
+        );
       }
 
-      return { success: true };
+      return { success: true, data: saved };
     } catch (err: any) {
       console.error("[PendingDoseService] Unexpected error saving dose:", err);
       return { success: false, error: err?.message || "An unexpected error occurred while saving." };

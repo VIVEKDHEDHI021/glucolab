@@ -68,7 +68,7 @@ export function FoodContextSelector({ selected, onChange }: FoodContextSelectorP
         {QUICK_FOOD_OPTIONS.map((opt) => {
           const isSelected = selected.includes(opt.id);
           const Icon = OPTION_ICONS[opt.id];
-          const isExclusive = opt.exclusive;
+          const isExclusive = opt.id === "no_unusual_food" || opt.id === "not_sure";
 
           return (
             <button

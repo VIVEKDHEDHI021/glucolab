@@ -135,6 +135,56 @@ export const localDbService = {
       } catch (e) {
         // Will fail if the column already exists, which is expected on subsequent runs
       }
+
+      // Insulin V3 Migrations: Add revision, collection_status, timezone, last_synced_at, notes to insulin_entries
+      try { await database.execute("ALTER TABLE insulin_entries ADD COLUMN revision INTEGER DEFAULT 1"); } catch {}
+      try { await database.execute("ALTER TABLE insulin_entries ADD COLUMN collection_status TEXT DEFAULT 'EMPTY'"); } catch {}
+      try { await database.execute("ALTER TABLE insulin_entries ADD COLUMN timezone TEXT DEFAULT 'UTC'"); } catch {}
+      try { await database.execute("ALTER TABLE insulin_entries ADD COLUMN last_synced_at TEXT"); } catch {}
+      try { await database.execute("ALTER TABLE insulin_entries ADD COLUMN updated_at TEXT"); } catch {}
+      try { await database.execute("ALTER TABLE insulin_entries ADD COLUMN notes TEXT"); } catch {}
+
+      // Insulin V3 Migrations: Add slot_version, entry_status, insulin_type, updated_at to insulin_slots
+      try { await database.execute("ALTER TABLE insulin_slots ADD COLUMN slot_version INTEGER DEFAULT 1"); } catch {}
+      try { await database.execute("ALTER TABLE insulin_slots ADD COLUMN entry_status TEXT DEFAULT 'COMPLETED'"); } catch {}
+      try { await database.execute("ALTER TABLE insulin_slots ADD COLUMN insulin_type TEXT"); } catch {}
+      try { await database.execute("ALTER TABLE insulin_slots ADD COLUMN updated_at TEXT"); } catch {}
+
+      // Insulin V3 Tables: Sync operations and slot audit history
+      const v3Schema = `
+        CREATE TABLE IF NOT EXISTS insulin_sync_operations (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          daily_record_id TEXT NOT NULL,
+          captured_revision INTEGER NOT NULL,
+          operation_type TEXT NOT NULL,
+          operation_status TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          completed_at TEXT,
+          failure_details TEXT,
+          payload TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_sync_ops_user_status ON insulin_sync_operations(user_id, operation_status);
+
+        CREATE TABLE IF NOT EXISTS insulin_slot_history (
+          id TEXT PRIMARY KEY,
+          record_id TEXT NOT NULL,
+          slot_key TEXT NOT NULL,
+          previous_value REAL,
+          new_value REAL,
+          change_timestamp TEXT NOT NULL,
+          operation_id TEXT,
+          change_source TEXT DEFAULT 'LOCAL_EDIT',
+          slot_version INTEGER DEFAULT 1
+        );
+        CREATE INDEX IF NOT EXISTS idx_slot_hist_record ON insulin_slot_history(record_id, slot_key);
+      `;
+      try {
+        await database.execute(v3Schema);
+        console.log("[SQLITE] Insulin V3 schema and operations tables verified.");
+      } catch (v3Err) {
+        console.error("[SQLITE] Failed to initialize Insulin V3 schema:", v3Err);
+      }
     } catch (err) {
       console.error("[SQLITE] Failed to initialize local SQLite database:", err);
     }
@@ -192,33 +242,83 @@ export const localDbService = {
     );
   },
 
-  // Cache insulin entries (transaction-batched with strict uniqueness on user_id + entry_date)
+  // Cache insulin entries (transaction-batched with strict uniqueness on user_id + entry_date and conflict safety)
   async cacheInsulin(entries: any[]) {
     if (!isMobile || !database || !entries || entries.length === 0) return;
     try {
       await database.execute("BEGIN TRANSACTION;");
       for (const entry of entries) {
         const entryId = entry.id || `${entry.user_id}_${entry.entry_date}`;
+        const parseDose = (v: any) => {
+          if (v === null || v === undefined) return null;
+          const num = Number(v);
+          return Number.isFinite(num) ? Math.round((num + Number.EPSILON) * 100) / 100 : null;
+        };
+        const rev = Number(entry.revision) || 1;
+        const updatedAt = entry.updated_at || new Date().toISOString();
+        const syncStatus = entry.sync_status || "synced";
+
         await database.run(
-          `INSERT INTO insulin_entries (id, user_id, morning, lunch, afternoon, evening, night, entry_date, sync_status) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO insulin_entries (id, user_id, morning, lunch, afternoon, evening, night, notes, entry_date, sync_status, revision, updated_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(user_id, entry_date) DO UPDATE SET
-             morning = excluded.morning,
-             lunch = excluded.lunch,
-             afternoon = excluded.afternoon,
-             evening = excluded.evening,
-             night = excluded.night,
-             sync_status = excluded.sync_status`,
+             id = CASE
+               WHEN insulin_entries.sync_status = 'pending_sync' AND excluded.sync_status = 'synced' THEN insulin_entries.id
+               ELSE excluded.id
+             END,
+             morning = CASE 
+               WHEN COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.morning
+               WHEN insulin_entries.sync_status = 'pending_sync' AND excluded.sync_status = 'synced' AND COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.morning
+               ELSE excluded.morning
+             END,
+             lunch = CASE 
+               WHEN COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.lunch
+               WHEN insulin_entries.sync_status = 'pending_sync' AND excluded.sync_status = 'synced' AND COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.lunch
+               ELSE excluded.lunch
+             END,
+             afternoon = CASE 
+               WHEN COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.afternoon
+               WHEN insulin_entries.sync_status = 'pending_sync' AND excluded.sync_status = 'synced' AND COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.afternoon
+               ELSE excluded.afternoon
+             END,
+             evening = CASE 
+               WHEN COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.evening
+               WHEN insulin_entries.sync_status = 'pending_sync' AND excluded.sync_status = 'synced' AND COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.evening
+               ELSE excluded.evening
+             END,
+             night = CASE 
+               WHEN COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.night
+               WHEN insulin_entries.sync_status = 'pending_sync' AND excluded.sync_status = 'synced' AND COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.night
+               ELSE excluded.night
+             END,
+             notes = CASE 
+               WHEN COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.notes
+               WHEN insulin_entries.sync_status = 'pending_sync' AND excluded.sync_status = 'synced' AND COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.notes
+               ELSE excluded.notes
+             END,
+             sync_status = CASE 
+               WHEN COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.sync_status
+               WHEN insulin_entries.sync_status = 'pending_sync' AND excluded.sync_status = 'synced' AND COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN 'pending_sync'
+               ELSE excluded.sync_status
+             END,
+             revision = MAX(COALESCE(insulin_entries.revision, 1), COALESCE(excluded.revision, 1)),
+             updated_at = CASE
+               WHEN COALESCE(excluded.revision, 1) < COALESCE(insulin_entries.revision, 1) THEN insulin_entries.updated_at
+               ELSE COALESCE(excluded.updated_at, CURRENT_TIMESTAMP)
+             END`,
           [
             entryId,
             entry.user_id,
-            Math.round(Number(entry.morning) || 0),
-            Math.round(Number(entry.lunch) || 0),
-            Math.round(Number(entry.afternoon) || 0),
-            Math.round(Number(entry.evening) || 0),
-            Math.round(Number(entry.night) || 0),
+            parseDose(entry.morning),
+            parseDose(entry.lunch),
+            parseDose(entry.afternoon),
+            parseDose(entry.evening),
+            parseDose(entry.night),
+            entry.notes || null,
             entry.entry_date,
-            entry.sync_status || "synced",
+            syncStatus,
+            rev,
+            updatedAt,
           ]
         );
       }
@@ -244,6 +344,17 @@ export const localDbService = {
       seenDates.add(dateKey);
       return true;
     });
+  },
+
+  // Delete insulin entry from local SQLite
+  async deleteInsulin(idOrDate: string) {
+    if (!isMobile || !database || !idOrDate) return;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrDate);
+    if (isUuid) {
+      await this.runQuery(`DELETE FROM insulin_entries WHERE id = ?`, [idOrDate]);
+    } else {
+      await this.runQuery(`DELETE FROM insulin_entries WHERE entry_date = ?`, [idOrDate.split("T")[0]]);
+    }
   },
 
   // Cache individual insulin slots
@@ -294,11 +405,6 @@ export const localDbService = {
     );
   },
 
-  // Delete individual local insulin slot
-  async deleteLocalInsulinSlot(slotId: string) {
-    if (!isMobile || !database || !slotId) return;
-    await this.runQuery(`DELETE FROM insulin_slots WHERE id = ?`, [slotId]);
-  },
 
   // Cache weight entries (transaction-batched)
   async cacheWeight(entries: any[]) {

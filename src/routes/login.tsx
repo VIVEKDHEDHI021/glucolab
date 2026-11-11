@@ -76,15 +76,7 @@ function LoginPage() {
     setGoogleLoading(true);
 
     try {
-      const { error } = await authService.signInWithGoogle();
-      if (error) {
-        const msg = error.message?.toLowerCase() || "";
-        if (msg.includes("cancel") || msg.includes("closed") || msg.includes("popup")) {
-          toast.info("Google sign-in was cancelled.");
-        } else {
-          toast.error(error.message || "Unable to sign in with Google. Please try again.");
-        }
-      }
+      await authService.signInWithGoogle();
     } catch (err: any) {
       const msg = err?.message?.toLowerCase() || "";
       if (msg.includes("cancel") || msg.includes("closed") || msg.includes("popup")) {
