@@ -62,3 +62,4 @@ console.log("✅ [PASS] 3. Root layout cleanly isolates splash and defers dashbo
 console.log("=======================================================");
 console.log("🎉 ALL STARTUP SPLASH ANIMATION TESTS PASSED!");
 console.log("=======================================================");
+
