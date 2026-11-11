@@ -1,7 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { format, subDays } from "date-fns";
-import { FileSpreadsheet, FileText, Download, Loader2 } from "lucide-react";
+import {
+  FileSpreadsheet,
+  FileText,
+  Download,
+  Loader2,
+  ExternalLink,
+  CheckCircle2,
+} from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -9,10 +16,15 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/db/client";
 import { useAuth } from "@/frontend/lib/auth-context";
 import { Button } from "@/frontend/components/ui/button";
-import { Input } from "@/frontend/components/ui/input";
 import { Label } from "@/frontend/components/ui/label";
 import { Capacitor } from "@capacitor/core";
 import { CoolDateRangePicker } from "@/frontend/components/CoolDateRangePicker";
+import {
+  exportService,
+  ExportedFileRecord,
+  EXPORT_MESSAGES,
+  EXPORT_MIME_TYPES,
+} from "@/frontend/services/exportService";
 import {
   READING_TYPES,
   type GlucoseEntry,
@@ -149,53 +161,17 @@ function buildDailyRows(
   return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-async function handleNativeExport(fname: string, base64Data: string) {
-  try {
-    const { Filesystem, Directory } = await import("@capacitor/filesystem");
-
-    // Request permissions for storage on Android
-    const status = await Filesystem.checkPermissions();
-    if (status.publicStorage !== "granted") {
-      const req = await Filesystem.requestPermissions();
-      if (req.publicStorage !== "granted") {
-        toast.error("Storage permission denied. Cannot save file.");
-        return;
-      }
-    }
-
-    // Ensure GlucoLab folder exists inside Documents folder
-    await Filesystem.mkdir({
-      path: "GlucoLab",
-      directory: Directory.Documents,
-      recursive: true,
-    }).catch((err) => {
-      console.log("[NATIVE EXPORT] GlucoLab directory already exists or creation failed", err);
-    });
-
-    // Write file directly inside GlucoLab folder
-    await Filesystem.writeFile({
-      path: `GlucoLab/${fname}`,
-      data: base64Data,
-      directory: Directory.Documents,
-    });
-    
-    toast.success(`Saved successfully! Open your File Manager -> Documents -> GlucoLab to view: ${fname}`, {
-      duration: 6000,
-    });
-  } catch (err) {
-    console.error("[NATIVE EXPORT] Error writing file to GlucoLab folder:", err);
-    toast.error(err instanceof Error ? err.message : "Failed to download file");
-  }
-}
-
 function ExportPage() {
   const { user } = useAuth();
   const todayStr = format(new Date(), "yyyy-MM-dd");
   const [from, setFrom] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"));
   const [to, setTo] = useState(todayStr);
   const [busy, setBusy] = useState<"xlsx" | "pdf" | null>(null);
+  const [isOpening, setIsOpening] = useState(false);
+  const [lastExportedFile, setLastExportedFile] = useState<ExportedFileRecord | null>(null);
 
   const handleFromChange = (val: string) => {
+    setLastExportedFile(null);
     if (val > todayStr) {
       setFrom(todayStr);
     } else {
@@ -204,6 +180,7 @@ function ExportPage() {
   };
 
   const handleToChange = (val: string) => {
+    setLastExportedFile(null);
     if (val > todayStr) {
       setTo(todayStr);
     } else {
@@ -211,8 +188,22 @@ function ExportPage() {
     }
   };
 
+  const handleOpenFile = async (fileRecord: ExportedFileRecord) => {
+    if (isOpening) return;
+    setIsOpening(true);
+    toast.info(EXPORT_MESSAGES.fileOpening);
+    try {
+      const res = await exportService.openFile(fileRecord);
+      toast.success(res.message);
+    } catch (err: any) {
+      toast.error(err instanceof Error ? err.message : EXPORT_MESSAGES.exportFailed);
+    } finally {
+      setIsOpening(false);
+    }
+  };
+
   const exportXlsx = async () => {
-    if (!user) return;
+    if (!user || busy !== null) return;
     setBusy("xlsx");
     try {
       const { glucose, insulin, weight, profile } = await fetchAll(from, to);
@@ -246,22 +237,37 @@ function ExportPage() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Daily Log");
       const fname = `${(profile?.name || "patient").replace(/\s+/g, "_")}_${from}_to_${to}.xlsx`;
+
+      let record: ExportedFileRecord;
       if (Capacitor.isNativePlatform()) {
         const base64Data = XLSX.write(wb, { bookType: "xlsx", type: "base64" });
-        await handleNativeExport(fname, base64Data);
+        record = await exportService.saveExport(fname, "xlsx", { base64Data });
       } else {
+        const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        const blob = new Blob([wbout], { type: EXPORT_MIME_TYPES.xlsx });
+        record = await exportService.saveExport(fname, "xlsx", { blob });
         XLSX.writeFile(wb, fname);
-        toast.success("Excel file downloaded");
       }
+
+      setLastExportedFile(record);
+      toast.success(EXPORT_MESSAGES.xlsxSuccess, {
+        action: {
+          label: "Open File",
+          onClick: () => handleOpenFile(record),
+        },
+        duration: 8000,
+      });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Export failed");
+      console.error("[EXPORT] XLSX export error:", e);
+      const sanitized = exportService.sanitizeErrorMessage(e);
+      toast.error(sanitized);
     } finally {
       setBusy(null);
     }
   };
 
   const exportPdf = async () => {
-    if (!user) return;
+    if (!user || busy !== null) return;
     setBusy("pdf");
     try {
       const { glucose, insulin, weight, profile } = await fetchAll(from, to);
@@ -321,16 +327,30 @@ function ExportPage() {
       });
 
       const fname = `${(profile?.name || "patient").replace(/\s+/g, "_")}_doctor_report_${from}_to_${to}.pdf`;
+
+      let record: ExportedFileRecord;
       if (Capacitor.isNativePlatform()) {
         const dataUri = doc.output("datauristring");
         const base64Data = dataUri.split(",")[1];
-        await handleNativeExport(fname, base64Data);
+        record = await exportService.saveExport(fname, "pdf", { base64Data });
       } else {
+        const blob = doc.output("blob");
+        record = await exportService.saveExport(fname, "pdf", { blob });
         doc.save(fname);
-        toast.success("PDF report downloaded");
       }
+
+      setLastExportedFile(record);
+      toast.success(EXPORT_MESSAGES.pdfSuccess, {
+        action: {
+          label: "Open File",
+          onClick: () => handleOpenFile(record),
+        },
+        duration: 8000,
+      });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Export failed");
+      console.error("[EXPORT] PDF export error:", e);
+      const sanitized = exportService.sanitizeErrorMessage(e);
+      toast.error(sanitized);
     } finally {
       setBusy(null);
     }
@@ -359,6 +379,44 @@ function ExportPage() {
           />
         </div>
       </div>
+
+      {lastExportedFile && (
+        <div className="rounded-2xl border border-success/30 bg-success/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-success/20 text-success">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-foreground">
+                {lastExportedFile.format === "pdf"
+                  ? EXPORT_MESSAGES.pdfSuccess
+                  : EXPORT_MESSAGES.xlsxSuccess}
+              </p>
+              <p className="text-xs text-muted-foreground truncate max-w-[240px] sm:max-w-md">
+                {lastExportedFile.fileName}
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={() => handleOpenFile(lastExportedFile)}
+            disabled={isOpening}
+            size="sm"
+            className="w-full sm:w-auto shrink-0"
+          >
+            {isOpening ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Opening...
+              </>
+            ) : (
+              <>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Open File
+              </>
+            )}
+          </Button>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card p-6 shadow-soft">
