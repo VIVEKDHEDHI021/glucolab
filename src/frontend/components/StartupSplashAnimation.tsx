@@ -20,7 +20,7 @@ export interface StartupSplashProps {
 
 export function StartupSplashAnimation({
   onComplete,
-  minDurationMs = 1200,
+  minDurationMs = 3900,
 }: StartupSplashProps) {
   const [completed, setCompleted] = useState(() => hasCompletedStartupSplash);
   const [hasStaticSplash, setHasStaticSplash] = useState(() => {
@@ -58,17 +58,20 @@ export function StartupSplashAnimation({
       return;
     }
 
+    let staticSplashEl: HTMLElement | null = null;
+    let onStaticExit: ((e: AnimationEvent) => void) | null = null;
+
     // Check if static splash exists in DOM and listen to its animationend event
     if (typeof document !== "undefined") {
-      const staticSplash = document.getElementById("startup-splash");
-      if (staticSplash) {
+      staticSplashEl = document.getElementById("startup-splash");
+      if (staticSplashEl) {
         setHasStaticSplash(true);
-        const onStaticExit = (e: AnimationEvent) => {
+        onStaticExit = (e: AnimationEvent) => {
           if (e.animationName.includes("splashExit")) {
             finishSplash();
           }
         };
-        staticSplash.addEventListener("animationend", onStaticExit);
+        staticSplashEl.addEventListener("animationend", onStaticExit);
       }
     }
 
@@ -88,15 +91,18 @@ export function StartupSplashAnimation({
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    const duration = prefersReducedMotion ? 400 : minDurationMs;
+    const duration = prefersReducedMotion ? 400 : Math.max(minDurationMs, 3900);
 
     // Safety fallback timer: guarantees splash always dismisses even if CSS events drop
     const timer = setTimeout(() => {
       finishSplash();
-    }, duration);
+    }, duration + 100);
 
     return () => {
       clearTimeout(timer);
+      if (staticSplashEl && onStaticExit) {
+        staticSplashEl.removeEventListener("animationend", onStaticExit);
+      }
     };
   }, [minDurationMs]);
 

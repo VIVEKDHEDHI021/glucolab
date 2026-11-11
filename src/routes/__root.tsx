@@ -11,6 +11,7 @@ import { Activity, ShieldAlert, KeyRound } from "lucide-react";
 import { localDbService } from "@/services/localDbService";
 import { syncService } from "@/services/syncService";
 import { Button } from "@/frontend/components/ui/button";
+import { cn } from "@/frontend/lib/utils";
 import {
   StartupSplashAnimation,
   isStartupSplashCompleted,
@@ -271,13 +272,18 @@ function RootComponent() {
   return (
     <RootShell>
       {splashActive && (
-        <StartupSplashAnimation onComplete={handleSplashComplete} />
+        <StartupSplashAnimation
+          minDurationMs={3900}
+          onComplete={handleSplashComplete}
+        />
       )}
       <ThemeProvider>
         <AuthProvider>
           <HealthDataProvider>
-            <Outlet />
-            <Toaster richColors position="top-center" />
+            <div className={cn("contents", splashActive && "select-none pointer-events-none")}>
+              <Outlet />
+            </div>
+            {!splashActive && <Toaster richColors position="top-center" />}
           </HealthDataProvider>
         </AuthProvider>
       </ThemeProvider>
