@@ -69,29 +69,30 @@ export const syncService = {
         }
       }
 
-      // 2. Sync Insulin Entries (Upsert with onConflict user_id, entry_date)
+      // 2. Sync Insulin Entries via Authoritative Insulin Service
       if (insulin.length > 0) {
         console.log(`[SYNC] Syncing ${insulin.length} insulin entries...`);
-        for (const i of insulin) {
-          const { error } = await supabase.from("insulin_entries").upsert({
-            id: i.id,
-            user_id: i.user_id,
-            morning: i.morning,
-            lunch: i.lunch,
-            afternoon: i.afternoon || 0,
-            evening: i.evening,
-            night: i.night,
-            entry_date: i.entry_date,
-          }, { onConflict: "user_id,entry_date" });
+        const { insulinService } = await import("@/features/insulin/services/insulinService");
+        for (const ins of insulin) {
+          const res = await insulinService.createDailyRecord({
+            entry_date: ins.entry_date,
+            morning: ins.morning,
+            lunch: ins.lunch,
+            afternoon: ins.afternoon,
+            evening: ins.evening,
+            night: ins.night,
+            notes: ins.notes,
+            id: ins.id,
+          });
 
-          if (!error || error.code === "23505") {
+          if (!res.error) {
             await localDbService.runQuery(
               `UPDATE insulin_entries SET sync_status = 'synced' WHERE id = ?`,
-              [i.id]
+              [ins.id]
             );
             syncedCount++;
           } else {
-            console.error(`[SYNC] Failed to sync insulin ID ${i.id}:`, error);
+            console.error(`[SYNC] Failed to sync insulin ID ${ins.id}:`, res.error);
           }
         }
       }

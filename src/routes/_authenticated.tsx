@@ -4,7 +4,6 @@ import { useAuth } from "@/frontend/lib/auth-context";
 import { authService } from "@/backend/services/authService";
 import { AppShell } from "@/frontend/components/app-shell";
 import { Activity } from "lucide-react";
-import { PendingInsulinManager } from "@/features/pending-insulin";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -96,7 +95,6 @@ function AuthenticatedLayout() {
   return (
     <AppShell>
       <Outlet />
-      <PendingInsulinManager />
     </AppShell>
   );
 }

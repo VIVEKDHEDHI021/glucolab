@@ -193,3 +193,11 @@ export function subDaysLocal(dateKey: string, days: number = 1): string {
 export function isSameLocalDay(dateA: Date | string, dateB: Date | string, timezone?: string): boolean {
   return getLocalDateKey(dateA, timezone) === getLocalDateKey(dateB, timezone);
 }
+
+/**
+ * Returns "YYYY-MM-DD" for yesterday in the user's local timezone
+ */
+export function getYesterdayDateKey(timezone?: string): string {
+  const todayKey = getLocalDateKey(undefined, timezone);
+  return subDaysLocal(todayKey, 1);
+}

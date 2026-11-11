@@ -202,7 +202,12 @@ function DashboardPage() {
   }, [user?.id]);
 
   useEffect(() => {
-    const handleHealthDataUpdated = async () => {
+    const handleHealthDataUpdated = async (e?: any) => {
+      // Targeted insulin update is already optimistically updated in context; skip full database refetch
+      if (e?.detail?.entity === "insulin") {
+        console.log("[DASHBOARD] Targeted insulin update detected, avoiding full refresh");
+        return;
+      }
       console.log("[DASHBOARD] Realtime health data update event received, refreshing dashboard...");
       await refreshData(true);
       if (user?.id) {
@@ -689,7 +694,7 @@ function DashboardPage() {
         }}
         initialDate={editingInsulinDate || undefined}
         entryId={editingInsulinId || undefined}
-        onSaved={load}
+        onSaved={() => {}}
       />
       <WeightDialog
         open={weightOpen}

@@ -8,9 +8,20 @@ import { dashboardCacheService } from "@/frontend/services/dashboardCacheService
 
 export const healthService = {
   async getDashboardData() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user;
+    } catch {}
+
+    if (!user) {
+      const {
+        data: { user: fallbackUser },
+      } = await supabase.auth.getUser();
+      user = fallbackUser;
+    }
     if (!user) throw new Error("Not authenticated");
     const since = subDays(new Date(), 90).toISOString();
     return Promise.all([
@@ -37,9 +48,20 @@ export const healthService = {
   },
 
   async getHistory() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user;
+    } catch {}
+
+    if (!user) {
+      const {
+        data: { user: fallbackUser },
+      } = await supabase.auth.getUser();
+      user = fallbackUser;
+    }
     if (!user) throw new Error("Not authenticated");
     return supabase
       .from("glucose_entries")
@@ -63,9 +85,20 @@ export const healthService = {
     },
     idempotencyKey?: string,
   ) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user;
+    } catch {}
+
+    if (!user) {
+      const {
+        data: { user: fallbackUser },
+      } = await supabase.auth.getUser();
+      user = fallbackUser;
+    }
     if (!user) throw new Error("Not authenticated");
 
     const stableId =
@@ -161,9 +194,20 @@ export const healthService = {
     if (!id || typeof id !== "string") {
       throw new Error("Cannot update glucose reading: Missing required record ID.");
     }
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user;
+    } catch {}
+
+    if (!user) {
+      const {
+        data: { user: fallbackUser },
+      } = await supabase.auth.getUser();
+      user = fallbackUser;
+    }
     if (!user) throw new Error("Not authenticated");
 
     const updateFields: any = {
@@ -202,9 +246,20 @@ export const healthService = {
   },
 
   async deleteGlucoseEntry(id: string) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user;
+    } catch {}
+
+    if (!user) {
+      const {
+        data: { user: fallbackUser },
+      } = await supabase.auth.getUser();
+      user = fallbackUser;
+    }
     if (!user) throw new Error("Not authenticated");
     const res = await supabase.from("glucose_entries").delete().eq("id", id).eq("user_id", user.id);
     if (!res.error) {
@@ -221,617 +276,91 @@ export const healthService = {
   },
 
   /**
-   * Create or update a daily insulin schedule with strict idempotency and slot preservation
+   * @deprecated Forwarded directly to Insulin V3 Architecture
+   */
+  /**
+   * Create or upsert a daily insulin schedule (delegated to authoritative insulinService)
    */
   async createInsulinEntry(
     payload: {
       id?: string;
       entry_date: string;
-      morning?: number;
-      lunch?: number;
-      afternoon?: number;
-      evening?: number;
-      night?: number;
+      morning?: number | null;
+      lunch?: number | null;
+      afternoon?: number | null;
+      evening?: number | null;
+      night?: number | null;
       notes?: string | null;
       slot_type?: "morning" | "lunch" | "afternoon" | "evening" | "night";
       units?: number;
     },
-    idempotencyKey?: string,
+    _idempotencyKey?: string,
   ) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    const dateOnly = payload.entry_date.split("T")[0];
-    const stableId =
-      payload.id ||
-      (typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `ins_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
-
-    const key =
-      idempotencyKey ||
-      idempotencyService.generateKey(user.id, "insulin", `${dateOnly}_${stableId}`);
-
-    const { data: record } = await idempotencyService.executeIdempotent(
-      key,
-      async () => {
-        // 1. Check if a daily record already exists for this (user_id, entry_date)
-        const { data: existing } = await supabase
-          .from("insulin_entries")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("entry_date", dateOnly)
-          .maybeSingle();
-
-        if (existing) {
-          // If schedule exists for this date, UPDATE only the requested slot(s), strictly preserving all other existing slots!
-          const updateFields: any = {
-            updated_at: new Date().toISOString(),
-          };
-
-          if (payload.slot_type && payload.units !== undefined) {
-            updateFields[payload.slot_type] = Math.max(0, Math.min(200, Math.round(Number(payload.units) || 0)));
-          }
-          if (payload.morning !== undefined) updateFields.morning = Math.max(0, Math.min(200, Math.round(Number(payload.morning) || 0)));
-          if (payload.lunch !== undefined) updateFields.lunch = Math.max(0, Math.min(200, Math.round(Number(payload.lunch) || 0)));
-          if (payload.afternoon !== undefined) updateFields.afternoon = Math.max(0, Math.min(200, Math.round(Number(payload.afternoon) || 0)));
-          if (payload.evening !== undefined) updateFields.evening = Math.max(0, Math.min(200, Math.round(Number(payload.evening) || 0)));
-          if (payload.night !== undefined) updateFields.night = Math.max(0, Math.min(200, Math.round(Number(payload.night) || 0)));
-          if (payload.notes !== undefined) updateFields.notes = payload.notes;
-
-          const { data: updated, error: updateErr } = await supabase
-            .from("insulin_entries")
-            .update(updateFields)
-            .eq("id", existing.id)
-            .eq("user_id", user.id)
-            .select()
-            .maybeSingle();
-
-          if (updateErr) throw updateErr;
-          if (!updated) throw new Error("Failed to update existing daily insulin record.");
-          return updated;
-        }
-
-        // 2. Insert new schedule row when no record exists for this date
-        const insertPayload: any = {
-          id: stableId,
-          user_id: user.id,
-          entry_date: dateOnly,
-          morning: payload.slot_type === "morning" && payload.units !== undefined
-            ? Math.max(0, Math.min(200, Math.round(Number(payload.units) || 0)))
-            : Math.max(0, Math.min(200, Math.round(Number(payload.morning) || 0))),
-          lunch: payload.slot_type === "lunch" && payload.units !== undefined
-            ? Math.max(0, Math.min(200, Math.round(Number(payload.units) || 0)))
-            : Math.max(0, Math.min(200, Math.round(Number(payload.lunch) || 0))),
-          afternoon: payload.slot_type === "afternoon" && payload.units !== undefined
-            ? Math.max(0, Math.min(200, Math.round(Number(payload.units) || 0)))
-            : Math.max(0, Math.min(200, Math.round(Number(payload.afternoon) || 0))),
-          evening: payload.slot_type === "evening" && payload.units !== undefined
-            ? Math.max(0, Math.min(200, Math.round(Number(payload.units) || 0)))
-            : Math.max(0, Math.min(200, Math.round(Number(payload.evening) || 0))),
-          night: payload.slot_type === "night" && payload.units !== undefined
-            ? Math.max(0, Math.min(200, Math.round(Number(payload.units) || 0)))
-            : Math.max(0, Math.min(200, Math.round(Number(payload.night) || 0))),
-          notes: payload.notes || null,
-        };
-
-        const res = await supabase
-          .from("insulin_entries")
-          .insert(insertPayload)
-          .select()
-          .maybeSingle();
-
-        if (res.error) {
-          if (
-            res.error.code === "23505" ||
-            res.error.message?.includes("duplicate key") ||
-            res.error.message?.includes("unique")
-          ) {
-            // Concurrent race: fetch existing and update requested slot
-            const { data: retryRow } = await supabase
-              .from("insulin_entries")
-              .select("*")
-              .eq("user_id", user.id)
-              .eq("entry_date", dateOnly)
-              .maybeSingle();
-
-            if (retryRow) {
-              const retryUpdateFields: any = { updated_at: new Date().toISOString() };
-              if (payload.slot_type && payload.units !== undefined) {
-                retryUpdateFields[payload.slot_type] = Math.max(0, Math.min(200, Math.round(Number(payload.units) || 0)));
-              }
-              if (payload.morning !== undefined) retryUpdateFields.morning = Math.max(0, Math.min(200, Math.round(Number(payload.morning) || 0)));
-              if (payload.lunch !== undefined) retryUpdateFields.lunch = Math.max(0, Math.min(200, Math.round(Number(payload.lunch) || 0)));
-              if (payload.afternoon !== undefined) retryUpdateFields.afternoon = Math.max(0, Math.min(200, Math.round(Number(payload.afternoon) || 0)));
-              if (payload.evening !== undefined) retryUpdateFields.evening = Math.max(0, Math.min(200, Math.round(Number(payload.evening) || 0)));
-              if (payload.night !== undefined) retryUpdateFields.night = Math.max(0, Math.min(200, Math.round(Number(payload.night) || 0)));
-              if (payload.notes !== undefined) retryUpdateFields.notes = payload.notes;
-
-              const { data: retryUpdated } = await supabase
-                .from("insulin_entries")
-                .update(retryUpdateFields)
-                .eq("id", retryRow.id)
-                .eq("user_id", user.id)
-                .select()
-                .maybeSingle();
-
-              if (retryUpdated) return retryUpdated;
-              return retryRow;
-            }
-          }
-          throw res.error;
-        }
-
-        if (!res.data) throw new Error("Failed to insert daily insulin record.");
-        return res.data;
-      },
-    );
-
-    await this.invalidateServerCache("insulin");
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("health-data-updated", {
-          detail: { entity: "insulin", action: "create", id: record.id },
-        }),
-      );
-    }
-
-    return { data: record, error: null };
-  },
-
-  /**
-   * Atomic get-or-create for daily parent insulin schedule
-   */
-  async getOrCreateInsulinSchedule(userId: string, entryDate: string) {
-    const dateOnly = entryDate.split("T")[0];
-    const { data: existing } = await supabase
-      .from("insulin_entries")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("entry_date", dateOnly)
-      .maybeSingle();
-
-    if (existing) return existing;
-
-    const newId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `sched_${Date.now()}`;
-    const { data: created, error } = await supabase
-      .from("insulin_entries")
-      .insert({
-        id: newId,
-        user_id: userId,
-        entry_date: dateOnly,
-        morning: 0,
-        lunch: 0,
-        afternoon: 0,
-        evening: 0,
-        night: 0,
-      })
-      .select()
-      .maybeSingle();
-
-    if (error) {
-      // Concurrency retry on conflict
-      const { data: retry } = await supabase
-        .from("insulin_entries")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("entry_date", dateOnly)
-        .maybeSingle();
-      if (retry) return retry;
-      throw error;
-    }
-    return created;
-  },
-
-  /**
-   * Create an individual insulin slot (Morning, Lunch, Afternoon, Evening, Night)
-   * connected to its daily parent schedule.
-   */
-  async createInsulinSlot(
-    payload: {
-      entry_date: string;
-      slot_type: "morning" | "lunch" | "afternoon" | "evening" | "night";
-      units: number;
-      notes?: string | null;
-      id?: string;
-    },
-    idempotencyKey?: string,
-  ) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    const units = Math.max(0, Math.min(200, Math.round(Number(payload.units) || 0)));
-    const slotType = payload.slot_type;
-    const dateOnly = payload.entry_date.split("T")[0];
-    const stableSlotId =
-      payload.id ||
-      (typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `slot_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
-
-    const key =
-      idempotencyKey ||
-      idempotencyService.generateKey(user.id, "insulin", `${dateOnly}_${slotType}_${stableSlotId}`);
-
-    const { data: result } = await idempotencyService.executeIdempotent(key, async () => {
-      // 1. Get or atomically create daily parent schedule
-      const schedule = await this.getOrCreateInsulinSchedule(user.id, dateOnly);
-      if (!schedule) throw new Error("Failed to resolve daily insulin schedule.");
-
-      // 2. Check if this slot already exists on this schedule
-      const { data: existingSlot } = await (supabase.from("insulin_slots") as any)
-        .select("*")
-        .eq("schedule_id", schedule.id)
-        .eq("slot_type", slotType)
-        .maybeSingle();
-
-      let slotRecord = existingSlot;
-      if (existingSlot) {
-        // Update existing slot with new units and notes
-        const { data: updated, error: updateErr } = await (supabase.from("insulin_slots") as any)
-          .update({
-            units,
-            notes: payload.notes !== undefined ? payload.notes : existingSlot.notes,
-            recorded_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingSlot.id)
-          .select()
-          .single();
-        if (updateErr) throw updateErr;
-        slotRecord = updated;
-      } else {
-        // Insert new slot
-        const { data: inserted, error: insertErr } = await (supabase.from("insulin_slots") as any)
-          .insert({
-            id: stableSlotId,
-            schedule_id: schedule.id,
-            user_id: user.id,
-            slot_type: slotType,
-            units,
-            notes: payload.notes || null,
-            recorded_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
-        if (insertErr) throw insertErr;
-        slotRecord = inserted;
-      }
-
-      // 3. Atomically synchronize parent schedule column
-      await supabase
-        .from("insulin_entries")
-        .update({
-          [slotType]: units,
-          updated_at: new Date().toISOString(),
-        } as any)
-        .eq("id", schedule.id);
-
-      return { slot: slotRecord, scheduleId: schedule.id, date: dateOnly };
+    const { insulinService } = await import("@/features/insulin/services/insulinService");
+    const res = await insulinService.createDailyRecord({
+      entry_date: payload.entry_date,
+      morning: payload.morning,
+      lunch: payload.lunch,
+      afternoon: payload.afternoon,
+      evening: payload.evening,
+      night: payload.night,
+      notes: payload.notes,
+      id: payload.id,
     });
 
-    await this.invalidateServerCache("insulin");
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("health-data-updated", {
-          detail: { entity: "insulin", action: "create_slot", slotId: result.slot.id, slotType },
-        }),
-      );
-    }
-
-    return { data: result, error: null };
+    if (res.error) throw new Error(res.error);
+    this.invalidateServerCache("insulin").catch(() => {});
+    return { data: res.data, error: null };
   },
 
   /**
-   * Update an existing individual insulin slot by its ID
-   */
-  async updateInsulinSlot(
-    slotId: string,
-    payload: {
-      units?: number;
-      notes?: string | null;
-    },
-  ) {
-    if (!slotId) throw new Error("Missing required slot ID for update.");
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    // Fetch existing slot
-    const { data: existingSlot, error: fetchErr } = await (supabase.from("insulin_slots") as any)
-      .select("*")
-      .eq("id", slotId)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (fetchErr) throw fetchErr;
-    if (!existingSlot) {
-      throw new Error(`Insulin slot with ID "${slotId}" was not found or does not belong to you.`);
-    }
-
-    const updateFields: any = {
-      updated_at: new Date().toISOString(),
-    };
-    if (payload.units !== undefined) {
-      updateFields.units = Math.max(0, Math.min(200, Math.round(Number(payload.units) || 0)));
-    }
-    if (payload.notes !== undefined) {
-      updateFields.notes = payload.notes;
-    }
-
-    const { data: updatedSlot, error: updateErr } = await (supabase.from("insulin_slots") as any)
-      .update(updateFields)
-      .eq("id", slotId)
-      .eq("user_id", user.id)
-      .select()
-      .single();
-
-    if (updateErr) throw updateErr;
-
-    // Synchronize parent schedule column
-    if (payload.units !== undefined) {
-      await supabase
-        .from("insulin_entries")
-        .update({
-          [existingSlot.slot_type]: updateFields.units,
-          updated_at: new Date().toISOString(),
-        } as any)
-        .eq("id", existingSlot.schedule_id);
-    }
-
-    await this.invalidateServerCache("insulin");
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("health-data-updated", {
-          detail: { entity: "insulin", action: "update_slot", slotId, slotType: existingSlot.slot_type },
-        }),
-      );
-    }
-
-    return { data: updatedSlot, error: null };
-  },
-
-  /**
-   * Delete an existing individual insulin slot by its ID
-   * Preserves all other slots and preserves the parent daily schedule.
-   */
-  async deleteInsulinSlot(slotId: string) {
-    if (!slotId) throw new Error("Missing required slot ID for deletion.");
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    const { data: existingSlot } = await (supabase.from("insulin_slots") as any)
-      .select("*")
-      .eq("id", slotId)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!existingSlot) {
-      throw new Error(`Insulin slot with ID "${slotId}" was not found.`);
-    }
-
-    const { error: deleteErr } = await (supabase.from("insulin_slots") as any)
-      .delete()
-      .eq("id", slotId)
-      .eq("user_id", user.id);
-
-    if (deleteErr) throw deleteErr;
-
-    // Reset this slot to 0 on the parent schedule, preserving all other slots!
-    await supabase
-      .from("insulin_entries")
-      .update({
-        [existingSlot.slot_type]: 0,
-        updated_at: new Date().toISOString(),
-      } as any)
-      .eq("id", existingSlot.schedule_id);
-
-    await this.invalidateServerCache("insulin");
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("health-data-updated", {
-          detail: { entity: "insulin", action: "delete_slot", slotId, slotType: existingSlot.slot_type },
-        }),
-      );
-    }
-
-    return { success: true, slotId, scheduleId: existingSlot.schedule_id };
-  },
-
-  /**
-   * Fetch individual slots for a schedule or date
-   */
-  async getInsulinSlots(options?: { scheduleId?: string; entryDate?: string }) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    let query = (supabase.from("insulin_slots") as any).select("*").eq("user_id", user.id);
-    if (options?.scheduleId) {
-      query = query.eq("schedule_id", options.scheduleId);
-    }
-    return query.order("recorded_at", { ascending: true });
-  },
-
-  /**
-   * Update an existing insulin schedule by ID. Never converts to an insert.
-   * Updates only explicitly provided slots, strictly preserving all other slots.
+   * Update an existing insulin entry (delegated to authoritative insulinService)
    */
   async updateInsulinEntry(
     id: string,
     payload: {
-      morning?: number;
-      lunch?: number;
-      afternoon?: number;
-      evening?: number;
-      night?: number;
+      morning?: number | null;
+      lunch?: number | null;
+      afternoon?: number | null;
+      evening?: number | null;
+      night?: number | null;
       notes?: string | null;
       entry_date?: string;
-      slot_type?: "morning" | "lunch" | "afternoon" | "evening" | "night";
-      units?: number;
     },
   ) {
-    if (!id || typeof id !== "string") {
-      throw new Error("Cannot update insulin record: Missing required record ID.");
-    }
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    const updateFields: any = {
-      updated_at: new Date().toISOString(),
-    };
-    if (payload.slot_type && payload.units !== undefined) {
-      updateFields[payload.slot_type] = Math.max(0, Math.min(200, Math.round(Number(payload.units) || 0)));
-    }
-    if (payload.morning !== undefined) updateFields.morning = Math.max(0, Math.min(200, Math.round(Number(payload.morning) || 0)));
-    if (payload.lunch !== undefined) updateFields.lunch = Math.max(0, Math.min(200, Math.round(Number(payload.lunch) || 0)));
-    if (payload.afternoon !== undefined) updateFields.afternoon = Math.max(0, Math.min(200, Math.round(Number(payload.afternoon) || 0)));
-    if (payload.evening !== undefined) updateFields.evening = Math.max(0, Math.min(200, Math.round(Number(payload.evening) || 0)));
-    if (payload.night !== undefined) updateFields.night = Math.max(0, Math.min(200, Math.round(Number(payload.night) || 0)));
-    if (payload.notes !== undefined) updateFields.notes = payload.notes;
-
-    const res = await supabase
-      .from("insulin_entries")
-      .update(updateFields)
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .select()
-      .maybeSingle();
-
-    if (res.error) throw res.error;
-    if (!res.data) {
-      throw new Error(`Insulin schedule record with ID "${id}" was not found or does not belong to you.`);
-    }
-
-    await this.invalidateServerCache("insulin");
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("health-data-updated", {
-          detail: { entity: "insulin", action: "update", id },
-        }),
-      );
-    }
-
-    return res;
+    const { insulinService } = await import("@/features/insulin/services/insulinService");
+    const res = await insulinService.updateDailyRecord(id, payload);
+    if (res.error) throw new Error(res.error);
+    this.invalidateServerCache("insulin").catch(() => {});
+    return { data: res.data, error: null };
   },
 
   /**
-   * Clear an individual insulin slot (set to 0) while strictly preserving all other slots
-   */
-  async clearInsulinSlot(
-    identifier: { id?: string; entry_date?: string },
-    slotType: "morning" | "lunch" | "afternoon" | "evening" | "night",
-  ) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    let query = supabase
-      .from("insulin_entries")
-      .update({
-        [slotType]: 0,
-        updated_at: new Date().toISOString(),
-      } as any)
-      .eq("user_id", user.id);
-
-    if (identifier.id) {
-      query = query.eq("id", identifier.id);
-    } else if (identifier.entry_date) {
-      query = query.eq("entry_date", identifier.entry_date.split("T")[0]);
-    } else {
-      throw new Error("Missing identifier for clearing insulin slot.");
-    }
-
-    const res = await query.select().maybeSingle();
-    if (res.error) throw res.error;
-    if (!res.data) {
-      throw new Error("Insulin record not found or does not belong to you.");
-    }
-
-    await this.invalidateServerCache("insulin");
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("health-data-updated", {
-          detail: { entity: "insulin", action: "clear_slot", slotType, id: res.data.id },
-        }),
-      );
-    }
-
-    return res;
-  },
-
-  /**
-   * Fetch the daily insulin schedule for a date
-   */
-  async getInsulinSchedule(entryDate?: string) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    const dateOnly = (entryDate || new Date().toISOString()).split("T")[0];
-    const res = await supabase
-      .from("insulin_entries")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("entry_date", dateOnly)
-      .maybeSingle();
-
-    return res;
-  },
-
-  /**
-   * Delete an entire daily insulin entry by ID
+   * Delete an entire daily insulin entry by ID (delegated to authoritative insulinService)
    */
   async deleteInsulinEntry(id: string) {
-    if (!id || typeof id !== "string") {
-      throw new Error("Cannot delete insulin record: Missing required record ID.");
-    }
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    const res = await supabase
-      .from("insulin_entries")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .select()
-      .maybeSingle();
-
-    if (res.error) throw res.error;
-    if (!res.data) {
-      throw new Error(`Insulin record with ID "${id}" was not found or was already deleted.`);
-    }
-
-    await this.invalidateServerCache("insulin");
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("health-data-updated", {
-          detail: { entity: "insulin", action: "delete", id },
-        }),
-      );
-    }
-
-    return res;
+    const { insulinService } = await import("@/features/insulin/services/insulinService");
+    const res = await insulinService.deleteDailyRecord(id);
+    if (res.error) throw new Error(res.error);
+    this.invalidateServerCache("insulin").catch(() => {});
+    return { data: res.data, error: null };
   },
 
   async getFoodHistory() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user;
+    } catch {}
+
+    if (!user) {
+      const {
+        data: { user: fallbackUser },
+      } = await supabase.auth.getUser();
+      user = fallbackUser;
+    }
     if (!user) throw new Error("Not authenticated");
     return supabase
       .from("food_entries")
@@ -841,9 +370,20 @@ export const healthService = {
   },
 
   async deleteFoodEntry(id: string) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user;
+    } catch {}
+
+    if (!user) {
+      const {
+        data: { user: fallbackUser },
+      } = await supabase.auth.getUser();
+      user = fallbackUser;
+    }
     if (!user) throw new Error("Not authenticated");
     const res = await supabase.from("food_entries").delete().eq("id", id).eq("user_id", user.id);
     if (!res.error) {
@@ -853,9 +393,20 @@ export const healthService = {
   },
 
   async getExportData(fromIso: string, toIso: string, from: string, to: string) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user;
+    } catch {}
+
+    if (!user) {
+      const {
+        data: { user: fallbackUser },
+      } = await supabase.auth.getUser();
+      user = fallbackUser;
+    }
     if (!user) throw new Error("Not authenticated");
     return Promise.all([
       supabase
@@ -882,9 +433,20 @@ export const healthService = {
   },
 
   async getReportsData(sinceIso: string, sinceDate: string) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user;
+    } catch {}
+
+    if (!user) {
+      const {
+        data: { user: fallbackUser },
+      } = await supabase.auth.getUser();
+      user = fallbackUser;
+    }
     if (!user) throw new Error("Not authenticated");
     return Promise.all([
       supabase
@@ -926,9 +488,20 @@ export const healthService = {
     height_cm?: number | null;
     onboarding_completed?: boolean;
   }) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user;
+    } catch {}
+
+    if (!user) {
+      const {
+        data: { user: fallbackUser },
+      } = await supabase.auth.getUser();
+      user = fallbackUser;
+    }
     if (!user) throw new Error("Not authenticated");
 
     // 1. Dual-sync immediately to Supabase Auth user_metadata
@@ -1039,9 +612,20 @@ export const healthService = {
     weight_kg: number;
     height_cm: number;
   }) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      user = session?.user;
+    } catch {}
+
+    if (!user) {
+      const {
+        data: { user: fallbackUser },
+      } = await supabase.auth.getUser();
+      user = fallbackUser;
+    }
     if (!user) throw new Error("Not authenticated");
 
     // 1. Immediately store completion in localStorage & clear draft
@@ -1166,6 +750,11 @@ export const healthService = {
         periodDays: 7,
       };
 
+      const parseDose = (val: any) => {
+        const num = Number(val);
+        return Number.isFinite(num) ? Math.round((num + Number.EPSILON) * 100) / 100 : 0;
+      };
+
       const todayInsulinRow = insulinRows.find((i: any) => i.entry_date === todayKey) || null;
       let m = 0;
       let l = 0;
@@ -1173,21 +762,21 @@ export const healthService = {
       let e = 0;
       let n = 0;
       if (todayInsulinRow) {
-        m = Math.round(Number(todayInsulinRow.morning) || 0);
-        l = Math.round(Number(todayInsulinRow.lunch) || 0);
-        a = Math.round(Number(todayInsulinRow.afternoon) || 0);
-        e = Math.round(Number(todayInsulinRow.evening) || 0);
-        n = Math.round(Number(todayInsulinRow.night) || 0);
+        m = parseDose(todayInsulinRow.morning);
+        l = parseDose(todayInsulinRow.lunch);
+        a = parseDose(todayInsulinRow.afternoon);
+        e = parseDose(todayInsulinRow.evening);
+        n = parseDose(todayInsulinRow.night);
       }
 
       const latestInsulinRow = insulinRows[0] || null;
       let lim = 0, lil = 0, lia = 0, lie = 0, lin = 0;
       if (latestInsulinRow) {
-        lim = Math.round(Number(latestInsulinRow.morning) || 0);
-        lil = Math.round(Number(latestInsulinRow.lunch) || 0);
-        lia = Math.round(Number(latestInsulinRow.afternoon) || 0);
-        lie = Math.round(Number(latestInsulinRow.evening) || 0);
-        lin = Math.round(Number(latestInsulinRow.night) || 0);
+        lim = parseDose(latestInsulinRow.morning);
+        lil = parseDose(latestInsulinRow.lunch);
+        lia = parseDose(latestInsulinRow.afternoon);
+        lie = parseDose(latestInsulinRow.evening);
+        lin = parseDose(latestInsulinRow.night);
       }
 
       const latestWeight = weightRows[0] || null;

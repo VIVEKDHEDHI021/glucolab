@@ -5,6 +5,7 @@ import { supabase, getLocalDbService } from "@/db/client";
 import type { GlucoseEntry, InsulinEntry, WeightEntry, FoodEntry } from "@/frontend/lib/types";
 import { Capacitor } from "@capacitor/core";
 import { Activity } from "lucide-react";
+import { getLocalDateKey } from "@/frontend/lib/date-utils";
 
 interface HealthDataContextValue {
   glucose: GlucoseEntry[];
@@ -25,6 +26,7 @@ interface HealthDataContextValue {
   optimisticUpdateGlucose: (entry: GlucoseEntry) => void;
   optimisticDeleteGlucose: (id: string) => void;
   optimisticAddOrUpdateInsulin: (entry: InsulinEntry) => void;
+  rollbackOptimisticInsulin: (originalEntry: InsulinEntry | null, entryDate: string) => void;
   optimisticDeleteInsulin: (id: string) => void;
 }
 
@@ -69,6 +71,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
   const lastSyncUserIdRef = useRef<string | null>(null);
   const activeSyncSeqRef = useRef<number>(0);
   const inFlightRefreshRef = useRef<Promise<void> | null>(null);
+  const recentLocalMutationsRef = useRef<Map<string, number>>(new Map());
 
   const refreshData = async (force = false) => {
     if (!user?.id) return;
@@ -80,6 +83,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
 
     const currentUserId = user.id;
     const isMobile = Capacitor.isNativePlatform();
+    const currentSeq = ++activeSyncSeqRef.current;
 
     // Reset user state if switched to ensure strict user data isolation
     if (lastSyncUserIdRef.current && lastSyncUserIdRef.current !== currentUserId) {
@@ -188,7 +192,8 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
           supabase.from("profiles").select("name").eq("user_id", currentUserId).maybeSingle(),
         ]);
 
-        if (user?.id !== currentUserId) {
+        if (user?.id !== currentUserId || activeSyncSeqRef.current !== currentSeq) {
+          console.log("[HEALTH_DATA_CONTEXT] Stale in-flight refresh response discarded");
           return;
         }
 
@@ -199,18 +204,65 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
         const freshName = p.data?.name || "";
 
         if (g.data) setGlucose(freshG);
-        if (i.data) setInsulin(freshI);
+        let mergedInsulinList: InsulinEntry[] = freshI;
+        if (i.data) {
+          setInsulin((prev) => {
+            const resultMap = new Map<string, InsulinEntry>();
+            for (const item of freshI) {
+              const d = item.entry_date?.split("T")[0];
+              if (d) resultMap.set(d, item);
+            }
+
+            // Protect local collecting entries, pending sync, recent mutations & higher revisions
+            for (const localItem of prev) {
+              const d = localItem.entry_date?.split("T")[0];
+              if (!d) continue;
+
+              const isPendingSync =
+                localItem.sync_status === "pending_sync" ||
+                localItem.sync_status === "local_collecting";
+              const isRecentMutation = recentLocalMutationsRef.current.has(d);
+              const remote = resultMap.get(d);
+
+              if (isPendingSync || isRecentMutation) {
+                if (!remote) {
+                  resultMap.set(d, localItem);
+                } else {
+                  resultMap.set(d, {
+                    ...remote,
+                    ...localItem,
+                    revision: Math.max(localItem.revision || 1, (remote.revision || 0) + 1),
+                  });
+                }
+              } else if (remote) {
+                if ((localItem.revision || 0) > (remote.revision || 0)) {
+                  resultMap.set(d, {
+                    ...remote,
+                    ...localItem,
+                  });
+                }
+              } else {
+                resultMap.set(d, localItem);
+              }
+            }
+
+            mergedInsulinList = Array.from(resultMap.values()).sort((a, b) =>
+              (b.entry_date || "").localeCompare(a.entry_date || "")
+            );
+            return mergedInsulinList;
+          });
+        }
         if (w.data) setWeight(freshW);
         if (f.data) setFood(freshF);
         if (p.data?.name) setProfileName(freshName);
 
         setInitialized(true);
 
-        // Update local web cache
+        // Update local web cache with the MERGED insulin, preserving local pending changes
         if (g.data || i.data) {
           setLocalHealthCache(currentUserId, {
             glucose: freshG,
-            insulin: freshI,
+            insulin: mergedInsulinList,
             weight: freshW,
             food: freshF,
             profileName: freshName,
@@ -218,13 +270,13 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
           });
         }
 
-        // Path 3: Update local SQLite cache asynchronously (non-blocking)
+        // Path 3: Update local SQLite cache asynchronously with merged list
         if (isMobile) {
           try {
             const localDb = await getLocalDbService();
             await Promise.all([
               g.data && g.data.length > 0 ? localDb.cacheGlucose(g.data) : Promise.resolve(),
-              i.data && i.data.length > 0 ? localDb.cacheInsulin(i.data) : Promise.resolve(),
+              mergedInsulinList.length > 0 ? localDb.cacheInsulin(mergedInsulinList) : Promise.resolve(),
               w.data && w.data.length > 0 ? localDb.cacheWeight(w.data) : Promise.resolve(),
               f.data && f.data.length > 0 ? localDb.cacheFood(f.data) : Promise.resolve(),
               p.data ? localDb.cacheProfile(currentUserId, p.data.name) : Promise.resolve(),
@@ -275,7 +327,21 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
     }
     refreshData(false);
 
-    const handleUpdate = () => {
+    const handleUpdate = (e?: any) => {
+      const detail = e?.detail;
+      // Skip redundant full database refetch for locally initiated insulin updates
+      if (detail?.entity === "insulin") {
+        const idTimestamp = detail.id ? recentLocalMutationsRef.current.get(detail.id) : undefined;
+        const dateTimestamp = detail.date ? recentLocalMutationsRef.current.get(detail.date) : undefined;
+        const isRecentLocal =
+          (idTimestamp !== undefined && Date.now() - idTimestamp < 15000) ||
+          (dateTimestamp !== undefined && Date.now() - dateTimestamp < 15000);
+
+        if (isRecentLocal) {
+          console.log("[HEALTH_DATA_CONTEXT] Skipping self-echo refresh for recent local insulin update");
+          return;
+        }
+      }
       console.log("[HEALTH_DATA_CONTEXT] Realtime health data update event received, refreshing...");
       refreshData(true);
     };
@@ -294,8 +360,47 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "insulin_entries", filter: `user_id=eq.${user.id}` },
-        () => {
-          console.log("[REALTIME] Remote insulin change detected");
+        (payload: any) => {
+          const newRow = payload.new as InsulinEntry | undefined;
+          const rowId = newRow?.id || payload.old?.id;
+          const rowDate = newRow?.entry_date?.split("T")[0];
+
+          // Discard self-echo for local updates
+          const isRecentLocal =
+            (rowId && recentLocalMutationsRef.current.has(rowId)) ||
+            (rowDate && recentLocalMutationsRef.current.has(rowDate));
+
+          if (isRecentLocal) {
+            console.log("[REALTIME] Discarding self-echo for recent local insulin mutation:", rowId);
+            return;
+          }
+
+          // Targeted merge for remote multi-device updates without full refetch
+          if (newRow && payload.eventType === "UPDATE") {
+            console.log("[REALTIME] Targeted merge for remote insulin update:", newRow.id);
+            setInsulin((prev) => {
+              const idx = prev.findIndex((i) => i.id === newRow.id || i.entry_date?.split("T")[0] === rowDate);
+              if (idx >= 0) {
+                const next = [...prev];
+                next[idx] = { ...next[idx], ...newRow };
+                return next;
+              }
+              return [newRow, ...prev].sort((a, b) => (b.entry_date || "").localeCompare(a.entry_date || ""));
+            });
+            return;
+          }
+
+          if (newRow && payload.eventType === "INSERT") {
+            console.log("[REALTIME] Targeted prepend for remote insulin insert:", newRow.id);
+            setInsulin((prev) =>
+              [newRow, ...prev.filter((i) => i.id !== newRow.id)].sort((a, b) =>
+                (b.entry_date || "").localeCompare(a.entry_date || ""),
+              ),
+            );
+            return;
+          }
+
+          console.log("[REALTIME] Remote insulin change detected, refreshing...");
           refreshData(true);
         },
       )
@@ -323,40 +428,6 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
     // 1. Refresh Native Widgets with latest data
     import("@/services/widgetService").then(({ widgetService }) => {
       widgetService.updateWidgets(glucose, insulin);
-
-      // 2. Process any pending Quick Insulin logs recorded from home screen widget
-      widgetService.checkAndSyncPendingQuickInsulin(async (units, entryDate) => {
-        try {
-          const isMobile = Capacitor.isNativePlatform();
-          if (isMobile) {
-            const localDb = await getLocalDbService();
-            await localDb.cacheInsulin([{
-              id: "quick_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
-              user_id: user.id,
-              morning: units,
-              lunch: 0,
-              afternoon: 0,
-              evening: 0,
-              night: 0,
-              entry_date: entryDate,
-              sync_status: "pending_sync",
-            }]);
-          }
-
-          const { error } = await supabase.from("insulin_entries").insert({
-            user_id: user.id,
-            morning: units,
-            entry_date: entryDate,
-          });
-
-          if (!error) {
-            console.log(`[HEALTH_DATA_CONTEXT] Successfully synced widget quick insulin entry: ${units} U`);
-            window.dispatchEvent(new Event("health-data-updated"));
-          }
-        } catch (err) {
-          console.error("[HEALTH_DATA_CONTEXT] Error syncing quick insulin entry:", err);
-        }
-      });
     });
   }, [glucose, insulin, user, initialized]);
 
@@ -376,16 +447,101 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
   };
 
   const optimisticAddOrUpdateInsulin = (entry: InsulinEntry) => {
+    const entryDateOnly = entry.entry_date?.split("T")[0];
+    if (entryDateOnly) {
+      recentLocalMutationsRef.current.set(entryDateOnly, Date.now());
+    }
+    if (entry.id) {
+      recentLocalMutationsRef.current.set(entry.id, Date.now());
+    }
+
     setInsulin((prev) => {
-      const entryDateOnly = entry.entry_date?.split("T")[0];
       const idx = prev.findIndex((i) => i.id === entry.id || i.entry_date?.split("T")[0] === entryDateOnly);
+      let updated: InsulinEntry[];
       if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = { ...copy[idx], ...entry };
-        return copy;
+        const prevItem = prev[idx];
+        const nextRevision = Math.max(prevItem.revision || 1, entry.revision || 1) + (entry.revision ? 0 : 1);
+        updated = [...prev];
+        updated[idx] = {
+          ...prevItem,
+          ...entry,
+          revision: nextRevision,
+          sync_status: entry.sync_status || "pending_sync",
+          updated_at: new Date().toISOString(),
+        };
+      } else {
+        updated = [
+          {
+            ...entry,
+            revision: entry.revision || 1,
+            sync_status: entry.sync_status || "pending_sync",
+            updated_at: new Date().toISOString(),
+          },
+          ...prev,
+        ];
       }
-      return [entry, ...prev];
+      return updated.sort((a, b) => (b.entry_date || "").localeCompare(a.entry_date || ""));
     });
+
+    // Keep web cache immediately synchronized without waiting for network refresh
+    if (user?.id) {
+      try {
+        const cached = getLocalHealthCache(user.id);
+        if (cached) {
+          const prevCached = cached.insulin || [];
+          const idx = prevCached.findIndex((i) => i.id === entry.id || i.entry_date?.split("T")[0] === entryDateOnly);
+          let nextCached: InsulinEntry[];
+          if (idx >= 0) {
+            nextCached = [...prevCached];
+            nextCached[idx] = { ...nextCached[idx], ...entry };
+          } else {
+            nextCached = [entry, ...prevCached];
+          }
+          cached.insulin = nextCached;
+          setLocalHealthCache(user.id, cached);
+        }
+      } catch {}
+    }
+  };
+
+  const rollbackOptimisticInsulin = (originalEntry: InsulinEntry | null, entryDate: string) => {
+    const dateOnly = entryDate?.split("T")[0];
+    setInsulin((prev) => {
+      let next: InsulinEntry[];
+      if (originalEntry) {
+        next = prev.map((item) =>
+          item.id === originalEntry.id || item.entry_date?.split("T")[0] === dateOnly
+            ? originalEntry
+            : item,
+        );
+      } else {
+        next = prev.filter((item) => item.entry_date?.split("T")[0] !== dateOnly);
+      }
+
+      if (user?.id) {
+        try {
+          const cached = getLocalHealthCache(user.id);
+          if (cached) {
+            cached.insulin = next;
+            setLocalHealthCache(user.id, cached);
+          }
+        } catch {}
+      }
+
+      return next;
+    });
+
+    if (isMobile && user?.id) {
+      getLocalDbService()
+        .then((localDb) => {
+          if (originalEntry) {
+            localDb.cacheInsulin([originalEntry]);
+          } else {
+            localDb.deleteInsulin(dateOnly);
+          }
+        })
+        .catch(() => {});
+    }
   };
 
   const optimisticDeleteInsulin = (id: string) => {
@@ -422,6 +578,7 @@ export function HealthDataProvider({ children }: { children: ReactNode }) {
         optimisticUpdateGlucose,
         optimisticDeleteGlucose,
         optimisticAddOrUpdateInsulin,
+        rollbackOptimisticInsulin,
         optimisticDeleteInsulin,
       }}
     >

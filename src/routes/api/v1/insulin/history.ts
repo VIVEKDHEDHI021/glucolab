@@ -115,11 +115,17 @@ export const Route = createFileRoute("/api/v1/insulin/history")({
                           };
                         }
 
-                        const morning = Math.round(Number(data.morning) || 0);
-                        const lunch = Math.round(Number(data.lunch) || 0);
-                        const afternoon = Math.round(Number(data.afternoon) || 0);
-                        const evening = Math.round(Number(data.evening) || 0);
-                        const night = Math.round(Number(data.night) || 0);
+                        const parseDose = (val: any) => {
+                          if (val === null || val === undefined) return 0;
+                          const num = Number(val);
+                          return Number.isFinite(num) ? Math.round((num + Number.EPSILON) * 100) / 100 : 0;
+                        };
+
+                        const morning = parseDose(data.morning);
+                        const lunch = parseDose(data.lunch);
+                        const afternoon = parseDose(data.afternoon);
+                        const evening = parseDose(data.evening);
+                        const night = parseDose(data.night);
 
                         return {
                           id: data.id,
@@ -129,7 +135,8 @@ export const Route = createFileRoute("/api/v1/insulin/history")({
                           afternoon,
                           evening,
                           night,
-                          totalUnits: morning + lunch + afternoon + evening + night,
+                          totalUnits:
+                            Math.round((morning + lunch + afternoon + evening + night + Number.EPSILON) * 100) / 100,
                           exists: true,
                         };
                       },
@@ -191,21 +198,29 @@ export const Route = createFileRoute("/api/v1/insulin/history")({
 
                       if (error) throw error;
 
-                      const sanitizedEntries = (data || []).map((row: any) => ({
-                        id: row.id,
-                        entryDate: row.entry_date,
-                        morning: Math.round(Number(row.morning) || 0),
-                        lunch: Math.round(Number(row.lunch) || 0),
-                        afternoon: Math.round(Number(row.afternoon) || 0),
-                        evening: Math.round(Number(row.evening) || 0),
-                        night: Math.round(Number(row.night) || 0),
-                        totalUnits:
-                          Math.round(Number(row.morning) || 0) +
-                          Math.round(Number(row.lunch) || 0) +
-                          Math.round(Number(row.afternoon) || 0) +
-                          Math.round(Number(row.evening) || 0) +
-                          Math.round(Number(row.night) || 0),
-                      }));
+                      const parseDose = (val: any) => {
+                        if (val === null || val === undefined) return 0;
+                        const num = Number(val);
+                        return Number.isFinite(num) ? Math.round((num + Number.EPSILON) * 100) / 100 : 0;
+                      };
+
+                      const sanitizedEntries = (data || []).map((row: any) => {
+                        const m = parseDose(row.morning);
+                        const l = parseDose(row.lunch);
+                        const a = parseDose(row.afternoon);
+                        const e = parseDose(row.evening);
+                        const n = parseDose(row.night);
+                        return {
+                          id: row.id,
+                          entryDate: row.entry_date,
+                          morning: m,
+                          lunch: l,
+                          afternoon: a,
+                          evening: e,
+                          night: n,
+                          totalUnits: Math.round((m + l + a + e + n + Number.EPSILON) * 100) / 100,
+                        };
+                      });
 
                       return {
                         windowDays: days,

@@ -9,83 +9,44 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
-import { Route as DeleteAccountRouteImport } from './routes/delete-account'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as OnboardingRouteImport } from './routes/onboarding'
-import { Route as OtpRouteImport } from './routes/otp'
-import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as SignupRouteImport } from './routes/signup'
 import { Route as WelcomeRouteImport } from './routes/welcome'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
-import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
-import { Route as AuthenticatedMonitoringRouteImport } from './routes/_authenticated/monitoring'
-import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
-import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
-import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
-import { Route as AuthenticatedScannerRouteImport } from './routes/_authenticated/scanner'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
+import { Route as OtpRouteImport } from './routes/otp'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as DeleteAccountRouteImport } from './routes/delete-account'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as ApiAccountDeleteRouteImport } from './routes/api/account/delete'
+import { Route as AuthenticatedScannerRouteImport } from './routes/_authenticated/scanner'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedMonitoringRouteImport } from './routes/_authenticated/monitoring'
+import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
+import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as ApiAdminResetPasswordRouteImport } from './routes/api/admin/reset-password'
-import { Route as ApiAuthOtpSendRouteImport } from './routes/api/auth/otp/send'
-import { Route as ApiAuthOtpTerminateRouteImport } from './routes/api/auth/otp/terminate'
-import { Route as ApiAuthOtpVerifyRouteImport } from './routes/api/auth/otp/verify'
-import { Route as ApiV1CacheInvalidateRouteImport } from './routes/api/v1/cache/invalidate'
-import { Route as ApiV1CacheMetricsRouteImport } from './routes/api/v1/cache/metrics'
-import { Route as ApiV1DashboardSummaryRouteImport } from './routes/api/v1/dashboard/summary'
-import { Route as ApiV1GlucoseHistoryRouteImport } from './routes/api/v1/glucose/history'
+import { Route as ApiAccountDeleteRouteImport } from './routes/api/account/delete'
 import { Route as ApiV1HealthIndexRouteImport } from './routes/api/v1/health/index'
-import { Route as ApiV1HealthReadyRouteImport } from './routes/api/v1/health/ready'
-import { Route as ApiV1InsulinHistoryRouteImport } from './routes/api/v1/insulin/history'
-import { Route as ApiV1MonitoringAlertsRouteImport } from './routes/api/v1/monitoring/alerts'
 import { Route as ApiV1MonitoringMetricsRouteImport } from './routes/api/v1/monitoring/metrics'
+import { Route as ApiV1MonitoringAlertsRouteImport } from './routes/api/v1/monitoring/alerts'
+import { Route as ApiV1InsulinHistoryRouteImport } from './routes/api/v1/insulin/history'
+import { Route as ApiV1HealthReadyRouteImport } from './routes/api/v1/health/ready'
+import { Route as ApiV1GlucoseHistoryRouteImport } from './routes/api/v1/glucose/history'
+import { Route as ApiV1DashboardSummaryRouteImport } from './routes/api/v1/dashboard/summary'
+import { Route as ApiV1CacheMetricsRouteImport } from './routes/api/v1/cache/metrics'
+import { Route as ApiV1CacheInvalidateRouteImport } from './routes/api/v1/cache/invalidate'
+import { Route as ApiAuthOtpVerifyRouteImport } from './routes/api/auth/otp/verify'
+import { Route as ApiAuthOtpTerminateRouteImport } from './routes/api/auth/otp/terminate'
+import { Route as ApiAuthOtpSendRouteImport } from './routes/api/auth/otp/send'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DeleteAccountRoute = DeleteAccountRouteImport.update({
-  id: '/delete-account',
-  path: '/delete-account',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OnboardingRoute = OnboardingRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OtpRoute = OtpRouteImport.update({
-  id: '/otp',
-  path: '/otp',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
-  id: '/privacy-policy',
-  path: '/privacy-policy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -93,29 +54,68 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const WelcomeRoute = WelcomeRouteImport.update({
-  id: '/welcome',
-  path: '/welcome',
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OtpRoute = OtpRouteImport.update({
+  id: '/otp',
+  path: '/otp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeleteAccountRoute = DeleteAccountRouteImport.update({
+  id: '/delete-account',
+  path: '/delete-account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedExportRoute = AuthenticatedExportRouteImport.update({
-  id: '/export',
-  path: '/export',
+const AuthenticatedScannerRoute = AuthenticatedScannerRouteImport.update({
+  id: '/scanner',
+  path: '/scanner',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedMonitoringRoute = AuthenticatedMonitoringRouteImport.update({
-  id: '/monitoring',
-  path: '/monitoring',
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedNotificationsRoute =
@@ -124,69 +124,34 @@ const AuthenticatedNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
+const AuthenticatedMonitoringRoute = AuthenticatedMonitoringRouteImport.update({
+  id: '/monitoring',
+  path: '/monitoring',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
+const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedScannerRoute = AuthenticatedScannerRouteImport.update({
-  id: '/scanner',
-  path: '/scanner',
+const AuthenticatedExportRoute = AuthenticatedExportRouteImport.update({
+  id: '/export',
+  path: '/export',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
-} as any)
-const ApiAccountDeleteRoute = ApiAccountDeleteRouteImport.update({
-  id: '/api/account/delete',
-  path: '/api/account/delete',
-  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminResetPasswordRoute = ApiAdminResetPasswordRouteImport.update({
   id: '/api/admin/reset-password',
   path: '/api/admin/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAuthOtpSendRoute = ApiAuthOtpSendRouteImport.update({
-  id: '/api/auth/otp/send',
-  path: '/api/auth/otp/send',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAuthOtpTerminateRoute = ApiAuthOtpTerminateRouteImport.update({
-  id: '/api/auth/otp/terminate',
-  path: '/api/auth/otp/terminate',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAuthOtpVerifyRoute = ApiAuthOtpVerifyRouteImport.update({
-  id: '/api/auth/otp/verify',
-  path: '/api/auth/otp/verify',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiV1CacheInvalidateRoute = ApiV1CacheInvalidateRouteImport.update({
-  id: '/api/v1/cache/invalidate',
-  path: '/api/v1/cache/invalidate',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiV1CacheMetricsRoute = ApiV1CacheMetricsRouteImport.update({
-  id: '/api/v1/cache/metrics',
-  path: '/api/v1/cache/metrics',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiV1DashboardSummaryRoute = ApiV1DashboardSummaryRouteImport.update({
-  id: '/api/v1/dashboard/summary',
-  path: '/api/v1/dashboard/summary',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiV1GlucoseHistoryRoute = ApiV1GlucoseHistoryRouteImport.update({
-  id: '/api/v1/glucose/history',
-  path: '/api/v1/glucose/history',
+const ApiAccountDeleteRoute = ApiAccountDeleteRouteImport.update({
+  id: '/api/account/delete',
+  path: '/api/account/delete',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiV1HealthIndexRoute = ApiV1HealthIndexRouteImport.update({
@@ -194,14 +159,9 @@ const ApiV1HealthIndexRoute = ApiV1HealthIndexRouteImport.update({
   path: '/api/v1/health/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiV1HealthReadyRoute = ApiV1HealthReadyRouteImport.update({
-  id: '/api/v1/health/ready',
-  path: '/api/v1/health/ready',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiV1InsulinHistoryRoute = ApiV1InsulinHistoryRouteImport.update({
-  id: '/api/v1/insulin/history',
-  path: '/api/v1/insulin/history',
+const ApiV1MonitoringMetricsRoute = ApiV1MonitoringMetricsRouteImport.update({
+  id: '/api/v1/monitoring/metrics',
+  path: '/api/v1/monitoring/metrics',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiV1MonitoringAlertsRoute = ApiV1MonitoringAlertsRouteImport.update({
@@ -209,9 +169,49 @@ const ApiV1MonitoringAlertsRoute = ApiV1MonitoringAlertsRouteImport.update({
   path: '/api/v1/monitoring/alerts',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiV1MonitoringMetricsRoute = ApiV1MonitoringMetricsRouteImport.update({
-  id: '/api/v1/monitoring/metrics',
-  path: '/api/v1/monitoring/metrics',
+const ApiV1InsulinHistoryRoute = ApiV1InsulinHistoryRouteImport.update({
+  id: '/api/v1/insulin/history',
+  path: '/api/v1/insulin/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1HealthReadyRoute = ApiV1HealthReadyRouteImport.update({
+  id: '/api/v1/health/ready',
+  path: '/api/v1/health/ready',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1GlucoseHistoryRoute = ApiV1GlucoseHistoryRouteImport.update({
+  id: '/api/v1/glucose/history',
+  path: '/api/v1/glucose/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1DashboardSummaryRoute = ApiV1DashboardSummaryRouteImport.update({
+  id: '/api/v1/dashboard/summary',
+  path: '/api/v1/dashboard/summary',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1CacheMetricsRoute = ApiV1CacheMetricsRouteImport.update({
+  id: '/api/v1/cache/metrics',
+  path: '/api/v1/cache/metrics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1CacheInvalidateRoute = ApiV1CacheInvalidateRouteImport.update({
+  id: '/api/v1/cache/invalidate',
+  path: '/api/v1/cache/invalidate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthOtpVerifyRoute = ApiAuthOtpVerifyRouteImport.update({
+  id: '/api/auth/otp/verify',
+  path: '/api/auth/otp/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthOtpTerminateRoute = ApiAuthOtpTerminateRouteImport.update({
+  id: '/api/auth/otp/terminate',
+  path: '/api/auth/otp/terminate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthOtpSendRoute = ApiAuthOtpSendRouteImport.update({
+  id: '/api/auth/otp/send',
+  path: '/api/auth/otp/send',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -461,67 +461,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/delete-account': {
-      id: '/delete-account'
-      path: '/delete-account'
-      fullPath: '/delete-account'
-      preLoaderRoute: typeof DeleteAccountRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/onboarding': {
-      id: '/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof OnboardingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/otp': {
-      id: '/otp'
-      path: '/otp'
-      fullPath: '/otp'
-      preLoaderRoute: typeof OtpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy-policy': {
-      id: '/privacy-policy'
-      path: '/privacy-policy'
-      fullPath: '/privacy-policy'
-      preLoaderRoute: typeof PrivacyPolicyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -531,60 +475,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/welcome': {
-      id: '/welcome'
-      path: '/welcome'
-      fullPath: '/welcome'
-      preLoaderRoute: typeof WelcomeRouteImport
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/export': {
-      id: '/_authenticated/export'
-      path: '/export'
-      fullPath: '/export'
-      preLoaderRoute: typeof AuthenticatedExportRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/otp': {
+      id: '/otp'
+      path: '/otp'
+      fullPath: '/otp'
+      preLoaderRoute: typeof OtpRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/history': {
-      id: '/_authenticated/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/monitoring': {
-      id: '/_authenticated/monitoring'
-      path: '/monitoring'
-      fullPath: '/monitoring'
-      preLoaderRoute: typeof AuthenticatedMonitoringRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/notifications': {
-      id: '/_authenticated/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/profile': {
-      id: '/_authenticated/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AuthenticatedProfileRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/delete-account': {
+      id: '/delete-account'
+      path: '/delete-account'
+      fullPath: '/delete-account'
+      preLoaderRoute: typeof DeleteAccountRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/reports': {
-      id: '/_authenticated/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/scanner': {
@@ -594,19 +552,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedScannerRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/settings': {
-      id: '/_authenticated/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/api/account/delete': {
-      id: '/api/account/delete'
-      path: '/api/account/delete'
-      fullPath: '/api/account/delete'
-      preLoaderRoute: typeof ApiAccountDeleteRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/notifications': {
+      id: '/_authenticated/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/monitoring': {
+      id: '/_authenticated/monitoring'
+      path: '/monitoring'
+      fullPath: '/monitoring'
+      preLoaderRoute: typeof AuthenticatedMonitoringRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/history': {
+      id: '/_authenticated/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/export': {
+      id: '/_authenticated/export'
+      path: '/export'
+      fullPath: '/export'
+      preLoaderRoute: typeof AuthenticatedExportRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/api/admin/reset-password': {
       id: '/api/admin/reset-password'
@@ -615,53 +608,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/auth/otp/send': {
-      id: '/api/auth/otp/send'
-      path: '/api/auth/otp/send'
-      fullPath: '/api/auth/otp/send'
-      preLoaderRoute: typeof ApiAuthOtpSendRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/auth/otp/terminate': {
-      id: '/api/auth/otp/terminate'
-      path: '/api/auth/otp/terminate'
-      fullPath: '/api/auth/otp/terminate'
-      preLoaderRoute: typeof ApiAuthOtpTerminateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/auth/otp/verify': {
-      id: '/api/auth/otp/verify'
-      path: '/api/auth/otp/verify'
-      fullPath: '/api/auth/otp/verify'
-      preLoaderRoute: typeof ApiAuthOtpVerifyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/cache/invalidate': {
-      id: '/api/v1/cache/invalidate'
-      path: '/api/v1/cache/invalidate'
-      fullPath: '/api/v1/cache/invalidate'
-      preLoaderRoute: typeof ApiV1CacheInvalidateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/cache/metrics': {
-      id: '/api/v1/cache/metrics'
-      path: '/api/v1/cache/metrics'
-      fullPath: '/api/v1/cache/metrics'
-      preLoaderRoute: typeof ApiV1CacheMetricsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/dashboard/summary': {
-      id: '/api/v1/dashboard/summary'
-      path: '/api/v1/dashboard/summary'
-      fullPath: '/api/v1/dashboard/summary'
-      preLoaderRoute: typeof ApiV1DashboardSummaryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/glucose/history': {
-      id: '/api/v1/glucose/history'
-      path: '/api/v1/glucose/history'
-      fullPath: '/api/v1/glucose/history'
-      preLoaderRoute: typeof ApiV1GlucoseHistoryRouteImport
+    '/api/account/delete': {
+      id: '/api/account/delete'
+      path: '/api/account/delete'
+      fullPath: '/api/account/delete'
+      preLoaderRoute: typeof ApiAccountDeleteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/v1/health/': {
@@ -671,18 +622,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1HealthIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/v1/health/ready': {
-      id: '/api/v1/health/ready'
-      path: '/api/v1/health/ready'
-      fullPath: '/api/v1/health/ready'
-      preLoaderRoute: typeof ApiV1HealthReadyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/insulin/history': {
-      id: '/api/v1/insulin/history'
-      path: '/api/v1/insulin/history'
-      fullPath: '/api/v1/insulin/history'
-      preLoaderRoute: typeof ApiV1InsulinHistoryRouteImport
+    '/api/v1/monitoring/metrics': {
+      id: '/api/v1/monitoring/metrics'
+      path: '/api/v1/monitoring/metrics'
+      fullPath: '/api/v1/monitoring/metrics'
+      preLoaderRoute: typeof ApiV1MonitoringMetricsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/v1/monitoring/alerts': {
@@ -692,11 +636,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1MonitoringAlertsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/v1/monitoring/metrics': {
-      id: '/api/v1/monitoring/metrics'
-      path: '/api/v1/monitoring/metrics'
-      fullPath: '/api/v1/monitoring/metrics'
-      preLoaderRoute: typeof ApiV1MonitoringMetricsRouteImport
+    '/api/v1/insulin/history': {
+      id: '/api/v1/insulin/history'
+      path: '/api/v1/insulin/history'
+      fullPath: '/api/v1/insulin/history'
+      preLoaderRoute: typeof ApiV1InsulinHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/health/ready': {
+      id: '/api/v1/health/ready'
+      path: '/api/v1/health/ready'
+      fullPath: '/api/v1/health/ready'
+      preLoaderRoute: typeof ApiV1HealthReadyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/glucose/history': {
+      id: '/api/v1/glucose/history'
+      path: '/api/v1/glucose/history'
+      fullPath: '/api/v1/glucose/history'
+      preLoaderRoute: typeof ApiV1GlucoseHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/dashboard/summary': {
+      id: '/api/v1/dashboard/summary'
+      path: '/api/v1/dashboard/summary'
+      fullPath: '/api/v1/dashboard/summary'
+      preLoaderRoute: typeof ApiV1DashboardSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/cache/metrics': {
+      id: '/api/v1/cache/metrics'
+      path: '/api/v1/cache/metrics'
+      fullPath: '/api/v1/cache/metrics'
+      preLoaderRoute: typeof ApiV1CacheMetricsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/cache/invalidate': {
+      id: '/api/v1/cache/invalidate'
+      path: '/api/v1/cache/invalidate'
+      fullPath: '/api/v1/cache/invalidate'
+      preLoaderRoute: typeof ApiV1CacheInvalidateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/otp/verify': {
+      id: '/api/auth/otp/verify'
+      path: '/api/auth/otp/verify'
+      fullPath: '/api/auth/otp/verify'
+      preLoaderRoute: typeof ApiAuthOtpVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/otp/terminate': {
+      id: '/api/auth/otp/terminate'
+      path: '/api/auth/otp/terminate'
+      fullPath: '/api/auth/otp/terminate'
+      preLoaderRoute: typeof ApiAuthOtpTerminateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/otp/send': {
+      id: '/api/auth/otp/send'
+      path: '/api/auth/otp/send'
+      fullPath: '/api/auth/otp/send'
+      preLoaderRoute: typeof ApiAuthOtpSendRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

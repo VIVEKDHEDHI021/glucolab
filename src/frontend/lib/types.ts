@@ -35,6 +35,13 @@ export interface InsulinEntry {
   evening: number;
   night: number;
   notes: string | null;
+  revision?: number;
+  collection_status?: "EMPTY" | "PARTIAL" | "COMPLETE";
+  sync_status?: string;
+  timezone?: string;
+  last_synced_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface WeightEntry {

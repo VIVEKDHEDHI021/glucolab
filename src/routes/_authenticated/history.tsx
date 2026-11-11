@@ -77,7 +77,11 @@ function HistoryPage() {
 
   useEffect(() => {
     load();
-    const handleUpdate = () => {
+    const handleUpdate = (e?: any) => {
+      if (e?.detail?.entity === "insulin") {
+        console.log("[HISTORY] Targeted insulin update detected, avoiding full refresh");
+        return;
+      }
       load();
     };
     window.addEventListener("health-data-updated", handleUpdate);
@@ -824,7 +828,7 @@ function HistoryPage() {
         }}
         initialDate={editingInsulinDate || undefined}
         entryId={editingInsulinId || undefined}
-        onSaved={load}
+        onSaved={() => {}}
       />
 
       <WeightDialog

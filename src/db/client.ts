@@ -67,6 +67,23 @@ class MobileQueryBuilder {
   constructor(tableName: string, realBuilder: any) {
     this.tableName = tableName;
     this.realBuilder = realBuilder;
+
+    // Return a Proxy to catch all other standard PostgREST filter and modifier methods seamlessly
+    return new Proxy(this, {
+      get(target: any, prop: string | symbol, receiver: any) {
+        if (prop in target) {
+          return target[prop];
+        }
+        if (typeof target.realBuilder[prop] === "function") {
+          return (...args: any[]) => {
+            target.filters.push({ type: String(prop), args });
+            target.realBuilder = target.realBuilder[prop](...args);
+            return receiver;
+          };
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
   }
 
   select(columns?: string) {
@@ -81,9 +98,27 @@ class MobileQueryBuilder {
     return this;
   }
 
+  neq(column: string, value: any) {
+    this.filters.push({ type: "neq", args: [column, value] });
+    this.realBuilder = this.realBuilder.neq(column, value);
+    return this;
+  }
+
+  gt(column: string, value: any) {
+    this.filters.push({ type: "gt", args: [column, value] });
+    this.realBuilder = this.realBuilder.gt(column, value);
+    return this;
+  }
+
   gte(column: string, value: any) {
     this.filters.push({ type: "gte", args: [column, value] });
     this.realBuilder = this.realBuilder.gte(column, value);
+    return this;
+  }
+
+  lt(column: string, value: any) {
+    this.filters.push({ type: "lt", args: [column, value] });
+    this.realBuilder = this.realBuilder.lt(column, value);
     return this;
   }
 
@@ -93,9 +128,33 @@ class MobileQueryBuilder {
     return this;
   }
 
+  in(column: string, values: any[]) {
+    this.filters.push({ type: "in", args: [column, values] });
+    this.realBuilder = this.realBuilder.in(column, values);
+    return this;
+  }
+
+  is(column: string, value: any) {
+    this.filters.push({ type: "is", args: [column, value] });
+    this.realBuilder = this.realBuilder.is(column, value);
+    return this;
+  }
+
   order(column: string, options?: any) {
     this.filters.push({ type: "order", args: [column, options] });
     this.realBuilder = this.realBuilder.order(column, options);
+    return this;
+  }
+
+  limit(count: number) {
+    this.filters.push({ type: "limit", args: [count] });
+    this.realBuilder = this.realBuilder.limit(count);
+    return this;
+  }
+
+  range(from: number, to: number) {
+    this.filters.push({ type: "range", args: [from, to] });
+    this.realBuilder = this.realBuilder.range(from, to);
     return this;
   }
 
@@ -117,30 +176,44 @@ class MobileQueryBuilder {
       // 1. Try online query
       const res = await this.realBuilder;
       if (!res.error && res.data) {
-        const localDb = await getLocalDbService();
-        const dataArray = Array.isArray(res.data) ? res.data : [res.data];
+        try {
+          const localDb = await getLocalDbService();
+          const dataArray = Array.isArray(res.data) ? res.data : [res.data];
 
-        if (this.tableName === "glucose_entries") {
-          await localDb.cacheGlucose(dataArray);
-        } else if (this.tableName === "insulin_entries") {
-          await localDb.cacheInsulin(dataArray);
-        } else if (this.tableName === "insulin_slots") {
-          await localDb.cacheInsulinSlots(dataArray);
-        } else if (this.tableName === "weight_entries") {
-          await localDb.cacheWeight(dataArray);
-        } else if (this.tableName === "profiles") {
-          const {
-            data: { user },
-          } = await _supabase!.auth.getUser();
-          if (user) {
-            await localDb.cacheProfile(user.id, res.data);
+          if (this.tableName === "glucose_entries") {
+            await localDb.cacheGlucose(dataArray);
+          } else if (this.tableName === "insulin_entries") {
+            await localDb.cacheInsulin(dataArray);
+          } else if (this.tableName === "insulin_slots") {
+            await localDb.cacheInsulinSlots(dataArray);
+          } else if (this.tableName === "weight_entries") {
+            await localDb.cacheWeight(dataArray);
+          } else if (this.tableName === "profiles") {
+            const {
+              data: { session },
+            } = await _supabase!.auth.getSession();
+            if (session?.user) {
+              await localDb.cacheProfile(session.user.id, res.data);
+            }
+          } else if (this.tableName === "smart_scan_readings") {
+            await localDb.cacheScanReadings(dataArray);
+          } else if (this.tableName === "food_entries") {
+            await localDb.cacheFood(dataArray);
           }
-        } else if (this.tableName === "smart_scan_readings") {
-          await localDb.cacheScanReadings(dataArray);
-        } else if (this.tableName === "food_entries") {
-          await localDb.cacheFood(dataArray);
+        } catch (cacheErr) {
+          console.warn(`[SQLITE] Background cache save failed for ${this.tableName}:`, cacheErr);
         }
+        return onfulfilled ? onfulfilled(res) : res;
       }
+
+      // If remote query returned an error (e.g. network failure / offline), fall back to SQLite cache
+      if (res.error) {
+        console.warn(`[OFFLINE] Query to ${this.tableName} returned error, falling back to SQLite cache:`, res.error);
+        const localData = await this.executeLocalQuery();
+        const fallbackRes = { data: localData, error: null };
+        return onfulfilled ? onfulfilled(fallbackRes) : fallbackRes;
+      }
+
       return onfulfilled ? onfulfilled(res) : res;
     } catch (err) {
       console.warn(`[OFFLINE] Query to ${this.tableName} failed, falling back to SQLite cache:`, err);
@@ -151,29 +224,49 @@ class MobileQueryBuilder {
   }
 
   private async executeLocalQuery() {
-    const {
-      data: { user },
-    } = await _supabase!.auth.getUser();
-    if (!user) return [];
+    let userId: string | null = null;
+    try {
+      const {
+        data: { session },
+      } = await _supabase!.auth.getSession();
+      userId = session?.user?.id || null;
+      if (!userId) {
+        const {
+          data: { user },
+        } = await _supabase!.auth.getUser();
+        userId = user?.id || null;
+      }
+    } catch {
+      // offline session retrieval fallback
+    }
+
+    if (!userId) {
+      const userFilter = this.filters.find((f) => f.args && f.args[0] === "user_id");
+      if (userFilter) {
+        userId = userFilter.args[1];
+      }
+    }
+
+    if (!userId) return [];
 
     const localDb = await getLocalDbService();
     let data: any[] = [];
 
     if (this.tableName === "glucose_entries") {
-      data = await localDb.getGlucose(user.id);
+      data = await localDb.getGlucose(userId);
     } else if (this.tableName === "insulin_entries") {
-      data = await localDb.getInsulin(user.id);
+      data = await localDb.getInsulin(userId);
     } else if (this.tableName === "insulin_slots") {
-      data = await localDb.getInsulinSlots(user.id);
+      data = await localDb.getInsulinSlots(userId);
     } else if (this.tableName === "weight_entries") {
-      data = await localDb.getWeight(user.id);
+      data = await localDb.getWeight(userId);
     } else if (this.tableName === "profiles") {
-      const p = await localDb.getProfile(user.id);
+      const p = await localDb.getProfile(userId);
       data = p ? [p] : [];
     } else if (this.tableName === "smart_scan_readings") {
-      data = await localDb.getScanReadings(user.id);
+      data = await localDb.getScanReadings(userId);
     } else if (this.tableName === "food_entries") {
-      data = await localDb.getFood(user.id);
+      data = await localDb.getFood(userId);
     }
 
     // Apply basic filter matching
@@ -181,12 +274,27 @@ class MobileQueryBuilder {
       if (filter.type === "eq") {
         const [col, val] = filter.args;
         data = data.filter((item) => item[col] === val);
+      } else if (filter.type === "neq") {
+        const [col, val] = filter.args;
+        data = data.filter((item) => item[col] !== val);
+      } else if (filter.type === "gt") {
+        const [col, val] = filter.args;
+        data = data.filter((item) => item[col] > val);
       } else if (filter.type === "gte") {
         const [col, val] = filter.args;
         data = data.filter((item) => item[col] >= val);
+      } else if (filter.type === "lt") {
+        const [col, val] = filter.args;
+        data = data.filter((item) => item[col] < val);
       } else if (filter.type === "lte") {
         const [col, val] = filter.args;
         data = data.filter((item) => item[col] <= val);
+      } else if (filter.type === "in") {
+        const [col, vals] = filter.args;
+        data = data.filter((item) => Array.isArray(vals) && vals.includes(item[col]));
+      } else if (filter.type === "is") {
+        const [col, val] = filter.args;
+        data = data.filter((item) => item[col] === val);
       } else if (filter.type === "order") {
         const [col, options] = filter.args;
         const ascending = options?.ascending ?? true;
@@ -195,6 +303,14 @@ class MobileQueryBuilder {
           if (a[col] > b[col]) return ascending ? 1 : -1;
           return 0;
         });
+      } else if (filter.type === "limit") {
+        const [count] = filter.args;
+        if (typeof count === "number" && count >= 0) {
+          data = data.slice(0, count);
+        }
+      } else if (filter.type === "range") {
+        const [from, to] = filter.args;
+        data = data.slice(from, to + 1);
       }
     }
 
@@ -223,6 +339,21 @@ class MobileMutationBuilder {
     this.method = method;
     this.realBuilder = realBuilder;
     this.payload = payload;
+
+    return new Proxy(this, {
+      get(target: any, prop: string | symbol, receiver: any) {
+        if (prop in target) {
+          return target[prop];
+        }
+        if (typeof target.realBuilder[prop] === "function") {
+          return (...args: any[]) => {
+            target.realBuilder = target.realBuilder[prop](...args);
+            return receiver;
+          };
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
   }
 
   eq(column: string, value: any) {
@@ -483,6 +614,7 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
           ![
             "glucose_entries",
             "insulin_entries",
+            "insulin_slots",
             "weight_entries",
             "profiles",
             "smart_scan_readings",
